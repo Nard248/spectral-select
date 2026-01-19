@@ -146,6 +146,26 @@ class Visualizer:
         """
         return self._colors[index % len(self._colors)]
 
+    def _create_figure(
+        self,
+        nrows: int = 1,
+        ncols: int = 1,
+        figsize: Optional[Tuple[int, int]] = None,
+    ) -> Tuple[plt.Figure, plt.Axes]:
+        """Create figure with consistent settings.
+
+        Args:
+            nrows: Number of subplot rows.
+            ncols: Number of subplot columns.
+            figsize: Figure size. Defaults to self._figsize.
+
+        Returns:
+            Tuple of (Figure, Axes).
+        """
+        if figsize is None:
+            figsize = self._figsize
+        return plt.subplots(nrows, ncols, figsize=figsize)
+
     # =========================================================================
     # Factory Methods
     # =========================================================================
@@ -1088,10 +1108,75 @@ Top 3 Combinations:
     def plot_all(self) -> List[Path]:
         """Generate all available plots.
 
+        Orchestrates all visualization methods, generating plots based on
+        available data. If a result is bound, generates wavelength analysis
+        plots. Handles exceptions gracefully - if one plot fails, continues
+        with others and warns.
+
         Returns:
             List of paths to all saved figures.
-
-        Raises:
-            NotImplementedError: Method not yet implemented.
         """
-        raise NotImplementedError("plot_all: See Phase 5 Plan 03")
+        generated_paths: List[Path] = []
+        errors: List[str] = []
+
+        # Wavelength analysis plots (require result)
+        if self.has_result:
+            plot_methods = [
+                ("influence_heatmap", self.plot_influence_heatmap),
+                ("wavelength_scatter", self.plot_wavelength_scatter),
+                ("excitation_distribution", self.plot_excitation_distribution),
+                ("influence_ranking", self.plot_influence_ranking),
+                ("wavelength_coverage", self.plot_wavelength_coverage),
+                ("summary_dashboard", self.plot_summary_dashboard),
+            ]
+
+            for name, method in plot_methods:
+                try:
+                    path = method()
+                    generated_paths.append(path)
+                except Exception as e:
+                    errors.append(f"{name}: {e}")
+
+        # Print summary
+        print(f"Generated {len(generated_paths)} visualizations in {self._output_dir}")
+        if errors:
+            print(f"Warnings ({len(errors)} plots skipped):")
+            for err in errors:
+                print(f"  - {err}")
+
+        return generated_paths
+
+    def save_all_to_pdf(self, filename: str = "all_visualizations.pdf") -> Path:
+        """Combine all PNG visualizations into a single PDF.
+
+        Collects all PNG files in the output directory and combines them
+        into a single PDF file, useful for paper submissions.
+
+        Args:
+            filename: Output PDF filename.
+
+        Returns:
+            Path to the saved PDF.
+        """
+        from matplotlib.backends.backend_pdf import PdfPages
+
+        pdf_path = self._output_dir / filename
+        png_files = sorted(self._output_dir.glob("*.png"))
+
+        if not png_files:
+            print("No PNG files found to combine into PDF")
+            return pdf_path
+
+        with PdfPages(pdf_path) as pdf:
+            for png_file in png_files:
+                # Read PNG and add as page
+                img = plt.imread(png_file)
+                fig, ax = plt.subplots(figsize=(12, 9))
+                ax.imshow(img)
+                ax.axis("off")
+                ax.set_title(png_file.stem, fontsize=10)
+                pdf.savefig(fig, bbox_inches="tight")
+                plt.close(fig)
+
+        print(f"Saved PDF with {len(png_files)} pages to {pdf_path}")
+        return pdf_path
