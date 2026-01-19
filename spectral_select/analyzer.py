@@ -133,11 +133,52 @@ class Analyzer:
 
         Returns:
             self, for method chaining.
-
-        Raises:
-            NotImplementedError: Implemented in Phase 04-02/04-03.
         """
-        raise NotImplementedError("Implemented in 04-02/04-03")
+        logger.info(f"Starting analysis for {self._config.sample_name}")
+
+        # Step 1: Load data
+        self._load_data(data)
+
+        # Step 2: Load or train model
+        self._load_or_train_model()
+
+        # Step 3: Setup baseline
+        self._setup_baseline()
+
+        # Step 4: Select important dimensions
+        self._select_important_dimensions()
+
+        # Step 5: Compute influence
+        self._compute_influence_scores()
+
+        # Step 6: Normalize
+        if self._config.normalization_method != "none":
+            self._normalize_influences()
+
+        # Step 7: Select bands
+        selected_bands = self._select_top_bands()
+
+        # Step 8: Create result
+        # Calculate total available bands across all excitations
+        total_available = sum(
+            self._model.emission_bands[ex]
+            for ex in self._model.excitation_wavelengths
+        )
+
+        self._result = WavelengthResult(
+            sample_name=self._config.sample_name,
+            selected_bands=selected_bands,
+            metrics=AnalysisMetrics.from_bands(selected_bands, total_available),
+            config_snapshot=self._config.to_dict(),
+            method_summary={
+                "dimension_selection": self._config.dimension_selection_method,
+                "perturbation": self._config.perturbation_method,
+                "normalization": self._config.normalization_method,
+            },
+        )
+
+        logger.info(f"Analysis complete: {len(selected_bands)} bands selected")
+        return self
 
     def transform(self, data: SpectraData) -> SpectraData:
         """Apply fitted selection to extract only selected wavelengths.
