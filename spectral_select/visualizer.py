@@ -703,39 +703,244 @@ class Visualizer:
         self,
         ground_truth: np.ndarray,
         predictions: np.ndarray,
+        title: str = "Spatial Accuracy",
     ) -> Path:
         """Plot spatial accuracy heatmap comparing predictions to ground truth.
 
+        Creates a spatial map showing correct (green) and incorrect (red)
+        predictions with accuracy statistics in the title.
+
         Args:
-            ground_truth: Ground truth label map.
-            predictions: Predicted label map.
+            ground_truth: Ground truth label map (2D array, -1 for background).
+            predictions: Predicted label map (2D array).
+            title: Title for the plot.
 
         Returns:
             Path to saved figure.
-
-        Raises:
-            NotImplementedError: Method not yet implemented.
         """
-        raise NotImplementedError("plot_accuracy_heatmap: See Phase 5 Plan 03")
+        from matplotlib.colors import LinearSegmentedColormap
+
+        # Create accuracy map: NaN=background, 0=incorrect, 1=correct
+        accuracy_map = np.zeros_like(ground_truth, dtype=float)
+        background_mask = ground_truth == -1
+        correct_mask = (ground_truth == predictions) & (~background_mask)
+        incorrect_mask = (ground_truth != predictions) & (~background_mask)
+
+        accuracy_map[background_mask] = np.nan
+        accuracy_map[correct_mask] = 1
+        accuracy_map[incorrect_mask] = 0
+
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        # Custom colormap: red for incorrect (0), green for correct (1)
+        colors = ["red", "green"]
+        cmap = LinearSegmentedColormap.from_list("accuracy", colors, N=2)
+
+        im = ax.imshow(accuracy_map, cmap=cmap, vmin=0, vmax=1, aspect="auto")
+
+        # Add colorbar with labels
+        cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, ticks=[0.25, 0.75])
+        cbar.ax.set_yticklabels(["Incorrect", "Correct"])
+        cbar.set_label("Prediction", rotation=270, labelpad=20)
+
+        # Calculate and display accuracy statistics
+        n_correct = np.sum(correct_mask)
+        n_incorrect = np.sum(incorrect_mask)
+        n_total = n_correct + n_incorrect
+        accuracy = n_correct / n_total if n_total > 0 else 0
+
+        ax.set_title(
+            f"{title}\nAccuracy: {accuracy:.2%} ({n_correct:,}/{n_total:,} pixels)",
+            fontsize=14,
+            fontweight="bold",
+        )
+        ax.set_xlabel("X Coordinate", fontsize=12)
+        ax.set_ylabel("Y Coordinate", fontsize=12)
+
+        fig.tight_layout()
+
+        return self._save_figure(fig, "accuracy_heatmap")
 
     def plot_roi_overlay(
         self,
         cluster_map: np.ndarray,
         roi_regions: List[Dict],
+        ground_truth: Optional[np.ndarray] = None,
+        roi_metrics: Optional[Dict[str, Dict]] = None,
+        title: str = "ROI Overlay",
     ) -> Path:
         """Plot cluster map with ROI region overlays.
 
+        Creates a 3-panel figure showing:
+        1. Clustering result (colored by class)
+        2. Clustering with ROI rectangle overlays and labels
+        3. ROI accuracy bar chart (if roi_metrics provided)
+
         Args:
-            cluster_map: Cluster assignment map.
-            roi_regions: List of ROI region definitions.
+            cluster_map: Cluster assignment map (2D array, -1 for background).
+            roi_regions: List of ROI dicts with keys:
+                - 'name': str - ROI name
+                - 'coords': (y_start, y_end, x_start, x_end) - bounding box
+                - 'color': '#RRGGBB' - hex color string
+            ground_truth: Optional ground truth for class→color mapping.
+            roi_metrics: Optional dict mapping ROI name to metrics dict containing 'accuracy'.
+            title: Title for the plot.
 
         Returns:
             Path to saved figure.
-
-        Raises:
-            NotImplementedError: Method not yet implemented.
         """
-        raise NotImplementedError("plot_roi_overlay: See Phase 5 Plan 03")
+        from matplotlib.patches import Rectangle
+
+        fig, axes = plt.subplots(1, 3, figsize=(20, 7))
+
+        # Build class→color mapping from ground truth if provided
+        class_to_color: Dict[int, np.ndarray] = {}
+        if ground_truth is not None:
+            for roi in roi_regions:
+                y_start, y_end, x_start, x_end = roi["coords"]
+                roi_gt = ground_truth[y_start:y_end, x_start:x_end]
+                roi_classes = roi_gt[roi_gt >= 0]
+                if len(roi_classes) > 0:
+                    unique_classes, counts = np.unique(roi_classes, return_counts=True)
+                    dominant_class = unique_classes[np.argmax(counts)]
+                    color_hex = roi["color"].lstrip("#")
+                    color_rgb = np.array(
+                        [int(color_hex[i : i + 2], 16) / 255.0 for i in (0, 2, 4)]
+                    )
+                    class_to_color[dominant_class] = color_rgb
+
+        # Create RGB image using ROI colors
+        rgb_image = np.ones((*cluster_map.shape, 3))  # White background
+
+        unique_clusters = np.unique(cluster_map[cluster_map >= 0])
+        for cluster_id in unique_clusters:
+            if cluster_id in class_to_color:
+                mask = cluster_map == cluster_id
+                rgb_image[mask] = class_to_color[cluster_id]
+            else:
+                # Fallback: gray for unmapped classes
+                mask = cluster_map == cluster_id
+                rgb_image[mask] = [0.5, 0.5, 0.5]
+
+        # Handle background
+        background_mask = cluster_map == -1
+        rgb_image[background_mask] = [1, 1, 1]
+
+        # Panel 1: Clustering result without overlay
+        ax1 = axes[0]
+        ax1.imshow(rgb_image, interpolation="nearest")
+        ax1.set_title("Clustering Result", fontsize=14, fontweight="bold")
+        ax1.axis("off")
+
+        # Panel 2: Clustering result with ROI boxes overlaid
+        ax2 = axes[1]
+        ax2.imshow(rgb_image, interpolation="nearest")
+
+        for roi in roi_regions:
+            roi_name = roi["name"]
+            y_start, y_end, x_start, x_end = roi["coords"]
+            width = x_end - x_start
+            height = y_end - y_start
+
+            # Get ROI accuracy if available
+            roi_acc = "N/A"
+            if roi_metrics and roi_name in roi_metrics:
+                roi_acc = f"{roi_metrics[roi_name]['accuracy']:.1%}"
+
+            # Draw rectangle border
+            rect = Rectangle(
+                (x_start, y_start),
+                width,
+                height,
+                linewidth=3,
+                edgecolor=roi["color"],
+                facecolor="none",
+                linestyle="-",
+            )
+            ax2.add_patch(rect)
+
+            # Add label with accuracy above the ROI
+            label_text = f"{roi_name}\nAcc: {roi_acc}"
+            ax2.text(
+                x_start + width / 2,
+                y_start - 5,
+                label_text,
+                color=roi["color"],
+                fontsize=10,
+                fontweight="bold",
+                ha="center",
+                va="bottom",
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.9),
+            )
+
+        ax2.set_title("ROI Overlay", fontsize=14, fontweight="bold")
+        ax2.axis("off")
+
+        # Panel 3: ROI accuracy bar chart
+        ax3 = axes[2]
+
+        if roi_metrics:
+            roi_names = []
+            accuracies = []
+            colors = []
+
+            for roi in roi_regions:
+                if roi["name"] in roi_metrics:
+                    roi_names.append(roi["name"])
+                    accuracies.append(roi_metrics[roi["name"]]["accuracy"])
+                    colors.append(roi["color"])
+
+            if roi_names:
+                bars = ax3.bar(range(len(roi_names)), accuracies, color=colors, alpha=0.8)
+
+                # Add value labels on bars
+                for bar, acc in zip(bars, accuracies):
+                    height = bar.get_height()
+                    ax3.text(
+                        bar.get_x() + bar.get_width() / 2.0,
+                        height,
+                        f"{acc:.1%}",
+                        ha="center",
+                        va="bottom",
+                        fontsize=11,
+                        fontweight="bold",
+                    )
+
+                ax3.set_xticks(range(len(roi_names)))
+                ax3.set_xticklabels(roi_names, rotation=0)
+                ax3.set_ylabel("Accuracy", fontsize=12, fontweight="bold")
+                ax3.set_ylim([0, 1.1])
+                ax3.set_title("ROI Accuracy Comparison", fontsize=14, fontweight="bold")
+
+                # Add overall accuracy line if available
+                if len(accuracies) > 0:
+                    overall = np.mean(accuracies)
+                    ax3.axhline(
+                        y=overall,
+                        color="red",
+                        linestyle="--",
+                        label=f"Mean: {overall:.2%}",
+                        linewidth=2,
+                    )
+                    ax3.legend(loc="upper right")
+
+                ax3.grid(True, alpha=0.3, axis="y")
+        else:
+            ax3.text(
+                0.5,
+                0.5,
+                "No ROI metrics\navailable",
+                transform=ax3.transAxes,
+                fontsize=14,
+                ha="center",
+                va="center",
+            )
+            ax3.axis("off")
+
+        plt.suptitle(title, fontsize=16, fontweight="bold", y=0.98)
+        fig.tight_layout(rect=[0, 0, 1, 0.96])
+
+        return self._save_figure(fig, "roi_overlay")
 
     # =========================================================================
     # Summary Methods
