@@ -634,3 +634,156 @@ class AnalysisMetrics:
             min_influence_score=min(scores),
             mean_influence_score=sum(scores) / n_selected,
         )
+
+
+@dataclass
+class WavelengthResult:
+    """Complete output container for wavelength selection analysis.
+
+    The main result type capturing all outputs from a wavelength selection
+    analysis run, including selected bands, metrics, and configuration.
+
+    Attributes:
+        sample_name: Identifier for the analyzed sample.
+        selected_bands: Ordered list of selected wavelength combinations.
+        metrics: Performance metrics for the selection.
+        timestamp: When the analysis was run.
+        config_snapshot: Config.to_dict() at time of analysis (for reproducibility).
+        method_summary: Methods used (dimension_selection, perturbation, etc.).
+
+    Example:
+        result = WavelengthResult(
+            sample_name="Lichens_2",
+            selected_bands=bands,
+            metrics=AnalysisMetrics.from_bands(bands, 1000),
+        )
+        result.to_json("results/analysis_output.json")
+    """
+
+    sample_name: str
+    selected_bands: List[WavelengthBand]
+    metrics: AnalysisMetrics
+    timestamp: datetime = field(default_factory=datetime.now)
+    config_snapshot: Optional[Dict[str, Any]] = None
+    method_summary: Dict[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        """Validate and normalize data after initialization."""
+        if not self.selected_bands:
+            raise ValueError("selected_bands cannot be empty")
+
+        # Sort by rank if not already sorted
+        self.selected_bands = sorted(self.selected_bands, key=lambda b: b.rank)
+
+        # Validate sequential ranks starting from 1
+        expected_ranks = list(range(1, len(self.selected_bands) + 1))
+        actual_ranks = [b.rank for b in self.selected_bands]
+        if actual_ranks != expected_ranks:
+            raise ValueError(
+                f"Ranks must be sequential starting from 1. "
+                f"Expected {expected_ranks}, got {actual_ranks}"
+            )
+
+    @property
+    def n_bands(self) -> int:
+        """Number of selected bands."""
+        return len(self.selected_bands)
+
+    @property
+    def top_band(self) -> WavelengthBand:
+        """The highest-ranked (first) selected band."""
+        return self.selected_bands[0]
+
+    @property
+    def excitation_wavelengths(self) -> List[float]:
+        """Unique excitation wavelengths in selected bands (sorted)."""
+        return sorted(set(b.excitation_nm for b in self.selected_bands))
+
+    def get_bands_for_excitation(self, ex_nm: float) -> List[WavelengthBand]:
+        """Get all selected bands for a specific excitation wavelength.
+
+        Args:
+            ex_nm: The excitation wavelength in nanometers.
+
+        Returns:
+            List of WavelengthBand objects for that excitation.
+        """
+        return [b for b in self.selected_bands if b.excitation_nm == ex_nm]
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all result data.
+        """
+        return {
+            "sample_name": self.sample_name,
+            "selected_bands": [b.to_dict() for b in self.selected_bands],
+            "metrics": self.metrics.to_dict(),
+            "timestamp": self.timestamp.isoformat(),
+            "config_snapshot": self.config_snapshot,
+            "method_summary": self.method_summary,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "WavelengthResult":
+        """Create from dictionary.
+
+        Args:
+            data: Dictionary with WavelengthResult fields.
+
+        Returns:
+            A new WavelengthResult instance.
+        """
+        bands = [WavelengthBand.from_dict(b) for b in data["selected_bands"]]
+        metrics = AnalysisMetrics.from_dict(data["metrics"])
+
+        # Parse timestamp
+        timestamp_str = data.get("timestamp")
+        if timestamp_str:
+            timestamp = datetime.fromisoformat(timestamp_str)
+        else:
+            timestamp = datetime.now()
+
+        return cls(
+            sample_name=data["sample_name"],
+            selected_bands=bands,
+            metrics=metrics,
+            timestamp=timestamp,
+            config_snapshot=data.get("config_snapshot"),
+            method_summary=data.get("method_summary", {}),
+        )
+
+    def to_json(self, path: Union[str, Path]) -> None:
+        """Save result to JSON file.
+
+        Args:
+            path: Path to the output JSON file.
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, "w") as f:
+            json.dump(self.to_dict(), f, indent=2)
+
+    @classmethod
+    def from_json(cls, path: Union[str, Path]) -> "WavelengthResult":
+        """Load result from JSON file.
+
+        Args:
+            path: Path to the JSON file.
+
+        Returns:
+            A new WavelengthResult instance.
+
+        Raises:
+            FileNotFoundError: If the file doesn't exist.
+        """
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"JSON file not found: {path}")
+
+        with open(path, "r") as f:
+            data = json.load(f)
+
+        return cls.from_dict(data)

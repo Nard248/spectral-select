@@ -26,6 +26,14 @@ from .protocols import (
     ClusteringProtocol,
     WavelengthRankerProtocol,
 )
+from .types import (
+    AnalysisMetrics,
+    ExcitationData,
+    LoadingOptions,
+    SpectraData,
+    WavelengthBand,
+    WavelengthResult,
+)
 from .validation import Validator
 from .visualizer import Visualizer
 
@@ -37,6 +45,13 @@ __all__ = [
     "Config",
     "Validator",
     "Visualizer",
+    # Data types
+    "AnalysisMetrics",
+    "ExcitationData",
+    "LoadingOptions",
+    "SpectraData",
+    "WavelengthBand",
+    "WavelengthResult",
     # Protocols for extensibility
     "AutoencoderProtocol",
     "ClassifierProtocol",
