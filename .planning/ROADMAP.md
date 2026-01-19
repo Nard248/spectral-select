@@ -16,7 +16,7 @@ None
 
 - [x] **Phase 1: Package Structure** - Create spectral_select/ package skeleton with proper imports (Complete)
 - [x] **Phase 2: Config System** - Unified configuration class supporting all variant behaviors (Complete)
-- [ ] **Phase 3: Core Data Types** - Data classes for spectra, wavelengths, and results
+- [ ] **Phase 3: Core Data Types** - Data classes for spectra, wavelengths, and results (In progress)
 - [ ] **Phase 4: Analysis Engine** - Refactor core wavelength selection into Analyzer class
 - [ ] **Phase 5: Visualization Module** - Clean Visualizer class from scattered plotting code
 - [ ] **Phase 6: Ground Truth Validation** - Refactor validation metrics into dedicated module
@@ -52,7 +52,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 03-01: Data classes for input spectra and metadata
+- [x] 03-01: Data classes for input spectra and metadata ✓
 - [ ] 03-02: Result classes for wavelength selection outputs
 
 ### Phase 4: Analysis Engine
@@ -120,7 +120,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 |-------|----------------|--------|-----------|
 | 1. Package Structure | 2/2 | Complete | 2026-01-19 |
 | 2. Config System | 2/2 | Complete | 2026-01-19 |
-| 3. Core Data Types | 0/2 | Not started | - |
+| 3. Core Data Types | 1/2 | In progress | - |
 | 4. Analysis Engine | 0/4 | Not started | - |
 | 5. Visualization Module | 0/3 | Not started | - |
 | 6. Ground Truth Validation | 0/2 | Not started | - |
