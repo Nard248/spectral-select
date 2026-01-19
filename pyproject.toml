@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spectral-select"
+version = "0.1.0"
+description = "Clean, stable, reproducible wavelength selection analysis for 4D hyperspectral imaging"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [
+    {name = "Narek Meloyan"}
+]
+keywords = [
+    "hyperspectral",
+    "wavelength-selection",
+    "spectral-analysis",
+    "machine-learning",
+    "autoencoder"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Image Processing",
+]
+
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.10",
+    "pandas>=2.0",
+    "torch>=2.0",
+    "scikit-learn>=1.0",
+    "matplotlib>=3.7",
+    "seaborn>=0.12",
+    "tifffile>=2023.0",
+    "Pillow>=10.0",
+    "h5py>=3.0",
+    "tqdm>=4.60",
+    "kneed>=0.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "jupyterlab>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/narekmeloyan/spectral-select"
+Repository = "https://github.com/narekmeloyan/spectral-select"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["spectral_select*"]
