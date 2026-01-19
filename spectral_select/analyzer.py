@@ -287,3 +287,115 @@ class Analyzer:
             f"Dataset created: {len(self._dataset.excitation_wavelengths)} excitations, "
             f"spatial {self._spatial_shape[0]}x{self._spatial_shape[1]}"
         )
+
+    def _load_or_train_model(self) -> None:
+        """Load pretrained model or train a new one if needed.
+
+        Attempts to load model weights from config.model_path. If the file
+        is missing or architecture doesn't match, trains a new model.
+        """
+        if self._dataset is None:
+            raise RuntimeError("_load_data must be called before _load_or_train_model")
+
+        # TODO: Phase 8 cleanup - remove sys.path manipulation
+        project_root = Path(__file__).parent.parent
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
+
+        from scripts.models import HyperspectralCAEWithMasking
+
+        # Get data from dataset to initialize model
+        all_data = self._dataset.get_all_data()
+
+        # Initialize model with correct architecture parameters
+        # Convert tensors to numpy for model initialization
+        excitations_data = {ex: data.numpy() for ex, data in all_data.items()}
+        self._model = HyperspectralCAEWithMasking(
+            excitations_data=excitations_data,
+            k1=20,
+            k3=20,
+            filter_size=5,
+        )
+
+        # Attempt to load pretrained weights
+        model_path = self._config.model_path
+        if model_path is not None and model_path.exists():
+            try:
+                state_dict = torch.load(model_path, map_location=self._device)
+                self._model.load_state_dict(state_dict)
+                self._model = self._model.to(self._device)
+                # Set model to evaluation mode (not inference mode)
+                self._model.train(False)
+                logger.info(f"Model loaded from {model_path}")
+                return
+            except RuntimeError as e:
+                error_msg = str(e)
+                if "Missing key(s)" in error_msg or "size mismatch" in error_msg:
+                    logger.warning(
+                        f"Model architecture mismatch: {error_msg[:100]}... "
+                        "Training new model."
+                    )
+                else:
+                    raise
+        else:
+            if model_path is not None:
+                logger.info(f"Model file not found at {model_path}")
+            else:
+                logger.info("No model path specified")
+
+        # Train new model if loading failed or no file exists
+        self._train_new_model()
+
+    def _train_new_model(self) -> None:
+        """Train a new autoencoder model from scratch.
+
+        Uses the training parameters from scripts.models.training with
+        reasonable defaults for wavelength selection analysis.
+        """
+        logger.warning(
+            "Training new autoencoder model. "
+            "This may take several minutes..."
+        )
+
+        # TODO: Phase 8 cleanup - remove sys.path manipulation
+        project_root = Path(__file__).parent.parent
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
+
+        from scripts.models.training import train_with_masking
+
+        # Determine output directory for training
+        if self._config.output_dir is not None:
+            train_output_dir = self._config.output_dir / "model_training"
+        else:
+            train_output_dir = Path("model_output")
+
+        # Get mask from dataset
+        mask = self._dataset.processed_mask
+
+        # Train with reasonable defaults
+        self._model, losses = train_with_masking(
+            model=self._model,
+            dataset=self._dataset,
+            num_epochs=3000,
+            learning_rate=0.001,
+            device=str(self._device),
+            mask=mask,
+            output_dir=str(train_output_dir),
+            verbose=True,
+        )
+
+        # Move to device and set to evaluation mode
+        self._model = self._model.to(self._device)
+        self._model.train(False)
+
+        # Save model if path specified
+        model_path = self._config.model_path
+        if model_path is not None:
+            model_path.parent.mkdir(parents=True, exist_ok=True)
+            torch.save(self._model.state_dict(), model_path)
+            logger.info(f"Model saved to {model_path}")
+
+        logger.info(
+            f"Model training complete. Final loss: {losses[-1]:.6f}"
+        )
