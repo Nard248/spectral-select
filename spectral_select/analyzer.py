@@ -477,3 +477,80 @@ class Analyzer:
             self._baseline_reconstruction = self._model.decode(self._baseline_latent)
 
         logger.info(f"Baseline latent shape: {self._baseline_latent.shape}")
+
+    def _select_important_dimensions(self) -> None:
+        """Select the most important latent dimensions for perturbation.
+
+        Analyzes the baseline latent representations to identify which dimensions
+        carry the most information, using one of three methods:
+        - variance: Dimensions with highest variance across samples
+        - activation: Dimensions with highest mean absolute activation
+        - pca: Dimensions with highest PCA loading contributions
+
+        Stores results in self._important_dims as List[(score, (c, l, h, w))].
+        """
+        if self._baseline_latent is None:
+            raise RuntimeError("_setup_baseline must be called before _select_important_dimensions")
+
+        from sklearn.decomposition import PCA
+        from sklearn.preprocessing import StandardScaler
+
+        logger.info(
+            f"Selecting important dimensions using {self._config.dimension_selection_method} method..."
+        )
+
+        latent = self._baseline_latent
+        batch_size, n_channels, n_latent, h_latent, w_latent = latent.shape
+
+        # Flatten spatial dimensions for analysis: (batch, features)
+        latent_flat = latent.reshape(batch_size, -1)
+
+        # Compute importance scores based on selected method
+        method = self._config.dimension_selection_method
+
+        if method == "variance":
+            # Higher variance = more informative dimension
+            importance_scores = torch.var(latent_flat, dim=0)
+
+        elif method == "activation":
+            # Higher mean absolute activation = more used by model
+            importance_scores = torch.mean(torch.abs(latent_flat), dim=0)
+
+        elif method == "pca":
+            # Use PCA loadings to identify important dimensions
+            scaler = StandardScaler()
+            latent_scaled = scaler.fit_transform(latent_flat.cpu().numpy())
+            n_samples, n_features = latent_scaled.shape
+
+            # PCA components limited by samples and target dimensions
+            n_components = min(
+                self._config.n_important_dimensions * 2,
+                n_features,
+                n_samples - 1,
+            )
+
+            pca = PCA(n_components=n_components)
+            pca.fit(latent_scaled)
+
+            # Sum absolute loadings across components to get importance
+            components = torch.tensor(pca.components_)
+            importance_scores = torch.sum(torch.abs(components), dim=0)
+
+        else:
+            raise ValueError(f"Unknown dimension selection method: {method}")
+
+        # Convert flat indices to (channel, latent, h, w) coordinates
+        coordinate_importance: List[Tuple[float, Tuple[int, int, int, int]]] = []
+        for i, score in enumerate(importance_scores):
+            coords = np.unravel_index(i, (n_channels, n_latent, h_latent, w_latent))
+            coords_tuple: Tuple[int, int, int, int] = tuple(int(c) for c in coords)
+            coordinate_importance.append((score.item(), coords_tuple))
+
+        # Sort by importance (descending) and keep top N
+        coordinate_importance.sort(reverse=True, key=lambda x: x[0])
+        self._important_dims = coordinate_importance[: self._config.n_important_dimensions]
+
+        logger.info(f"Selected top {len(self._important_dims)} dimensions")
+        # Log top 5 for visibility
+        for i, (score, coords) in enumerate(self._important_dims[:5]):
+            logger.info(f"  {i + 1}. {coords}: importance = {score:.6f}")
