@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-19)
 
 **Core value:** Clean, stable, reproducible wavelength selection analysis that anyone can `from spectral_select import Analyzer` and use immediately.
-**Current focus:** Phase 8 — Testing & Validation (Ready to plan)
+**Current focus:** Phase 8 — Testing & Validation (In progress)
 
 ## Current Position
 
-Phase: 7 of 8 (Notebook Migration)
-Plan: 1 of 1 in current phase
-Status: Phase complete
-Last activity: 2026-01-19 — Completed 07-01-PLAN.md
+Phase: 8 of 8 (Testing & Validation)
+Plan: 1 of 4 in current phase
+Status: In progress
+Last activity: 2026-01-19 — Completed 08-01-PLAN.md
 
-Progress: █████████████░ 85%
+Progress: █████████████░░ 88%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 16
+- Total plans completed: 17
 - Average duration: 5.0 min
-- Total execution time: 1.4 hours
+- Total execution time: 1.5 hours
 
 **By Phase:**
 
@@ -34,10 +34,11 @@ Progress: █████████████░ 85%
 | 5. Visualization Module | 3 | 16 min | 5.3 min |
 | 6. Ground Truth Validation | 2 | 13 min | 6.5 min |
 | 7. Notebook Migration | 1 | 4 min | 4 min |
+| 8. Testing & Validation | 1 | 4 min | 4 min |
 
 **Recent Trend:**
-- Last 5 plans: 05-03 (7 min), 06-01 (8 min), 06-02 (5 min), 07-01 (4 min)
-- Trend: Phase 7 complete, example notebooks created
+- Last 5 plans: 06-01 (8 min), 06-02 (5 min), 07-01 (4 min), 08-01 (4 min)
+- Trend: Phase 8 started, test infrastructure created
 
 ## Accumulated Context
 
@@ -90,6 +91,9 @@ Recent decisions affecting current work:
 - **06-02:** Store flattened ground_truth in Validator.fit() for later retrieval
 - **06-02:** Report format uses Markdown tables for GitHub/Jupyter rendering
 - **06-02:** Visualizer stores validation data in private attributes
+- **08-01:** Function scope for test fixtures (mutable numpy data)
+- **08-01:** Fixed random seed (42) for reproducible synthetic test data
+- **08-01:** Synthetic data: 10x10 spatial, 5 bands, 3 excitations
 
 ### Deferred Issues
 
@@ -102,5 +106,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Completed 07-01-PLAN.md (Phase 7 complete)
+Stopped at: Completed 08-01-PLAN.md
 Resume file: None
