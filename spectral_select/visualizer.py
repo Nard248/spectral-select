@@ -530,20 +530,174 @@ class Visualizer:
         self,
         cm: np.ndarray,
         class_names: Optional[List[str]] = None,
+        title: str = "Confusion Matrix",
     ) -> Path:
         """Plot confusion matrix with annotations.
 
+        Creates an enhanced confusion matrix visualization with normalized colors
+        and both count and percentage annotations. Uses adaptive text colors
+        (white on dark cells, black on light cells) for readability.
+
         Args:
-            cm: Confusion matrix as 2D array.
-            class_names: Optional class labels for axes.
+            cm: Confusion matrix as 2D array (rows=true, cols=predicted).
+            class_names: Optional class labels for axes. Defaults to "Class 0", etc.
+            title: Title for the plot.
 
         Returns:
             Path to saved figure.
-
-        Raises:
-            NotImplementedError: Method not yet implemented.
         """
-        raise NotImplementedError("plot_confusion_matrix: See Phase 5 Plan 03")
+        n_classes = cm.shape[0]
+        if class_names is None:
+            class_names = [f"Class {i}" for i in range(n_classes)]
+
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        # Normalize for color mapping (row-wise normalization)
+        row_sums = cm.sum(axis=1, keepdims=True)
+        cm_normalized = np.divide(
+            cm.astype(float),
+            row_sums,
+            out=np.zeros_like(cm, dtype=float),
+            where=row_sums != 0,
+        )
+
+        # Create heatmap with Blues colormap
+        im = ax.imshow(cm_normalized, interpolation="nearest", cmap="Blues", aspect="auto")
+
+        # Add colorbar
+        cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cbar.set_label("Normalized Frequency", rotation=270, labelpad=20)
+
+        # Set ticks and labels
+        ax.set_xticks(np.arange(n_classes))
+        ax.set_yticks(np.arange(n_classes))
+        ax.set_xticklabels(class_names, rotation=45, ha="right")
+        ax.set_yticklabels(class_names)
+
+        # Add text annotations with count and percentage
+        thresh = cm_normalized.max() / 2
+        for i in range(n_classes):
+            for j in range(n_classes):
+                text = f"{cm[i, j]:d}\n({cm_normalized[i, j]:.2%})"
+                color = "white" if cm_normalized[i, j] > thresh else "black"
+                ax.text(j, i, text, ha="center", va="center", color=color, fontsize=9)
+
+        # Labels and title
+        ax.set_xlabel("Predicted Class", fontsize=12, fontweight="bold")
+        ax.set_ylabel("True Class", fontsize=12, fontweight="bold")
+        ax.set_title(title, fontsize=14, fontweight="bold", pad=20)
+
+        # Add grid for readability (minor ticks for grid lines between cells)
+        ax.set_xticks(np.arange(n_classes + 1) - 0.5, minor=True)
+        ax.set_yticks(np.arange(n_classes + 1) - 0.5, minor=True)
+        ax.grid(which="minor", color="gray", linestyle="-", linewidth=0.5)
+
+        fig.tight_layout()
+
+        # Save with sanitized title
+        filename = f"confusion_matrix_{title.lower().replace(' ', '_')}"
+        return self._save_figure(fig, filename)
+
+    def plot_per_class_metrics(
+        self,
+        per_class_metrics: Dict[int, Dict[str, float]],
+        title: str = "Per-Class Performance",
+    ) -> Path:
+        """Plot per-class precision, recall, F1 scores and support.
+
+        Creates a two-panel figure:
+        - Top panel: Grouped bar chart for precision, recall, F1 per class
+        - Bottom panel: Bar chart of support (sample counts) per class
+
+        Args:
+            per_class_metrics: Dict mapping class_id to metrics dict containing:
+                - 'precision': float
+                - 'recall': float
+                - 'f1': float
+                - 'support': int
+                - 'class_name': str (optional)
+
+        Returns:
+            Path to saved figure.
+        """
+        # Prepare data
+        classes = []
+        precision_scores = []
+        recall_scores = []
+        f1_scores = []
+        support_values = []
+
+        for cls_id, metrics in per_class_metrics.items():
+            classes.append(metrics.get("class_name", f"Class {cls_id}"))
+            precision_scores.append(metrics.get("precision", 0))
+            recall_scores.append(metrics.get("recall", 0))
+            f1_scores.append(metrics.get("f1", 0))
+            support_values.append(metrics.get("support", 0))
+
+        x = np.arange(len(classes))
+        width = 0.25
+
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
+
+        # Top panel: Precision, Recall, F1
+        bars1 = ax1.bar(x - width, precision_scores, width, label="Precision", alpha=0.8)
+        bars2 = ax1.bar(x, recall_scores, width, label="Recall", alpha=0.8)
+        bars3 = ax1.bar(x + width, f1_scores, width, label="F1-Score", alpha=0.8)
+
+        # Add value labels on bars
+        for bars in [bars1, bars2, bars3]:
+            for bar in bars:
+                height = bar.get_height()
+                ax1.text(
+                    bar.get_x() + bar.get_width() / 2.0,
+                    height,
+                    f"{height:.3f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=8,
+                )
+
+        ax1.set_xlabel("Class", fontsize=12, fontweight="bold")
+        ax1.set_ylabel("Score", fontsize=12, fontweight="bold")
+        ax1.set_title(title, fontsize=14, fontweight="bold")
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(classes, rotation=45, ha="right")
+        ax1.legend(loc="upper right")
+        ax1.set_ylim([0, 1.1])
+        ax1.grid(True, alpha=0.3, axis="y")
+
+        # Add horizontal line for average F1
+        avg_f1 = np.mean(f1_scores)
+        ax1.axhline(y=avg_f1, color="red", linestyle="--", alpha=0.5)
+        ax1.text(
+            len(classes) - 0.5, avg_f1 + 0.02, f"Avg F1: {avg_f1:.3f}",
+            fontsize=9, color="red", fontweight="bold"
+        )
+
+        # Bottom panel: Support (sample counts)
+        bars4 = ax2.bar(x, support_values, alpha=0.7, color="teal")
+        ax2.set_xlabel("Class", fontsize=12, fontweight="bold")
+        ax2.set_ylabel("Support (# samples)", fontsize=12, fontweight="bold")
+        ax2.set_title("Class Distribution in Dataset", fontsize=12, fontweight="bold")
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(classes, rotation=45, ha="right")
+        ax2.grid(True, alpha=0.3, axis="y")
+
+        # Add value labels
+        for bar in bars4:
+            height = bar.get_height()
+            ax2.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height,
+                f"{int(height):,}",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+
+        fig.tight_layout()
+
+        return self._save_figure(fig, "per_class_metrics")
 
     def plot_accuracy_heatmap(
         self,
