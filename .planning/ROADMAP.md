@@ -75,7 +75,7 @@ Plans:
 
 Plans:
 - [x] 05-01: Visualizer class with core plotting methods ✓
-- [ ] 05-02: Wavelength heatmaps and spectral plots
+- [x] 05-02: Wavelength heatmaps and spectral plots ✓
 - [ ] 05-03: Clustering and validation visualizations
 
 ### Phase 6: Ground Truth Validation
@@ -122,7 +122,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 2. Config System | 2/2 | Complete | 2026-01-19 |
 | 3. Core Data Types | 2/2 | Complete | 2026-01-19 |
 | 4. Analysis Engine | 4/4 | Complete | 2026-01-19 |
-| 5. Visualization Module | 1/3 | In progress | - |
+| 5. Visualization Module | 2/3 | In progress | - |
 | 6. Ground Truth Validation | 0/2 | Not started | - |
 | 7. Notebook Migration | 0/3 | Not started | - |
 | 8. Testing & Validation | 0/4 | Not started | - |
