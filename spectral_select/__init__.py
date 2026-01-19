@@ -29,8 +29,10 @@ from .protocols import (
 from .types import (
     AnalysisMetrics,
     ExcitationData,
+    GroundTruth,
     LoadingOptions,
     SpectraData,
+    ValidationMetrics,
     WavelengthBand,
     WavelengthResult,
 )
@@ -48,8 +50,10 @@ __all__ = [
     # Data types
     "AnalysisMetrics",
     "ExcitationData",
+    "GroundTruth",
     "LoadingOptions",
     "SpectraData",
+    "ValidationMetrics",
     "WavelengthBand",
     "WavelengthResult",
     # Protocols for extensibility
