@@ -22,12 +22,15 @@ Example:
 
 from __future__ import annotations
 
+import json
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import numpy as np
+import tifffile
 import torch
 
 from .config import Config
@@ -194,11 +197,65 @@ class Analyzer:
 
         Raises:
             RuntimeError: If the analyzer has not been fitted.
-            NotImplementedError: Implemented in Phase 04-03.
         """
         if not self.is_fitted:
             raise RuntimeError("Analyzer must be fitted before transform()")
-        raise NotImplementedError("Implemented in 04-03")
+
+        from .types import ExcitationData
+
+        logger.info(f"Transforming data to {len(self._result.selected_bands)} bands")
+
+        # Group selected bands by excitation wavelength
+        bands_by_excitation: Dict[float, List[WavelengthBand]] = {}
+        for band in self._result.selected_bands:
+            if band.excitation_nm not in bands_by_excitation:
+                bands_by_excitation[band.excitation_nm] = []
+            bands_by_excitation[band.excitation_nm].append(band)
+
+        # Create new excitations with only selected bands
+        new_excitations: Dict[float, ExcitationData] = {}
+
+        for ex_nm, bands in bands_by_excitation.items():
+            # Get original excitation data
+            orig_ex = data.get_excitation(ex_nm)
+
+            # Extract only the selected emission bands
+            band_indices = [b.emission_band_index for b in bands]
+            band_indices_sorted = sorted(band_indices)
+
+            # Extract cube with only selected bands
+            new_cube = orig_ex.cube[:, :, band_indices_sorted]
+
+            # Extract corresponding emission wavelengths
+            new_emission_wls = [orig_ex.emission_wavelengths[i] for i in band_indices_sorted]
+
+            new_excitations[ex_nm] = ExcitationData(
+                excitation_nm=ex_nm,
+                cube=new_cube,
+                emission_wavelengths=new_emission_wls,
+                exposure_time=orig_ex.exposure_time,
+                laser_power=orig_ex.laser_power,
+            )
+
+        # Create new SpectraData with reduced bands
+        transformed = SpectraData(
+            excitations=new_excitations,
+            mask=data.mask,
+            sample_name=f"{data.sample_name}_selected",
+            loading_options=data.loading_options,
+            metadata={
+                **data.metadata,
+                "transform_source": data.sample_name,
+                "n_selected_bands": len(self._result.selected_bands),
+            },
+        )
+
+        logger.info(
+            f"Transformed: {data.n_excitations} excitations -> "
+            f"{transformed.n_excitations} excitations with selected bands"
+        )
+
+        return transformed
 
     def fit_transform(self, data: SpectraData) -> SpectraData:
         """Convenience method: fit the analyzer and transform in one step.
@@ -247,11 +304,169 @@ class Analyzer:
 
         Raises:
             RuntimeError: If the analyzer has not been fitted.
-            NotImplementedError: Implemented in Phase 04-04.
+            ValueError: If no output directory is available.
         """
         if not self.is_fitted:
             raise RuntimeError("Analyzer must be fitted before save_results()")
-        raise NotImplementedError("Implemented in 04-04")
+
+        # Determine output directory
+        out_dir = output_dir if output_dir is not None else self._config.output_dir
+        if out_dir is None:
+            raise ValueError(
+                "No output_dir specified and config.output_dir is None. "
+                "Provide output_dir or set config.output_dir."
+            )
+
+        out_dir = Path(out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        logger.info(f"Saving results to {out_dir}")
+
+        # Save primary result JSON
+        result_path = out_dir / "wavelength_result.json"
+        self._result.to_json(result_path)
+        logger.info(f"Saved result JSON: {result_path}")
+
+        # Optionally save TIFF layers
+        if self._config.save_tiff_layers:
+            self._extract_wavelength_layers(out_dir)
+
+        # Optionally save detailed results
+        if self._config.save_detailed_results:
+            # Save config
+            config_path = out_dir / "analysis_config.json"
+            with open(config_path, "w") as f:
+                json.dump(self._config.to_dict(), f, indent=2)
+            logger.info(f"Saved config: {config_path}")
+
+            # Save human-readable text summary
+            txt_path = out_dir / "selected_bands.txt"
+            self._write_text_summary(txt_path)
+            logger.info(f"Saved text summary: {txt_path}")
+
+        logger.info(f"Results saved to {out_dir}")
+        return out_dir
+
+    def _extract_wavelength_layers(self, output_dir: Path) -> List[Dict[str, Any]]:
+        """Extract and save wavelength layers as TIFF files.
+
+        Args:
+            output_dir: Base output directory.
+
+        Returns:
+            List of layer metadata dictionaries.
+        """
+        logger.info(
+            f"Extracting top {self._config.n_layers_to_extract} wavelength layers..."
+        )
+
+        # Create layers subdirectory
+        layers_dir = output_dir / "layers"
+        layers_dir.mkdir(exist_ok=True)
+
+        # Get full spatial data
+        all_data = self._dataset.get_all_data()
+        layer_info: List[Dict[str, Any]] = []
+
+        for i, band in enumerate(
+            self._result.selected_bands[: self._config.n_layers_to_extract]
+        ):
+            ex = band.excitation_nm
+            band_idx = band.emission_band_index
+            em_wavelength = band.emission_nm
+            influence = band.influence_score
+
+            logger.info(
+                f"Layer {i + 1}: Ex {ex}nm, Em {em_wavelength}nm, "
+                f"Influence: {influence:.6f}"
+            )
+
+            if ex in all_data:
+                # Extract the specific emission band for this excitation
+                layer_data = all_data[ex][:, :, band_idx].numpy()
+
+                # Handle NaN values
+                layer_data = np.nan_to_num(layer_data, nan=0.0)
+
+                # Normalize to 0-1 range
+                layer_min = float(np.min(layer_data))
+                layer_max = float(np.max(layer_data))
+                if layer_max > layer_min:
+                    layer_normalized = (layer_data - layer_min) / (layer_max - layer_min)
+                else:
+                    layer_normalized = np.zeros_like(layer_data)
+
+                # Convert to 16-bit for TIFF
+                layer_16bit = (layer_normalized * 65535).astype(np.uint16)
+
+                # Create filename
+                filename = (
+                    f"layer_{i + 1:02d}_ex{ex:.0f}nm_em{em_wavelength:.0f}nm_"
+                    f"inf{influence:.6f}.tiff"
+                )
+                filepath = layers_dir / filename
+
+                # Save as TIFF
+                tifffile.imwrite(str(filepath), layer_16bit)
+
+                # Store metadata
+                layer_info.append({
+                    "rank": i + 1,
+                    "excitation_nm": float(ex),
+                    "emission_nm": float(em_wavelength),
+                    "emission_band_index": int(band_idx),
+                    "influence_score": float(influence),
+                    "data_range_original": [layer_min, layer_max],
+                    "filename": filename,
+                })
+
+        # Save layer metadata
+        metadata_path = layers_dir / "layer_metadata.json"
+        with open(metadata_path, "w") as f:
+            json.dump(
+                {
+                    "layers": layer_info,
+                    "extraction_date": datetime.now().isoformat(),
+                    "config": self._config.to_dict(),
+                },
+                f,
+                indent=2,
+            )
+
+        logger.info(f"Extracted {len(layer_info)} layers to {layers_dir}")
+        return layer_info
+
+    def _write_text_summary(self, path: Path) -> None:
+        """Write human-readable text summary of results.
+
+        Args:
+            path: Path to output text file.
+        """
+        metrics = self._result.metrics
+
+        with open(path, "w") as f:
+            f.write(f"Wavelength Analysis Results: {self._config.sample_name}\n")
+            f.write(f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write(
+                f"Method: {self._config.dimension_selection_method} + "
+                f"{self._config.perturbation_method}\n"
+            )
+            f.write(
+                f"Total bands selected: {metrics.bands_selected} out of "
+                f"{metrics.total_bands_available}\n"
+            )
+            f.write(f"Compression ratio: {metrics.compression_ratio:.2f}x\n\n")
+            f.write(
+                f"{'Rank':<5} {'Excitation(nm)':<15} {'Emission(nm)':<15} "
+                f"{'Influence':<15}\n"
+            )
+            f.write("-" * 60 + "\n")
+
+            for band in self._result.selected_bands:
+                f.write(
+                    f"{band.rank:<5} {band.excitation_nm:<15.1f} "
+                    f"{band.emission_nm:<15.1f} {band.influence_score:<15.6f}\n"
+                )
 
     def __repr__(self) -> str:
         """Return a readable string representation."""
