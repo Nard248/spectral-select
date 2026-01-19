@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-19)
 
 **Core value:** Clean, stable, reproducible wavelength selection analysis that anyone can `from spectral_select import Analyzer` and use immediately.
-**Current focus:** Phase 6 — Ground Truth Validation (Ready)
+**Current focus:** Phase 6 — Ground Truth Validation (In progress)
 
 ## Current Position
 
-Phase: 5 of 8 (Visualization Module)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-01-19 — Completed 05-03-PLAN.md
+Phase: 6 of 8 (Ground Truth Validation)
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-19 — Completed 06-01-PLAN.md
 
-Progress: █████████░ 60%
+Progress: ██████████░ 65%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 13
-- Average duration: 5.0 min
-- Total execution time: 1.1 hours
+- Total plans completed: 14
+- Average duration: 5.1 min
+- Total execution time: 1.2 hours
 
 **By Phase:**
 
@@ -32,10 +32,11 @@ Progress: █████████░ 60%
 | 3. Core Data Types | 2 | 9 min | 4.5 min |
 | 4. Analysis Engine | 4 | 26 min | 6.5 min |
 | 5. Visualization Module | 3 | 16 min | 5.3 min |
+| 6. Ground Truth Validation | 1 | 8 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-04 (6 min), 05-01 (3 min), 05-02 (6 min), 05-03 (7 min)
-- Trend: Phase 5 complete, ready for validation
+- Last 5 plans: 05-01 (3 min), 05-02 (6 min), 05-03 (7 min), 06-01 (8 min)
+- Trend: Phase 6 started, validation module taking shape
 
 ## Accumulated Context
 
@@ -82,6 +83,9 @@ Recent decisions affecting current work:
 - **05-03:** Red/green colormap for accuracy heatmap (intuitive incorrect/correct)
 - **05-03:** 3-panel ROI overlay: clustering result, ROI boxes, accuracy chart
 - **05-03:** Graceful degradation in plot_all: continue if one plot fails
+- **06-01:** Validator.score() returns ARI as primary metric (sklearn convention)
+- **06-01:** Background pixels use -1 convention throughout
+- **06-01:** PNG loader uses 30px tolerance for background, configurable for classes
 
 ### Deferred Issues
 
@@ -94,5 +98,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Completed 05-03-PLAN.md (Phase 5 complete)
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
