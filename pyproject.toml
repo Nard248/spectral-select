@@ -6,7 +6,6 @@ build-backend = "setuptools.build_meta"
 name = "spectral-select"
 version = "0.1.0"
 description = "Clean, stable, reproducible wavelength selection analysis for 4D hyperspectral imaging"
-readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
