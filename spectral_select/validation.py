@@ -70,6 +70,7 @@ class Validator:
     def __init__(self) -> None:
         """Initialize the Validator."""
         self._metrics: Optional[ValidationMetrics] = None
+        self._ground_truth: Optional[np.ndarray] = None
 
     @property
     def is_fitted(self) -> bool:
@@ -181,6 +182,9 @@ class Validator:
             n_predicted_clusters=n_clusters,
         )
 
+        # Store ground truth reference for later use
+        self._ground_truth = gt_flat
+
         logger.info(
             f"Validation complete: ARI={ari:.4f}, Purity={purity:.4f}, "
             f"NMI={nmi:.4f}"
@@ -201,6 +205,38 @@ class Validator:
             RuntimeError: If fit() has not been called.
         """
         return self.metrics.adjusted_rand_score
+
+    @property
+    def ground_truth(self) -> Optional[np.ndarray]:
+        """Get the ground truth labels used in the last fit() call.
+
+        Returns:
+            Flattened ground truth array or None if not fitted.
+        """
+        return self._ground_truth
+
+    def get_metrics_dict(self) -> Dict[str, Any]:
+        """Return metrics as a flat dictionary suitable for DataFrame rows.
+
+        Returns:
+            Dictionary with metric names as keys and scores as values.
+
+        Raises:
+            RuntimeError: If fit() has not been called.
+        """
+        m = self.metrics
+        return {
+            "N_Clusters": m.n_predicted_clusters,
+            "N_GT_Classes": m.n_ground_truth_classes,
+            "Purity": m.purity,
+            "ARI": m.adjusted_rand_score,
+            "NMI": m.normalized_mutual_info,
+            "AMI": m.adjusted_mutual_info,
+            "V-Measure": m.v_measure,
+            "Homogeneity": m.homogeneity,
+            "Completeness": m.completeness,
+            "FM-Score": m.fowlkes_mallows_score,
+        }
 
     def compare(
         self,
