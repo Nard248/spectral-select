@@ -62,7 +62,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 04-01: Analyzer class skeleton with public API
+- [x] 04-01: Analyzer class skeleton with public API ✓
 - [ ] 04-02: Autoencoder integration and latent space handling
 - [ ] 04-03: Perturbation-based wavelength attribution
 - [ ] 04-04: Multi-excitation wavelength ranking
@@ -121,7 +121,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. Package Structure | 2/2 | Complete | 2026-01-19 |
 | 2. Config System | 2/2 | Complete | 2026-01-19 |
 | 3. Core Data Types | 2/2 | Complete | 2026-01-19 |
-| 4. Analysis Engine | 0/4 | Not started | - |
+| 4. Analysis Engine | 1/4 | In progress | - |
 | 5. Visualization Module | 0/3 | Not started | - |
 | 6. Ground Truth Validation | 0/2 | Not started | - |
 | 7. Notebook Migration | 0/3 | Not started | - |
