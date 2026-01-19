@@ -23,9 +23,11 @@ Example:
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
+import numpy as np
 import torch
 
 from .config import Config
@@ -74,8 +76,11 @@ class Analyzer:
 
         # Internal state (populated during fit)
         self._data: Optional[SpectraData] = None
+        self._dataset: Optional[Any] = None  # MaskedHyperspectralDataset
         self._model: Optional[Any] = None
         self._baseline_latent: Optional[Any] = None
+        self._baseline_reconstruction: Optional[Dict[float, Any]] = None
+        self._patch_coords: Optional[List[Tuple[int, int]]] = None
         self._influence_matrix: Optional[Dict[str, Any]] = None
         self._result: Optional[WavelengthResult] = None
 
@@ -217,4 +222,68 @@ class Analyzer:
             f"device='{self._device}', "
             f"status={status}, "
             f"n_bands={n_bands})"
+        )
+
+    # =========================================================================
+    # Private Methods
+    # =========================================================================
+
+    def _load_data(self, data: SpectraData) -> None:
+        """Load and prepare data for analysis.
+
+        Converts SpectraData into the format expected by MaskedHyperspectralDataset,
+        which is used by the autoencoder model.
+
+        Args:
+            data: The hyperspectral SpectraData object.
+        """
+        # Store reference to original data
+        self._data = data
+
+        logger.info(
+            f"Loading data: {data.n_excitations} excitations, "
+            f"spatial shape {data.spatial_shape}, "
+            f"mask {'present' if data.mask is not None else 'absent'}"
+        )
+
+        # TODO: Phase 8 cleanup - remove sys.path manipulation
+        # The scripts.models package should be properly installed
+        project_root = Path(__file__).parent.parent
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
+
+        from scripts.models import MaskedHyperspectralDataset
+
+        # Convert SpectraData to format expected by MaskedHyperspectralDataset
+        # Expected format: {'data': {ex_str: {'cube': array, 'wavelengths': list}},
+        #                   'excitation_wavelengths': [...]}
+        data_dict: Dict[str, Any] = {
+            "data": {},
+            "excitation_wavelengths": data.excitation_wavelengths,
+        }
+
+        for ex_nm in data.excitation_wavelengths:
+            ex_data = data.get_excitation(ex_nm)
+            ex_str = str(ex_nm)
+            data_dict["data"][ex_str] = {
+                "cube": ex_data.cube,
+                "wavelengths": ex_data.emission_wavelengths,
+            }
+
+        # Extract mask from SpectraData
+        mask = data.mask
+
+        # Create dataset with normalization
+        self._dataset = MaskedHyperspectralDataset(
+            data_dict=data_dict,
+            mask=mask,
+            normalize=True,
+        )
+
+        # Store spatial dimensions for later use
+        self._spatial_shape = self._dataset.get_spatial_dimensions()
+
+        logger.info(
+            f"Dataset created: {len(self._dataset.excitation_wavelengths)} excitations, "
+            f"spatial {self._spatial_shape[0]}x{self._spatial_shape[1]}"
         )
