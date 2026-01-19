@@ -294,6 +294,103 @@ class Validator:
 
         return df
 
+    def generate_report(self, output_path: Optional[Path] = None) -> str:
+        """Generate a Markdown-formatted validation report.
+
+        Creates a human-readable report with summary statistics, cluster-to-GT
+        mapping table, and per-class metrics.
+
+        Args:
+            output_path: Optional path to write the report file.
+
+        Returns:
+            Markdown-formatted report string.
+
+        Raises:
+            RuntimeError: If fit() has not been called.
+        """
+        from datetime import datetime
+
+        m = self.metrics
+
+        lines = [
+            "# Clustering Validation Report",
+            "",
+            f"**Generated:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            "",
+            "## Summary Statistics",
+            "",
+            f"| Metric | Value |",
+            f"|--------|-------|",
+            f"| Predicted Clusters | {m.n_predicted_clusters} |",
+            f"| Ground Truth Classes | {m.n_ground_truth_classes} |",
+            f"| Purity | {m.purity:.4f} |",
+            f"| Adjusted Rand Index | {m.adjusted_rand_score:.4f} |",
+            f"| Normalized Mutual Info | {m.normalized_mutual_info:.4f} |",
+            f"| Adjusted Mutual Info | {m.adjusted_mutual_info:.4f} |",
+            f"| V-Measure | {m.v_measure:.4f} |",
+            f"| Homogeneity | {m.homogeneity:.4f} |",
+            f"| Completeness | {m.completeness:.4f} |",
+            f"| Fowlkes-Mallows | {m.fowlkes_mallows_score:.4f} |",
+            "",
+            "## Cluster-to-Ground-Truth Mapping",
+            "",
+            "| Cluster | Assigned GT Class |",
+            "|---------|-------------------|",
+        ]
+
+        for cluster_id, gt_id in sorted(m.cluster_to_gt_mapping.items()):
+            lines.append(f"| {cluster_id} | {gt_id} |")
+
+        lines.extend([
+            "",
+            "## Per-Class Metrics",
+            "",
+            "| Class | Precision | Recall | F1-Score |",
+            "|-------|-----------|--------|----------|",
+        ])
+
+        for cls_id in sorted(m.per_class_f1.keys()):
+            prec = m.per_class_precision.get(cls_id, 0.0)
+            rec = m.per_class_recall.get(cls_id, 0.0)
+            f1 = m.per_class_f1.get(cls_id, 0.0)
+            lines.append(f"| {cls_id} | {prec:.4f} | {rec:.4f} | {f1:.4f} |")
+
+        # Add average row
+        avg_prec = sum(m.per_class_precision.values()) / max(len(m.per_class_precision), 1)
+        avg_rec = sum(m.per_class_recall.values()) / max(len(m.per_class_recall), 1)
+        avg_f1 = sum(m.per_class_f1.values()) / max(len(m.per_class_f1), 1)
+        lines.append(f"| **Average** | **{avg_prec:.4f}** | **{avg_rec:.4f}** | **{avg_f1:.4f}** |")
+
+        report = "\n".join(lines)
+
+        if output_path is not None:
+            output_path = Path(output_path)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(report, encoding="utf-8")
+            logger.info(f"Report saved to {output_path}")
+
+        return report
+
+    def to_json(self, path: Path) -> None:
+        """Save validation metrics to JSON file.
+
+        Args:
+            path: Path to the output JSON file.
+
+        Raises:
+            RuntimeError: If fit() has not been called.
+        """
+        import json
+
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, "w") as f:
+            json.dump(self.metrics.to_dict(), f, indent=2)
+
+        logger.info(f"Metrics saved to {path}")
+
     @staticmethod
     def _calculate_purity_and_mapping(
         cluster_labels: np.ndarray,
