@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-19)
 
 **Core value:** Clean, stable, reproducible wavelength selection analysis that anyone can `from spectral_select import Analyzer` and use immediately.
-**Current focus:** Phase 5 — Visualization Module (In Progress)
+**Current focus:** Phase 6 — Ground Truth Validation (Ready)
 
 ## Current Position
 
 Phase: 5 of 8 (Visualization Module)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-01-19 — Completed 05-02-PLAN.md
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-01-19 — Completed 05-03-PLAN.md
 
-Progress: ██████░░░░ 55%
+Progress: █████████░ 60%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
-- Average duration: 4.8 min
-- Total execution time: 1.0 hours
+- Total plans completed: 13
+- Average duration: 5.0 min
+- Total execution time: 1.1 hours
 
 **By Phase:**
 
@@ -31,11 +31,11 @@ Progress: ██████░░░░ 55%
 | 2. Config System | 2 | 6 min | 3 min |
 | 3. Core Data Types | 2 | 9 min | 4.5 min |
 | 4. Analysis Engine | 4 | 26 min | 6.5 min |
-| 5. Visualization Module | 2 | 9 min | 4.5 min |
+| 5. Visualization Module | 3 | 16 min | 5.3 min |
 
 **Recent Trend:**
-- Last 5 plans: 04-03 (9 min), 04-04 (6 min), 05-01 (3 min), 05-02 (6 min)
-- Trend: Visualization implementation on track
+- Last 5 plans: 04-04 (6 min), 05-01 (3 min), 05-02 (6 min), 05-03 (7 min)
+- Trend: Phase 5 complete, ready for validation
 
 ## Accumulated Context
 
@@ -78,6 +78,10 @@ Recent decisions affecting current work:
 - **05-02:** Log10 + 1e-10 for heatmap values (handles zeros gracefully)
 - **05-02:** Auto log scale in ranking when max/min > 100x
 - **05-02:** Size encoding inversely proportional to rank in scatter plots
+- **05-03:** Row-wise normalization for confusion matrix (per true class)
+- **05-03:** Red/green colormap for accuracy heatmap (intuitive incorrect/correct)
+- **05-03:** 3-panel ROI overlay: clustering result, ROI boxes, accuracy chart
+- **05-03:** Graceful degradation in plot_all: continue if one plot fails
 
 ### Deferred Issues
 
@@ -90,5 +94,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Completed 05-02-PLAN.md
+Stopped at: Completed 05-03-PLAN.md (Phase 5 complete)
 Resume file: None
