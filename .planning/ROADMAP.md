@@ -17,7 +17,7 @@ None
 - [x] **Phase 1: Package Structure** - Create spectral_select/ package skeleton with proper imports (Complete)
 - [x] **Phase 2: Config System** - Unified configuration class supporting all variant behaviors (Complete)
 - [x] **Phase 3: Core Data Types** - Data classes for spectra, wavelengths, and results (Complete)
-- [ ] **Phase 4: Analysis Engine** - Refactor core wavelength selection into Analyzer class
+- [x] **Phase 4: Analysis Engine** - Refactor core wavelength selection into Analyzer class (Complete)
 - [ ] **Phase 5: Visualization Module** - Clean Visualizer class from scattered plotting code
 - [ ] **Phase 6: Ground Truth Validation** - Refactor validation metrics into dedicated module
 - [ ] **Phase 7: Notebook Migration** - Update existing notebooks to use new imports
@@ -65,7 +65,7 @@ Plans:
 - [x] 04-01: Analyzer class skeleton with public API ✓
 - [x] 04-02: Autoencoder integration and latent space handling ✓
 - [x] 04-03: Perturbation-based wavelength attribution ✓
-- [ ] 04-04: Multi-excitation wavelength ranking
+- [x] 04-04: Multi-excitation wavelength ranking ✓
 
 ### Phase 5: Visualization Module
 **Goal**: Clean `Visualizer` class consolidating scattered matplotlib code with consistent styling
@@ -121,7 +121,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 1. Package Structure | 2/2 | Complete | 2026-01-19 |
 | 2. Config System | 2/2 | Complete | 2026-01-19 |
 | 3. Core Data Types | 2/2 | Complete | 2026-01-19 |
-| 4. Analysis Engine | 3/4 | In progress | - |
+| 4. Analysis Engine | 4/4 | Complete | 2026-01-19 |
 | 5. Visualization Module | 0/3 | Not started | - |
 | 6. Ground Truth Validation | 0/2 | Not started | - |
 | 7. Notebook Migration | 0/3 | Not started | - |
