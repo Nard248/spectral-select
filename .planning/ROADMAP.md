@@ -89,15 +89,13 @@ Plans:
 - [x] 06-02: Ground truth comparison and reporting ✓
 
 ### Phase 7: Notebook Migration
-**Goal**: Update all Jupyter notebooks in `notebooks/` to use new `spectral_select` imports
+**Goal**: Create new example notebooks demonstrating the `spectral_select` API
 **Depends on**: Phase 5, Phase 6
-**Research**: Unlikely (import changes only)
-**Plans**: TBD
+**Research**: Unlikely (documentation)
+**Plans**: 1
 
 Plans:
-- [ ] 07-01: Migrate analysis notebooks
-- [ ] 07-02: Migrate visualization notebooks
-- [ ] 07-03: Verify notebook outputs unchanged
+- [ ] 07-01: Create example notebooks (quickstart + validation)
 
 ### Phase 8: Testing & Validation
 **Goal**: Pytest suite verifying bit-identical results between old and new implementations
@@ -124,5 +122,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 4. Analysis Engine | 4/4 | Complete | 2026-01-19 |
 | 5. Visualization Module | 3/3 | Complete | 2026-01-19 |
 | 6. Ground Truth Validation | 2/2 | Complete | 2026-01-19 |
-| 7. Notebook Migration | 0/3 | Not started | - |
+| 7. Notebook Migration | 0/1 | Not started | - |
 | 8. Testing & Validation | 0/4 | Not started | - |
