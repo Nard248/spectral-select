@@ -516,3 +516,121 @@ class WavelengthBand:
             emission_band_index=data["emission_band_index"],
             influence_score=data["influence_score"],
         )
+
+
+@dataclass
+class AnalysisMetrics:
+    """Performance metrics for wavelength selection analysis.
+
+    Summarizes the selection results with counts and score statistics.
+
+    Attributes:
+        total_bands_available: Total wavelength combinations in input.
+        bands_selected: Number of bands actually selected.
+        compression_ratio: Ratio of total_bands / bands_selected.
+        max_influence_score: Highest influence score among selected.
+        min_influence_score: Lowest influence score among selected.
+        mean_influence_score: Average influence score of selected bands.
+
+    Example:
+        metrics = AnalysisMetrics.from_bands(selected_bands, total_available=1000)
+        print(f"Compression: {metrics.compression_ratio:.1f}x")
+    """
+
+    total_bands_available: int
+    bands_selected: int
+    compression_ratio: float
+    max_influence_score: float
+    min_influence_score: float
+    mean_influence_score: float
+
+    def __post_init__(self) -> None:
+        """Validate metrics after initialization."""
+        if self.total_bands_available < 1:
+            raise ValueError(
+                f"total_bands_available must be >= 1, got {self.total_bands_available}"
+            )
+        if self.bands_selected < 1:
+            raise ValueError(
+                f"bands_selected must be >= 1, got {self.bands_selected}"
+            )
+        if self.compression_ratio < 1.0:
+            raise ValueError(
+                f"compression_ratio must be >= 1.0, got {self.compression_ratio}"
+            )
+        # Score ordering: min <= mean <= max
+        if not (self.min_influence_score <= self.mean_influence_score <= self.max_influence_score):
+            raise ValueError(
+                f"Score ordering violated: min ({self.min_influence_score}) <= "
+                f"mean ({self.mean_influence_score}) <= max ({self.max_influence_score})"
+            )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all metric values.
+        """
+        return {
+            "total_bands_available": self.total_bands_available,
+            "bands_selected": self.bands_selected,
+            "compression_ratio": self.compression_ratio,
+            "max_influence_score": self.max_influence_score,
+            "min_influence_score": self.min_influence_score,
+            "mean_influence_score": self.mean_influence_score,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "AnalysisMetrics":
+        """Create from dictionary.
+
+        Args:
+            data: Dictionary with AnalysisMetrics fields.
+
+        Returns:
+            A new AnalysisMetrics instance.
+        """
+        return cls(
+            total_bands_available=data["total_bands_available"],
+            bands_selected=data["bands_selected"],
+            compression_ratio=data["compression_ratio"],
+            max_influence_score=data["max_influence_score"],
+            min_influence_score=data["min_influence_score"],
+            mean_influence_score=data["mean_influence_score"],
+        )
+
+    @classmethod
+    def from_bands(
+        cls,
+        bands: List["WavelengthBand"],
+        total_available: int,
+    ) -> "AnalysisMetrics":
+        """Compute metrics from a list of selected bands.
+
+        Convenience factory method to calculate all metrics from
+        the actual selection results.
+
+        Args:
+            bands: List of selected WavelengthBand objects.
+            total_available: Total number of wavelength combinations available.
+
+        Returns:
+            A new AnalysisMetrics instance with computed values.
+
+        Raises:
+            ValueError: If bands list is empty.
+        """
+        if not bands:
+            raise ValueError("Cannot compute metrics from empty bands list")
+
+        scores = [b.influence_score for b in bands]
+        n_selected = len(bands)
+
+        return cls(
+            total_bands_available=total_available,
+            bands_selected=n_selected,
+            compression_ratio=total_available / n_selected,
+            max_influence_score=max(scores),
+            min_influence_score=min(scores),
+            mean_influence_score=sum(scores) / n_selected,
+        )
