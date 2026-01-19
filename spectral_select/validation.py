@@ -20,12 +20,14 @@ Example:
 from __future__ import annotations
 
 import logging
+import math
 import warnings
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from PIL import Image
 from sklearn.metrics import (
     adjusted_mutual_info_score,
     adjusted_rand_score,
@@ -348,3 +350,226 @@ class Validator:
                 f1[i] = 0.0
 
         return {"precision": precision, "recall": recall, "f1": f1}
+
+
+# ============================================================================
+# Ground Truth Loading Utilities
+# ============================================================================
+
+
+def load_ground_truth_from_png(
+    png_path: Union[str, Path],
+    background_colors: Optional[List[Tuple[int, int, int, int]]] = None,
+    target_shape: Optional[Tuple[int, int]] = None,
+    class_colors: Optional[Dict[str, Tuple[int, int, int]]] = None,
+    color_tolerance: int = 50,
+) -> GroundTruth:
+    """Load ground truth labels from a colored PNG annotation file.
+
+    Extracts pixel-wise class labels from a PNG image where different
+    colors represent different classes. Background colors are mapped to -1.
+
+    Args:
+        png_path: Path to the PNG annotation file.
+        background_colors: List of RGBA tuples to treat as background.
+            Default: [(24, 24, 24, 255), (168, 168, 168, 255)] (dark/light gray).
+        target_shape: Optional (height, width) to resize/crop to.
+        class_colors: Optional mapping of class names to RGB tuples for
+            tolerance-based color matching. If None, each unique color
+            becomes a separate class.
+        color_tolerance: Maximum Euclidean distance for color matching
+            when using class_colors. Default: 50.
+
+    Returns:
+        GroundTruth instance with labels, color_mapping, and class_names.
+
+    Raises:
+        FileNotFoundError: If png_path doesn't exist.
+        ValueError: If the image cannot be processed.
+
+    Example:
+        # Simple usage - each color is a class
+        gt = load_ground_truth_from_png("annotations.png")
+
+        # With predefined class colors
+        gt = load_ground_truth_from_png(
+            "annotations.png",
+            class_colors={
+                "Lichen A": (255, 0, 0),
+                "Lichen B": (0, 255, 0),
+                "Rock": (0, 0, 255),
+            },
+            color_tolerance=30,
+        )
+    """
+    png_path = Path(png_path)
+    if not png_path.exists():
+        raise FileNotFoundError(f"PNG file not found: {png_path}")
+
+    # Default background colors
+    if background_colors is None:
+        background_colors = [
+            (24, 24, 24, 255),      # Dark gray background
+            (168, 168, 168, 255),   # Light gray background
+        ]
+
+    # Load and convert to RGBA
+    try:
+        img = Image.open(png_path)
+    except Exception as e:
+        raise ValueError(f"Failed to open image {png_path}: {e}")
+
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+
+    img_array = np.array(img)
+    original_shape = img_array.shape[:2]
+    logger.debug(f"Loaded PNG with shape {original_shape}")
+
+    # Handle resizing if needed
+    if target_shape is not None and original_shape != target_shape:
+        img_array = _resize_or_crop_image(
+            img_array, target_shape, background_colors[0]
+        )
+        logger.debug(f"Resized to {img_array.shape[:2]}")
+
+    # Find unique colors
+    img_flat = img_array.reshape(-1, 4)
+    unique_colors = np.unique(img_flat, axis=0)
+    logger.debug(f"Found {len(unique_colors)} unique colors")
+
+    # Filter out background colors
+    def is_background(color: np.ndarray) -> bool:
+        for bg in background_colors:
+            dist = math.sqrt(sum((int(a) - int(b)) ** 2 for a, b in zip(color[:3], bg[:3])))
+            if dist <= 30:  # Background tolerance
+                return True
+        return False
+
+    foreground_colors = [
+        tuple(c) for c in unique_colors if not is_background(c)
+    ]
+    logger.debug(f"Found {len(foreground_colors)} foreground colors")
+
+    # Initialize output arrays
+    ground_truth = np.full(img_array.shape[:2], -1, dtype=np.int32)
+    color_mapping: Dict[int, Tuple[int, int, int, int]] = {-1: (0, 0, 0, 0)}
+    class_names: Optional[List[str]] = None
+
+    if class_colors is not None:
+        # Tolerance-based matching to predefined classes
+        class_names = list(class_colors.keys())
+        class_rgb = list(class_colors.values())
+
+        for label, (name, rgb) in enumerate(class_colors.items()):
+            color_mapping[label] = (*rgb, 255)
+            logger.debug(f"Class {label}: {name} -> RGB{rgb}")
+
+        # Assign each pixel to closest class (if within tolerance)
+        for y in range(img_array.shape[0]):
+            for x in range(img_array.shape[1]):
+                pixel = img_array[y, x]
+
+                if is_background(pixel):
+                    continue
+
+                # Find closest class
+                min_dist = float("inf")
+                best_class = -1
+                for label, rgb in enumerate(class_rgb):
+                    dist = math.sqrt(
+                        sum((int(a) - int(b)) ** 2 for a, b in zip(pixel[:3], rgb))
+                    )
+                    if dist < min_dist:
+                        min_dist = dist
+                        best_class = label
+
+                if min_dist <= color_tolerance:
+                    ground_truth[y, x] = best_class
+                else:
+                    warnings.warn(
+                        f"Pixel at ({y}, {x}) with color {tuple(pixel[:3])} "
+                        f"doesn't match any class (min distance: {min_dist:.1f})"
+                    )
+
+        # Report which classes were found
+        found_classes = []
+        for label, name in enumerate(class_names):
+            if np.sum(ground_truth == label) > 0:
+                found_classes.append(name)
+        logger.info(f"Classes with pixels: {found_classes}")
+
+    else:
+        # Each unique foreground color becomes a separate class
+        for label, color in enumerate(foreground_colors):
+            color_mapping[label] = color
+            mask = np.all(img_array == color, axis=2)
+            ground_truth[mask] = label
+
+    # Log statistics
+    n_classes = len([k for k in color_mapping if k >= 0])
+    n_foreground = np.sum(ground_truth >= 0)
+    n_background = np.sum(ground_truth == -1)
+    logger.info(
+        f"Ground truth: {n_classes} classes, "
+        f"{n_foreground} foreground pixels, {n_background} background"
+    )
+
+    return GroundTruth(
+        labels=ground_truth,
+        color_mapping=color_mapping,
+        class_names=class_names,
+    )
+
+
+def _resize_or_crop_image(
+    img_array: np.ndarray,
+    target_shape: Tuple[int, int],
+    fill_color: Tuple[int, int, int, int],
+) -> np.ndarray:
+    """Resize or crop an image to target shape.
+
+    Centers the image and pads or crops as needed.
+
+    Args:
+        img_array: Source image as numpy array (H, W, 4).
+        target_shape: Desired (height, width).
+        fill_color: RGBA color for padding.
+
+    Returns:
+        Resized/cropped image array.
+    """
+    target_h, target_w = target_shape
+    current_h, current_w = img_array.shape[:2]
+
+    # Create output filled with background
+    result = np.full((target_h, target_w, 4), fill_color, dtype=np.uint8)
+
+    h_diff = target_h - current_h
+    w_diff = target_w - current_w
+
+    if h_diff >= 0 and w_diff >= 0:
+        # Padding needed
+        h_pad = h_diff // 2
+        w_pad = w_diff // 2
+        result[h_pad:h_pad + current_h, w_pad:w_pad + current_w] = img_array
+
+    elif h_diff >= 0 and w_diff < 0:
+        # Pad height, crop width
+        h_pad = h_diff // 2
+        w_crop = abs(w_diff) // 2
+        result[h_pad:h_pad + current_h, :] = img_array[:, w_crop:w_crop + target_w]
+
+    elif h_diff < 0 and w_diff >= 0:
+        # Crop height, pad width
+        h_crop = abs(h_diff) // 2
+        w_pad = w_diff // 2
+        result[:, w_pad:w_pad + current_w] = img_array[h_crop:h_crop + target_h, :]
+
+    else:
+        # Crop both dimensions
+        h_crop = abs(h_diff) // 2
+        w_crop = abs(w_diff) // 2
+        result = img_array[h_crop:h_crop + target_h, w_crop:w_crop + target_w]
+
+    return result

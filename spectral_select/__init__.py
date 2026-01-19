@@ -36,7 +36,7 @@ from .types import (
     WavelengthBand,
     WavelengthResult,
 )
-from .validation import Validator
+from .validation import Validator, load_ground_truth_from_png
 from .visualizer import Visualizer
 
 __version__ = "0.1.0"
@@ -47,6 +47,8 @@ __all__ = [
     "Config",
     "Validator",
     "Visualizer",
+    # Utilities
+    "load_ground_truth_from_png",
     # Data types
     "AnalysisMetrics",
     "ExcitationData",
