@@ -458,16 +458,69 @@ class Visualizer:
 
         return self._save_figure(fig, "influence_ranking")
 
-    def plot_wavelength_coverage(self) -> Path:
+    def plot_wavelength_coverage(
+        self,
+        total_bands_per_excitation: Optional[Dict[float, int]] = None,
+    ) -> Path:
         """Plot coverage of selected wavelengths across spectrum.
+
+        Shows the selected wavelength combinations in excitation-emission space,
+        optionally overlaid on all available wavelength combinations (shown in gray).
+
+        Args:
+            total_bands_per_excitation: Optional dict mapping excitation_nm to total
+                number of emission bands available. If provided, shows all available
+                positions as light gray background.
 
         Returns:
             Path to saved figure.
 
         Raises:
-            NotImplementedError: Method not yet implemented.
+            ValueError: If no result is available.
         """
-        raise NotImplementedError("plot_wavelength_coverage: See Phase 5 Plan 02")
+        if not self.has_result:
+            raise ValueError("No result available for wavelength coverage plot")
+
+        result = self._result if self._result else self._analyzer.result_
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        # Plot all available combinations as light background if provided
+        if total_bands_per_excitation:
+            for ex_nm, n_bands in total_bands_per_excitation.items():
+                em_indices = range(n_bands)
+                ax.scatter(
+                    [ex_nm] * len(em_indices), em_indices,
+                    c='lightgray', s=20, alpha=0.3, marker='s'
+                )
+
+        # Extract selected bands data
+        ex_selected = [band.excitation_nm for band in result.selected_bands]
+        em_selected = [band.emission_band_index for band in result.selected_bands]
+        influences = [band.influence_score for band in result.selected_bands]
+
+        # Plot selected combinations
+        scatter = ax.scatter(
+            ex_selected, em_selected,
+            c=influences, s=100, cmap='viridis',
+            edgecolors='black', linewidth=1
+        )
+
+        cbar = plt.colorbar(scatter, ax=ax, shrink=0.8)
+        cbar.set_label('Influence Score', fontsize=10)
+
+        ax.set_xlabel('Excitation Wavelength (nm)', fontsize=12)
+        ax.set_ylabel('Emission Band Index', fontsize=12)
+        ax.set_title(
+            'Wavelength Space Coverage\n(Gray: Available, Colored: Selected)',
+            fontsize=14, fontweight='bold'
+        )
+
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+
+        return self._save_figure(fig, "wavelength_coverage")
 
     # =========================================================================
     # Clustering/Validation Plots (Phase 5 Plan 03)
@@ -537,13 +590,141 @@ class Visualizer:
     def plot_summary_dashboard(self) -> Path:
         """Create multi-panel summary dashboard of analysis results.
 
+        Creates a 2x3 grid of subplots providing a comprehensive overview:
+        1. Top 10 influence scores (bar chart)
+        2. Excitation distribution (pie chart)
+        3. Influence vs Rank (log scale line)
+        4. Top 30 wavelength pairs (scatter)
+        5. Statistics summary (text box)
+        6. Mini heatmap of top excitations
+
         Returns:
             Path to saved figure.
 
         Raises:
-            NotImplementedError: Method not yet implemented.
+            ValueError: If no result is available.
         """
-        raise NotImplementedError("plot_summary_dashboard: See Phase 5 Plan 02")
+        if not self.has_result:
+            raise ValueError("No result available for summary dashboard")
+
+        result = self._result if self._result else self._analyzer.result_
+        metrics = result.metrics
+
+        # Create figure with subplots
+        fig = plt.figure(figsize=(20, 12))
+
+        # 1. Top 10 influence scores (bar chart)
+        ax1 = plt.subplot(2, 3, 1)
+        top_10 = result.selected_bands[:10]
+        labels = [f"Ex{band.excitation_nm:.0f}/Em{band.emission_nm:.0f}" for band in top_10]
+        influences = [band.influence_score for band in top_10]
+
+        bars = ax1.bar(range(len(labels)), influences, color='coral', alpha=0.7)
+        ax1.set_xlabel('Wavelength Combinations')
+        ax1.set_ylabel('Influence Score')
+        ax1.set_title('Top 10 Influence Scores')
+        ax1.set_xticks(range(len(labels)))
+        ax1.set_xticklabels(labels, rotation=45, ha='right', fontsize=8)
+        ax1.grid(True, alpha=0.3)
+
+        # 2. Excitation distribution (pie chart)
+        ax2 = plt.subplot(2, 3, 2)
+        excitation_counts: Dict[float, int] = {}
+        for band in result.selected_bands:
+            ex = band.excitation_nm
+            excitation_counts[ex] = excitation_counts.get(ex, 0) + 1
+
+        labels_pie = [f"{ex:.0f}nm" for ex in sorted(excitation_counts.keys())]
+        sizes = [excitation_counts[ex] for ex in sorted(excitation_counts.keys())]
+
+        ax2.pie(sizes, labels=labels_pie, autopct='%1.1f%%', startangle=90)
+        ax2.set_title('Distribution Across Excitations')
+
+        # 3. Influence vs Rank (line plot)
+        ax3 = plt.subplot(2, 3, 3)
+        ranks = [band.rank for band in result.selected_bands]
+        influences_all = [band.influence_score for band in result.selected_bands]
+
+        ax3.semilogy(ranks, influences_all, 'o-', linewidth=2, markersize=4)
+        ax3.set_xlabel('Rank')
+        ax3.set_ylabel('Influence Score (Log)')
+        ax3.set_title('Influence Decay by Rank')
+        ax3.grid(True, alpha=0.3)
+
+        # 4. Wavelength scatter (simplified)
+        ax4 = plt.subplot(2, 3, 4)
+        top_30 = result.selected_bands[:30]
+        ex_vals = [band.excitation_nm for band in top_30]
+        em_vals = [band.emission_nm for band in top_30]
+        sizes_scatter = [max(50 - band.rank, 10) for band in top_30]
+
+        ax4.scatter(ex_vals, em_vals, s=sizes_scatter, alpha=0.6, c='purple')
+        ax4.set_xlabel('Excitation (nm)')
+        ax4.set_ylabel('Emission (nm)')
+        ax4.set_title('Top 30 Wavelength Pairs')
+        ax4.grid(True, alpha=0.3)
+
+        # 5. Statistics summary (text)
+        ax5 = plt.subplot(2, 3, 5)
+        ax5.axis('off')
+
+        # Calculate statistics
+        unique_excitations = len(result.excitation_wavelengths)
+        influence_range = metrics.max_influence_score / (metrics.min_influence_score + 1e-10)
+
+        top_3 = result.selected_bands[:3]
+        stats_text = f"""
+ANALYSIS SUMMARY
+{'='*20}
+Total Bands Selected: {metrics.bands_selected}
+Total Available: {metrics.total_bands_available}
+Compression Ratio: {metrics.compression_ratio:.1f}x
+Unique Excitations: {unique_excitations}
+Max Influence: {metrics.max_influence_score:.2e}
+Min Influence: {metrics.min_influence_score:.2e}
+Mean Influence: {metrics.mean_influence_score:.2e}
+Influence Range: {influence_range:.1f}x
+
+Top 3 Combinations:
+1. Ex{top_3[0].excitation_nm:.0f}/Em{top_3[0].emission_nm:.0f}: {top_3[0].influence_score:.3f}
+2. Ex{top_3[1].excitation_nm:.0f}/Em{top_3[1].emission_nm:.0f}: {top_3[1].influence_score:.3f}
+3. Ex{top_3[2].excitation_nm:.0f}/Em{top_3[2].emission_nm:.0f}: {top_3[2].influence_score:.3f}
+        """
+
+        ax5.text(
+            0.1, 0.9, stats_text, transform=ax5.transAxes, fontsize=10,
+            verticalalignment='top', fontfamily='monospace',
+            bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8)
+        )
+
+        # 6. Heatmap (mini version)
+        ax6 = plt.subplot(2, 3, 6)
+
+        # Create mini heatmap of top excitations
+        top_excitations = sorted(set(band.excitation_nm for band in result.selected_bands[:20]))[:8]
+        heatmap_data = []
+
+        for ex in top_excitations:
+            ex_bands = [band for band in result.selected_bands if band.excitation_nm == ex]
+            ex_influences = [band.influence_score for band in ex_bands[:5]]
+            while len(ex_influences) < 5:
+                ex_influences.append(0)
+            heatmap_data.append(ex_influences)
+
+        if heatmap_data:
+            im = ax6.imshow(heatmap_data, cmap='YlOrRd', aspect='auto')
+            ax6.set_xlabel('Top 5 Bands per Excitation')
+            ax6.set_ylabel('Excitation (nm)')
+            ax6.set_title('Influence Mini-Heatmap')
+            ax6.set_yticks(range(len(top_excitations)))
+            ax6.set_yticklabels([f"{ex:.0f}" for ex in top_excitations])
+
+        # Add sample name as figure title
+        fig.suptitle(result.sample_name, fontsize=16, fontweight='bold', y=0.98)
+
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+
+        return self._save_figure(fig, "summary_dashboard")
 
     def plot_all(self) -> List[Path]:
         """Generate all available plots.
