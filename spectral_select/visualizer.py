@@ -282,27 +282,137 @@ class Visualizer:
 
         return self._save_figure(fig, "influence_heatmap")
 
-    def plot_wavelength_scatter(self) -> Path:
+    def plot_wavelength_scatter(self, top_n: int = 50) -> Path:
         """Plot scatter of selected wavelengths in excitation-emission space.
+
+        Creates a scatter plot where each point represents a selected wavelength
+        combination. Point color indicates influence score, and point size
+        indicates ranking (larger = higher ranked).
+
+        Args:
+            top_n: Number of top bands to plot (default 50 for readability).
 
         Returns:
             Path to saved figure.
 
         Raises:
-            NotImplementedError: Method not yet implemented.
+            ValueError: If no result is available.
         """
-        raise NotImplementedError("plot_wavelength_scatter: See Phase 5 Plan 02")
+        if not self.has_result:
+            raise ValueError("No result available for wavelength scatter plot")
+
+        result = self._result if self._result else self._analyzer.result_
+
+        # Extract data for plotting (limit to top_n for readability)
+        top_bands = result.selected_bands[:top_n]
+        ex_values = [band.excitation_nm for band in top_bands]
+        em_values = [band.emission_nm for band in top_bands]
+        influences = [band.influence_score for band in top_bands]
+        ranks = [band.rank for band in top_bands]
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        # Size decreases with rank (higher rank = larger point)
+        sizes = [200 - (rank - 1) * 3 for rank in ranks]
+        sizes = [max(s, 20) for s in sizes]  # Minimum size
+
+        scatter = ax.scatter(
+            ex_values, em_values,
+            c=influences,
+            s=sizes,
+            cmap='plasma',
+            edgecolors='black',
+            linewidth=1,
+            alpha=0.8
+        )
+
+        # Colorbar
+        cbar = plt.colorbar(scatter, ax=ax, shrink=0.8)
+        cbar.set_label('Influence Score', fontsize=10)
+
+        # Labels and title
+        ax.set_xlabel('Excitation Wavelength (nm)', fontsize=12)
+        ax.set_ylabel('Emission Wavelength (nm)', fontsize=12)
+        ax.set_title(
+            'Top Wavelength Combinations\n(Size ~ Ranking, Color ~ Influence)',
+            fontsize=14, fontweight='bold'
+        )
+
+        # Annotate top 20 with rank numbers
+        for i, (ex, em, rank) in enumerate(zip(ex_values[:20], em_values[:20], ranks[:20])):
+            ax.annotate(
+                f'{rank}', (ex, em),
+                xytext=(3, 3), textcoords='offset points',
+                fontsize=8, fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7)
+            )
+
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+
+        return self._save_figure(fig, "wavelength_scatter")
 
     def plot_excitation_distribution(self) -> Path:
         """Plot distribution of selected bands across excitation wavelengths.
 
+        Creates a bar chart showing how many bands were selected from each
+        excitation wavelength, with value labels on top of each bar.
+
         Returns:
             Path to saved figure.
 
         Raises:
-            NotImplementedError: Method not yet implemented.
+            ValueError: If no result is available.
         """
-        raise NotImplementedError("plot_excitation_distribution: See Phase 5 Plan 02")
+        if not self.has_result:
+            raise ValueError("No result available for excitation distribution plot")
+
+        result = self._result if self._result else self._analyzer.result_
+
+        # Count selections per excitation
+        excitation_counts: Dict[float, int] = {}
+        for band in result.selected_bands:
+            ex = band.excitation_nm
+            excitation_counts[ex] = excitation_counts.get(ex, 0) + 1
+
+        # Sort by wavelength
+        excitations = sorted(excitation_counts.keys())
+        counts = [excitation_counts[ex] for ex in excitations]
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        bars = ax.bar(
+            range(len(excitations)), counts,
+            color='skyblue', edgecolor='navy',
+            alpha=0.7, linewidth=1.5
+        )
+
+        # Labels and title
+        ax.set_xlabel('Excitation Wavelength (nm)', fontsize=12)
+        ax.set_ylabel('Number of Selected Bands', fontsize=12)
+        ax.set_title(
+            'Distribution of Selected Bands Across Excitation Wavelengths',
+            fontsize=14, fontweight='bold'
+        )
+
+        ax.set_xticks(range(len(excitations)))
+        ax.set_xticklabels([f"{ex:.0f}" for ex in excitations], rotation=45, ha='right')
+
+        # Add value labels on bars
+        for bar, count in zip(bars, counts):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.1,
+                str(count),
+                ha='center', va='bottom', fontweight='bold'
+            )
+
+        ax.grid(True, axis='y', alpha=0.3)
+        fig.tight_layout()
+
+        return self._save_figure(fig, "excitation_distribution")
 
     def plot_influence_ranking(self) -> Path:
         """Plot influence scores versus band ranking.
