@@ -15,7 +15,7 @@ None
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Package Structure** - Create spectral_select/ package skeleton with proper imports (Complete)
-- [ ] **Phase 2: Config System** - Unified configuration class supporting all variant behaviors
+- [x] **Phase 2: Config System** - Unified configuration class supporting all variant behaviors (Complete)
 - [ ] **Phase 3: Core Data Types** - Data classes for spectra, wavelengths, and results
 - [ ] **Phase 4: Analysis Engine** - Refactor core wavelength selection into Analyzer class
 - [ ] **Phase 5: Visualization Module** - Clean Visualizer class from scattered plotting code
@@ -43,7 +43,7 @@ Plans:
 
 Plans:
 - [x] 02-01: Config dataclass with all variant options ✓
-- [ ] 02-02: Config loading from YAML/JSON and validation
+- [x] 02-02: Config loading from YAML/JSON and validation ✓
 
 ### Phase 3: Core Data Types
 **Goal**: Clean data classes (`SpectraData`, `WavelengthResult`, etc.) replacing scattered dict/array usage
@@ -119,7 +119,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Package Structure | 2/2 | Complete | 2026-01-19 |
-| 2. Config System | 1/2 | In progress | - |
+| 2. Config System | 2/2 | Complete | 2026-01-19 |
 | 3. Core Data Types | 0/2 | Not started | - |
 | 4. Analysis Engine | 0/4 | Not started | - |
 | 5. Visualization Module | 0/3 | Not started | - |
