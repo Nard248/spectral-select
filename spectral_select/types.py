@@ -1122,3 +1122,25 @@ class ValidationMetrics:
             n_ground_truth_classes=data["n_ground_truth_classes"],
             n_predicted_clusters=data["n_predicted_clusters"],
         )
+
+    @classmethod
+    def from_json(cls, path: Union[str, Path]) -> "ValidationMetrics":
+        """Load ValidationMetrics from JSON file.
+
+        Args:
+            path: Path to the JSON file.
+
+        Returns:
+            A new ValidationMetrics instance.
+
+        Raises:
+            FileNotFoundError: If the file doesn't exist.
+        """
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"JSON file not found: {path}")
+
+        with open(path, "r") as f:
+            data = json.load(f)
+
+        return cls.from_dict(data)
