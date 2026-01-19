@@ -204,16 +204,83 @@ class Visualizer:
     # Wavelength Analysis Plots (Phase 5 Plan 02)
     # =========================================================================
 
-    def plot_influence_heatmap(self) -> Path:
+    def plot_influence_heatmap(
+        self,
+        influence_matrix: Optional[Dict[float, np.ndarray]] = None,
+    ) -> Path:
         """Plot heatmap of influence scores across excitation-emission space.
+
+        Creates a 2D heatmap showing influence scores with excitation wavelengths
+        on the y-axis and emission band indices on the x-axis. Uses log scale
+        for better visualization of wide value ranges.
+
+        Args:
+            influence_matrix: Optional pre-computed matrix as {excitation_nm: influence_array}.
+                If not provided and has_result, builds from selected_bands.
 
         Returns:
             Path to saved figure.
 
         Raises:
-            NotImplementedError: Method not yet implemented.
+            ValueError: If no result or influence_matrix available.
         """
-        raise NotImplementedError("plot_influence_heatmap: See Phase 5 Plan 02")
+        # Get or build influence matrix
+        if influence_matrix is not None:
+            matrix_dict = influence_matrix
+        elif self.has_result:
+            # Build from result's selected bands
+            result = self._result if self._result else self._analyzer.result_
+            matrix_dict: Dict[float, np.ndarray] = {}
+
+            # Get unique excitations and their band counts
+            for band in result.selected_bands:
+                ex = band.excitation_nm
+                if ex not in matrix_dict:
+                    # Find max emission band index for this excitation
+                    max_idx = max(
+                        b.emission_band_index
+                        for b in result.selected_bands
+                        if b.excitation_nm == ex
+                    )
+                    matrix_dict[ex] = np.zeros(max_idx + 1)
+
+                matrix_dict[ex][band.emission_band_index] = band.influence_score
+        else:
+            raise ValueError("No result or influence_matrix available for heatmap")
+
+        # Prepare data for heatmap
+        excitations = sorted(matrix_dict.keys())
+        max_bands = max(len(matrix_dict[ex]) for ex in excitations)
+
+        influence_array = np.zeros((len(excitations), max_bands))
+        for i, ex in enumerate(excitations):
+            influences = matrix_dict[ex]
+            influence_array[i, :len(influences)] = influences
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        # Use log scale for better visualization
+        influence_log = np.log10(influence_array + 1e-10)
+
+        heatmap = ax.imshow(influence_log, aspect='auto', cmap='YlOrRd', interpolation='nearest')
+
+        # Customize plot
+        cbar = plt.colorbar(heatmap, ax=ax, shrink=0.8)
+        cbar.set_label('Log10(Influence Score)', fontsize=10)
+
+        ax.set_xlabel('Emission Band Index', fontsize=12)
+        ax.set_ylabel('Excitation Wavelength (nm)', fontsize=12)
+        ax.set_title('Wavelength Influence Heatmap (Log Scale)', fontsize=14, fontweight='bold')
+
+        # Set y-axis labels
+        ax.set_yticks(range(len(excitations)))
+        ax.set_yticklabels([f"{ex:.0f}" for ex in excitations])
+
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+
+        return self._save_figure(fig, "influence_heatmap")
 
     def plot_wavelength_scatter(self) -> Path:
         """Plot scatter of selected wavelengths in excitation-emission space.
@@ -238,15 +305,48 @@ class Visualizer:
         raise NotImplementedError("plot_excitation_distribution: See Phase 5 Plan 02")
 
     def plot_influence_ranking(self) -> Path:
-        """Plot ranked bar chart of influence scores.
+        """Plot influence scores versus band ranking.
+
+        Creates a line plot showing how influence scores decay with rank.
+        Automatically uses log scale for y-axis if the ratio of max/min
+        scores exceeds 100x.
 
         Returns:
             Path to saved figure.
 
         Raises:
-            NotImplementedError: Method not yet implemented.
+            ValueError: If no result is available.
         """
-        raise NotImplementedError("plot_influence_ranking: See Phase 5 Plan 02")
+        if not self.has_result:
+            raise ValueError("No result available for influence ranking plot")
+
+        result = self._result if self._result else self._analyzer.result_
+
+        # Extract ranks and influences
+        ranks = [band.rank for band in result.selected_bands]
+        influences = [band.influence_score for band in result.selected_bands]
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        # Create line plot with markers
+        ax.plot(ranks, influences, 'o-', linewidth=2, markersize=6,
+                markerfacecolor='red', markeredgecolor='darkred', alpha=0.7)
+
+        # Customize plot
+        ax.set_xlabel('Band Rank', fontsize=12)
+        ax.set_ylabel('Influence Score', fontsize=12)
+        ax.set_title('Influence Score vs. Band Ranking', fontsize=14, fontweight='bold')
+
+        # Use log scale if range is large
+        if max(influences) / (min(influences) + 1e-10) > 100:
+            ax.set_yscale('log')
+            ax.set_ylabel('Influence Score (Log Scale)', fontsize=12)
+
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+
+        return self._save_figure(fig, "influence_ranking")
 
     def plot_wavelength_coverage(self) -> Path:
         """Plot coverage of selected wavelengths across spectrum.
