@@ -31,7 +31,7 @@ import numpy as np
 import torch
 
 from .config import Config
-from .types import SpectraData, WavelengthBand, WavelengthResult
+from .types import AnalysisMetrics, SpectraData, WavelengthBand, WavelengthResult
 
 if TYPE_CHECKING:
     pass
@@ -787,3 +787,244 @@ class Analyzer:
 
         else:
             raise ValueError(f"Unknown normalization method: {method}")
+
+    def _select_top_bands(self) -> List[WavelengthBand]:
+        """Select top wavelength combinations based on influence scores.
+
+        Applies optional diversity constraints (MMR or min_distance) to
+        avoid selecting redundant wavelengths.
+
+        Returns:
+            List of WavelengthBand objects ordered by rank.
+        """
+        if self._influence_matrix is None:
+            raise RuntimeError(
+                "_compute_influence_scores must be called before _select_top_bands"
+            )
+
+        logger.info(f"Selecting top {self._config.n_bands_to_select} wavelength combinations...")
+
+        # Build list of all (excitation, emission_idx, emission_wavelength, influence) tuples
+        all_combinations: List[Dict[str, Any]] = []
+
+        for ex in self._influence_matrix:
+            # Get emission wavelengths for this excitation
+            emission_wavelengths = self._dataset.emission_wavelengths.get(ex, None)
+
+            for band_idx, influence in enumerate(self._influence_matrix[ex]):
+                if emission_wavelengths and band_idx < len(emission_wavelengths):
+                    em_wavelength = emission_wavelengths[band_idx]
+                else:
+                    em_wavelength = float(band_idx)  # Fallback to index
+
+                all_combinations.append({
+                    "excitation": ex,
+                    "emission_idx": band_idx,
+                    "emission_wavelength": em_wavelength,
+                    "influence": float(influence),
+                    "rank": 0,  # Will be set later
+                })
+
+        # Sort by influence and assign initial ranks
+        all_combinations.sort(key=lambda x: x["influence"], reverse=True)
+        for i, combo in enumerate(all_combinations):
+            combo["rank"] = i + 1
+
+        # Apply diversity constraint if enabled
+        if self._config.use_diversity_constraint:
+            logger.info(f"Applying diversity constraint: {self._config.diversity_method}")
+            if self._config.diversity_method == "mmr":
+                selected = self._select_bands_mmr(all_combinations)
+            elif self._config.diversity_method == "min_distance":
+                selected = self._select_bands_min_distance(all_combinations)
+            else:
+                # Fallback to simple top-N
+                selected = all_combinations[: self._config.n_bands_to_select]
+        else:
+            selected = all_combinations[: self._config.n_bands_to_select]
+
+        # Convert to WavelengthBand objects with new ranks
+        bands: List[WavelengthBand] = []
+        for i, combo in enumerate(selected):
+            bands.append(
+                WavelengthBand(
+                    rank=i + 1,
+                    excitation_nm=combo["excitation"],
+                    emission_nm=combo["emission_wavelength"],
+                    emission_band_index=combo["emission_idx"],
+                    influence_score=combo["influence"],
+                )
+            )
+
+        logger.info(f"Selected {len(bands)} bands")
+        if bands:
+            logger.info(
+                f"Influence range: {bands[-1].influence_score:.2e} to "
+                f"{bands[0].influence_score:.2e}"
+            )
+
+        return bands
+
+    def _select_bands_mmr(
+        self, all_combinations: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Maximum Marginal Relevance (MMR) selection for wavelength diversity.
+
+        Balances influence (relevance) with spectral diversity by penalizing
+        similarity to already-selected bands.
+
+        Args:
+            all_combinations: Sorted list of band dictionaries.
+
+        Returns:
+            List of selected band dictionaries.
+        """
+        from sklearn.preprocessing import normalize
+
+        logger.info(f"Using MMR with lambda={self._config.lambda_diversity}")
+
+        # Get full hyperspectral data for computing spectral profiles
+        all_data = self._dataset.get_all_data()
+
+        # Build mapping from combination to spectral profile
+        band_profiles: Dict[Tuple[float, int], np.ndarray] = {}
+        for ex in all_data:
+            ex_data = all_data[ex].numpy()
+            for band_idx in range(ex_data.shape[-1]):
+                # Mean spectral profile across spatial locations (flatten spatial)
+                profile = ex_data[:, :, band_idx].flatten()
+                key = (ex, band_idx)
+                band_profiles[key] = profile
+
+        # Normalize profiles for cosine similarity
+        for key in band_profiles:
+            profile = band_profiles[key].reshape(1, -1)
+            band_profiles[key] = normalize(profile, axis=1).flatten()
+
+        # Start with highest influence band
+        selected_bands = [all_combinations[0]]
+        selected_keys = [
+            (all_combinations[0]["excitation"], all_combinations[0]["emission_idx"])
+        ]
+
+        logger.info(
+            f"Initial selection: Ex{all_combinations[0]['excitation']:.0f} "
+            f"Em{all_combinations[0]['emission_wavelength']:.1f}nm"
+        )
+
+        # Maximum influence for normalization
+        max_influence = all_combinations[0]["influence"]
+        if max_influence < 1e-10:
+            max_influence = 1.0  # Avoid division by zero
+
+        # Iterative MMR selection
+        while len(selected_bands) < self._config.n_bands_to_select:
+            best_mmr_score = -np.inf
+            best_combo = None
+            best_key = None
+
+            for combo in all_combinations:
+                combo_key = (combo["excitation"], combo["emission_idx"])
+
+                # Skip if already selected
+                if combo_key in selected_keys:
+                    continue
+
+                # Skip if profile not available
+                if combo_key not in band_profiles:
+                    continue
+
+                # Relevance: normalized influence score
+                relevance = combo["influence"] / max_influence
+
+                # Diversity: maximum similarity to any selected band
+                max_similarity = 0.0
+                for sel_key in selected_keys:
+                    if sel_key in band_profiles:
+                        # Cosine similarity between spectral profiles
+                        similarity = np.dot(
+                            band_profiles[combo_key], band_profiles[sel_key]
+                        )
+                        max_similarity = max(max_similarity, abs(similarity))
+
+                # MMR score: relevance - λ × max_similarity
+                mmr_score = relevance - self._config.lambda_diversity * max_similarity
+
+                if mmr_score > best_mmr_score:
+                    best_mmr_score = mmr_score
+                    best_combo = combo
+                    best_key = combo_key
+
+            if best_combo is not None:
+                selected_bands.append(best_combo)
+                selected_keys.append(best_key)
+
+                if len(selected_bands) % 10 == 0:
+                    logger.info(
+                        f"Selected {len(selected_bands)}/{self._config.n_bands_to_select}: "
+                        f"Ex{best_combo['excitation']:.0f} "
+                        f"Em{best_combo['emission_wavelength']:.1f}nm "
+                        f"(MMR score: {best_mmr_score:.4f})"
+                    )
+            else:
+                # No more valid candidates
+                logger.warning(
+                    f"Only found {len(selected_bands)} bands with diversity constraint"
+                )
+                break
+
+        return selected_bands
+
+    def _select_bands_min_distance(
+        self, all_combinations: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """Minimum distance constraint selection.
+
+        Ensures selected wavelengths within the same excitation are at least
+        min_distance_nm apart in emission wavelength.
+
+        Args:
+            all_combinations: Sorted list of band dictionaries.
+
+        Returns:
+            List of selected band dictionaries.
+        """
+        logger.info(
+            f"Using minimum distance constraint: {self._config.min_distance_nm} nm"
+        )
+
+        selected_bands: List[Dict[str, Any]] = []
+
+        for combo in all_combinations:
+            # Check if this wavelength is far enough from already-selected ones
+            is_valid = True
+
+            for selected in selected_bands:
+                # Only check distance for same excitation wavelength
+                if combo["excitation"] == selected["excitation"]:
+                    distance = abs(
+                        combo["emission_wavelength"] - selected["emission_wavelength"]
+                    )
+                    if distance < self._config.min_distance_nm:
+                        is_valid = False
+                        break
+
+            if is_valid:
+                selected_bands.append(combo)
+
+                if len(selected_bands) % 10 == 0:
+                    logger.info(
+                        f"Selected {len(selected_bands)}/{self._config.n_bands_to_select}: "
+                        f"Ex{combo['excitation']:.0f} "
+                        f"Em{combo['emission_wavelength']:.1f}nm"
+                    )
+
+            if len(selected_bands) >= self._config.n_bands_to_select:
+                break
+
+        if len(selected_bands) < self._config.n_bands_to_select:
+            logger.warning(
+                f"Only found {len(selected_bands)} bands satisfying distance constraint"
+            )
+
+        return selected_bands
