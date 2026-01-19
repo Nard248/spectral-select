@@ -21,10 +21,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
 
-from .types import WavelengthResult
+from .types import ValidationMetrics, WavelengthResult
 
 if TYPE_CHECKING:
     from .analyzer import Analyzer
+    from .validation import Validator
 
 
 class Visualizer:
@@ -218,6 +219,55 @@ class Visualizer:
 
         instance = cls(output_dir=output_dir, **kwargs)
         instance._analyzer = analyzer
+        return instance
+
+    @classmethod
+    def from_validation(
+        cls,
+        validator: "Validator",
+        cluster_map: np.ndarray,
+        output_dir: Optional[Union[str, Path]] = None,
+        **kwargs,
+    ) -> "Visualizer":
+        """Create visualizer configured for validation plots.
+
+        Sets up the visualizer with validation data for plotting confusion
+        matrices, accuracy heatmaps, and ROI overlays.
+
+        Args:
+            validator: Fitted Validator with computed metrics.
+            cluster_map: 2D cluster label array.
+            output_dir: Directory for saving plots.
+            **kwargs: Additional arguments passed to __init__.
+
+        Returns:
+            Visualizer instance ready for validation plotting.
+
+        Raises:
+            ValueError: If validator is not fitted.
+
+        Example:
+            validator = Validator()
+            validator.fit(cluster_labels, ground_truth)
+            viz = Visualizer.from_validation(validator, cluster_labels)
+            viz.plot_confusion_matrix(validator.metrics.confusion_matrix)
+        """
+        if not validator.is_fitted:
+            raise ValueError(
+                "Validator must be fitted before creating Visualizer. "
+                "Call validator.fit(cluster_labels, ground_truth) first."
+            )
+
+        if output_dir is None:
+            output_dir = Path("visualizations") / "validation"
+
+        instance = cls(output_dir=output_dir, **kwargs)
+
+        # Store validation-specific attributes for use in plotting methods
+        instance._validation_cluster_map = cluster_map
+        instance._validation_ground_truth = validator.ground_truth
+        instance._validation_metrics = validator.metrics
+
         return instance
 
     # =========================================================================
