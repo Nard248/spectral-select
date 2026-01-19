@@ -17,13 +17,30 @@ Example:
         sample_name="Lichens_2",
         classifier=MyCustomClassifier,
     )
+
+    # Loading from file
+    config = Config.from_yaml("config.yaml")
+    config = Config.from_json("config.json")
+
+    # Saving to file
+    config.to_yaml("config.yaml")
+    config.to_json("config.json")
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import json
+import warnings
+from dataclasses import dataclass, field, fields
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, List, Optional, Type, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union
+
+try:
+    import yaml
+
+    _YAML_AVAILABLE = True
+except ImportError:
+    _YAML_AVAILABLE = False
 
 if TYPE_CHECKING:
     from .protocols import (
@@ -323,3 +340,125 @@ class Config:
                 f"got {type(component).__name__}"
             )
         return component
+
+    # -------------------------------------------------------------------------
+    # Serialization: Loading from files/dicts
+    # -------------------------------------------------------------------------
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Config":
+        """Create a Config instance from a dictionary.
+
+        Args:
+            data: Dictionary containing configuration values.
+
+        Returns:
+            A new Config instance.
+
+        Note:
+            Unknown keys in the dictionary are skipped with a warning
+            for forward compatibility.
+        """
+        # Get valid field names from dataclass
+        valid_fields = {f.name for f in fields(cls)}
+
+        # Prepare kwargs, converting and filtering as needed
+        kwargs: Dict[str, Any] = {}
+
+        for key, value in data.items():
+            if key not in valid_fields:
+                warnings.warn(
+                    f"Unknown configuration key '{key}' - skipping",
+                    UserWarning,
+                    stacklevel=2,
+                )
+                continue
+
+            # Handle Path conversion for path fields
+            if key in ("data_path", "mask_path", "model_path", "output_dir"):
+                if value is not None and isinstance(value, str):
+                    value = Path(value)
+
+            # Handle component fields with dict format
+            if key in (
+                "classifier",
+                "clustering",
+                "autoencoder_architecture",
+                "wavelength_ranker",
+            ):
+                if isinstance(value, dict) and "type" in value:
+                    # If it's a custom component serialized as dict, keep the type string
+                    # Custom class restoration would need additional machinery
+                    value = value.get("type", value)
+
+            kwargs[key] = value
+
+        return cls(**kwargs)
+
+    @classmethod
+    def from_yaml(cls, path: Union[str, Path]) -> "Config":
+        """Load configuration from a YAML file.
+
+        Args:
+            path: Path to the YAML file.
+
+        Returns:
+            A new Config instance.
+
+        Raises:
+            ImportError: If PyYAML is not installed.
+            FileNotFoundError: If the file doesn't exist.
+            ValueError: If the YAML content is invalid.
+        """
+        if not _YAML_AVAILABLE:
+            raise ImportError(
+                "PyYAML is required for YAML support. "
+                "Install it with: pip install pyyaml"
+            )
+
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"Configuration file not found: {path}")
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = yaml.safe_load(f)
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML in {path}: {e}") from e
+
+        if data is None:
+            data = {}
+
+        if not isinstance(data, dict):
+            raise ValueError(f"YAML file must contain a mapping, got {type(data).__name__}")
+
+        return cls.from_dict(data)
+
+    @classmethod
+    def from_json(cls, path: Union[str, Path]) -> "Config":
+        """Load configuration from a JSON file.
+
+        Args:
+            path: Path to the JSON file.
+
+        Returns:
+            A new Config instance.
+
+        Raises:
+            FileNotFoundError: If the file doesn't exist.
+            ValueError: If the JSON content is invalid.
+        """
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"Configuration file not found: {path}")
+
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in {path}: {e}") from e
+
+        if not isinstance(data, dict):
+            raise ValueError(f"JSON file must contain an object, got {type(data).__name__}")
+
+        return cls.from_dict(data)
