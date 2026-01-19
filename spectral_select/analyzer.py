@@ -554,3 +554,195 @@ class Analyzer:
         # Log top 5 for visibility
         for i, (score, coords) in enumerate(self._important_dims[:5]):
             logger.info(f"  {i + 1}. {coords}: importance = {score:.6f}")
+
+    def _compute_influence_scores(self) -> None:
+        """Compute influence scores through latent space perturbation.
+
+        For each important dimension, applies perturbations at various magnitudes
+        and directions, measuring how much each emission band changes in the
+        reconstruction. Results are accumulated into self._influence_matrix.
+        """
+        if self._baseline_latent is None or self._important_dims is None:
+            raise RuntimeError(
+                "_setup_baseline and _select_important_dimensions must be called first"
+            )
+
+        logger.info(
+            f"Computing influence scores using {self._config.perturbation_method} method..."
+        )
+
+        # Initialize influence matrix for each excitation wavelength
+        self._influence_matrix = {}
+        for ex in self._model.excitation_wavelengths:
+            n_bands = self._model.emission_bands[ex]
+            self._influence_matrix[ex] = np.zeros(n_bands)
+
+        # Get latent dimensions for statistics calculation
+        batch_size, n_channels, n_latent, h_latent, w_latent = self._baseline_latent.shape
+        latent_flat = self._baseline_latent.reshape(batch_size, -1)
+
+        # Calculate statistics for perturbation scaling
+        stats = self._calculate_latent_statistics(latent_flat)
+
+        # Perturbation parameters from config
+        magnitudes = self._config.perturbation_magnitudes
+        directions = self._config.perturbation_directions
+
+        total_perturbations = 0
+
+        logger.info(
+            f"Analyzing {len(self._important_dims)} dimensions with magnitudes {magnitudes}"
+        )
+
+        for dim_idx, (importance_score, coords) in enumerate(self._important_dims):
+            c, l, h, w = coords
+
+            for magnitude in magnitudes:
+                for direction in directions:
+                    # Determine which signs to test
+                    if direction == "bidirectional":
+                        test_signs = [-1, 1]
+                    elif direction == "positive":
+                        test_signs = [1]
+                    elif direction == "negative":
+                        test_signs = [-1]
+                    else:
+                        test_signs = [-1, 1]  # Default to bidirectional
+
+                    for sign in test_signs:
+                        # Calculate perturbation amount
+                        perturbation_amount = self._calculate_perturbation_amount(
+                            coords, magnitude, sign, stats, latent_flat.shape
+                        )
+
+                        # Apply perturbation to baseline latent
+                        perturbed_latent = self._baseline_latent.clone()
+                        perturbed_latent[:, c, l, h, w] += perturbation_amount
+
+                        # Measure influence on each emission band
+                        influence = self._measure_band_influence(
+                            perturbed_latent, importance_score
+                        )
+
+                        # Accumulate influence (weight by number of directions)
+                        weight = 1.0 if len(test_signs) == 1 else 0.5
+                        for ex in influence:
+                            self._influence_matrix[ex] += influence[ex] * weight
+
+                        total_perturbations += 1
+
+        logger.info(f"Completed {total_perturbations} perturbations")
+
+    def _calculate_latent_statistics(
+        self, latent_flat: torch.Tensor
+    ) -> Dict[str, Any]:
+        """Calculate statistics for perturbation scaling.
+
+        Args:
+            latent_flat: Flattened latent tensor of shape (batch, features).
+
+        Returns:
+            Dictionary with mean, std, min, max, and percentiles.
+        """
+        percentiles = [5, 10, 25, 50, 75, 90, 95]
+        stats: Dict[str, Any] = {
+            "mean": torch.mean(latent_flat, dim=0),
+            "std": torch.std(latent_flat, dim=0),
+            "min": torch.min(latent_flat, dim=0)[0],
+            "max": torch.max(latent_flat, dim=0)[0],
+            "percentiles": {},
+        }
+
+        for p in percentiles:
+            stats["percentiles"][p] = torch.quantile(latent_flat, p / 100.0, dim=0)
+
+        return stats
+
+    def _calculate_perturbation_amount(
+        self,
+        coords: Tuple[int, int, int, int],
+        magnitude: float,
+        sign: int,
+        stats: Dict[str, Any],
+        shape: Tuple[int, int],
+    ) -> float:
+        """Calculate the perturbation amount based on method.
+
+        Args:
+            coords: (channel, latent, h, w) coordinates.
+            magnitude: Perturbation magnitude (interpretation depends on method).
+            sign: Direction of perturbation (-1 or 1).
+            stats: Precomputed statistics dictionary.
+            shape: Shape of flattened latent (batch_size, n_features).
+
+        Returns:
+            Perturbation amount to add to the latent dimension.
+        """
+        c, l, h, w = coords
+        batch_size, n_features = shape
+        n_channels, n_latent, h_latent, w_latent = self._baseline_latent.shape[1:]
+
+        # Calculate flat index for this coordinate
+        flat_idx = (
+            c * (n_latent * h_latent * w_latent)
+            + l * (h_latent * w_latent)
+            + h * w_latent
+            + w
+        )
+
+        method = self._config.perturbation_method
+
+        if method == "percentile":
+            # Shift toward target percentile
+            target_percentile = 50 + sign * magnitude / 2
+            closest_percentile = min(
+                stats["percentiles"].keys(),
+                key=lambda x: abs(x - target_percentile),
+            )
+            target_value = stats["percentiles"][closest_percentile][flat_idx]
+            current_mean = torch.mean(self._baseline_latent[:, c, l, h, w])
+            return (target_value - current_mean).item()
+
+        elif method == "standard_deviation":
+            # Scale by standard deviation
+            std_val = stats["std"][flat_idx]
+            return sign * (magnitude / 100.0) * std_val.item()
+
+        elif method == "absolute_range":
+            # Scale by value range
+            value_range = stats["max"][flat_idx] - stats["min"][flat_idx]
+            return sign * (magnitude / 100.0) * value_range.item()
+
+        else:
+            raise ValueError(f"Unknown perturbation method: {method}")
+
+    def _measure_band_influence(
+        self, perturbed_latent: torch.Tensor, importance_weight: float = 1.0
+    ) -> Dict[float, np.ndarray]:
+        """Measure the influence of perturbation on each emission band.
+
+        Args:
+            perturbed_latent: Perturbed latent tensor.
+            importance_weight: Weight to apply based on dimension importance.
+
+        Returns:
+            Dictionary mapping excitation wavelength to influence per band.
+        """
+        influence: Dict[float, np.ndarray] = {}
+
+        with torch.no_grad():
+            perturbed_recon = self._model.decode(perturbed_latent)
+
+            for ex in self._model.excitation_wavelengths:
+                if ex in self._baseline_reconstruction:
+                    baseline = self._baseline_reconstruction[ex]
+                    perturbed = perturbed_recon[ex]
+
+                    # Calculate mean absolute difference across batch and spatial dimensions
+                    # Result shape: (n_bands,)
+                    band_differences = torch.mean(
+                        torch.abs(perturbed - baseline), dim=(0, 1, 2)
+                    )
+                    influence[ex] = band_differences.cpu().numpy() * importance_weight
+
+        return influence
