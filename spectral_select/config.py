@@ -462,3 +462,108 @@ class Config:
             raise ValueError(f"JSON file must contain an object, got {type(data).__name__}")
 
         return cls.from_dict(data)
+
+    # -------------------------------------------------------------------------
+    # Serialization: Saving to files/dicts
+    # -------------------------------------------------------------------------
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert configuration to a dictionary suitable for serialization.
+
+        Returns:
+            Dictionary with all configuration values. Path objects are converted
+            to strings, and pluggable components are serialized appropriately.
+        """
+        result: Dict[str, Any] = {}
+
+        for f in fields(self):
+            value = getattr(self, f.name)
+
+            # Convert Path objects to strings
+            if isinstance(value, Path):
+                value = str(value)
+
+            # Handle pluggable components
+            if f.name in (
+                "classifier",
+                "clustering",
+                "autoencoder_architecture",
+                "wavelength_ranker",
+            ):
+                if isinstance(value, str):
+                    # Built-in identifier, keep as-is
+                    pass
+                elif callable(value):
+                    # Custom class or callable - store qualified name
+                    if hasattr(value, "__module__") and hasattr(value, "__qualname__"):
+                        value = {
+                            "type": "custom",
+                            "class": f"{value.__module__}.{value.__qualname__}",
+                        }
+                    else:
+                        value = {"type": "custom", "class": str(value)}
+
+            result[f.name] = value
+
+        return result
+
+    def to_yaml(self, path: Union[str, Path]) -> None:
+        """Save configuration to a YAML file.
+
+        Args:
+            path: Path to save the YAML file.
+
+        Raises:
+            ImportError: If PyYAML is not installed.
+        """
+        if not _YAML_AVAILABLE:
+            raise ImportError(
+                "PyYAML is required for YAML support. "
+                "Install it with: pip install pyyaml"
+            )
+
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(self.to_dict(), f, default_flow_style=False, sort_keys=False)
+
+    def to_json(self, path: Union[str, Path]) -> None:
+        """Save configuration to a JSON file.
+
+        Args:
+            path: Path to save the JSON file.
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=2)
+
+    # -------------------------------------------------------------------------
+    # Special methods
+    # -------------------------------------------------------------------------
+
+    def __repr__(self) -> str:
+        """Return a readable string representation of the configuration."""
+        return (
+            f"Config(\n"
+            f"  sample_name={self.sample_name!r},\n"
+            f"  n_bands_to_select={self.n_bands_to_select},\n"
+            f"  n_important_dimensions={self.n_important_dimensions},\n"
+            f"  dimension_selection_method={self.dimension_selection_method!r},\n"
+            f"  perturbation_method={self.perturbation_method!r},\n"
+            f"  device={self.device!r},\n"
+            f"  ...  # {len(fields(self)) - 6} more fields\n"
+            f")"
+        )
+
+    def __eq__(self, other: object) -> bool:
+        """Compare two configurations for equality."""
+        if not isinstance(other, Config):
+            return NotImplemented
+
+        for f in fields(self):
+            if getattr(self, f.name) != getattr(other, f.name):
+                return False
+        return True
