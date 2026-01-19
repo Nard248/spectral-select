@@ -23,7 +23,9 @@ Example:
 from __future__ import annotations
 
 import pickle
+import json
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TypeAlias, Union
 
@@ -420,4 +422,97 @@ class SpectraData:
         raise ValueError(
             f"Unrecognized pickle format. Expected dict with 'data' and "
             f"'excitation_wavelengths' keys, or SpectraData format."
+        )
+
+
+# ============================================================================
+# Output/Result Data Types
+# ============================================================================
+
+
+@dataclass
+class WavelengthBand:
+    """A single selected wavelength combination from analysis.
+
+    Represents one excitation-emission pair selected during wavelength
+    selection analysis, ranked by its influence/importance score.
+
+    Attributes:
+        rank: 1-indexed rank in selection order (1 = most important).
+        excitation_nm: Excitation wavelength in nanometers.
+        emission_nm: Emission wavelength in nanometers.
+        emission_band_index: Index into the emission band array.
+        influence_score: Importance/sensitivity score from analysis.
+
+    Example:
+        band = WavelengthBand(
+            rank=1,
+            excitation_nm=365.0,
+            emission_nm=500.0,
+            emission_band_index=8,
+            influence_score=0.85,
+        )
+        print(band)  # WavelengthBand(rank=1, ex=365.0nm, em=500.0nm, score=0.85)
+    """
+
+    rank: int
+    excitation_nm: float
+    emission_nm: float
+    emission_band_index: int
+    influence_score: float
+
+    def __post_init__(self) -> None:
+        """Validate fields after initialization."""
+        if self.rank < 1:
+            raise ValueError(f"rank must be >= 1, got {self.rank}")
+        if self.excitation_nm <= 0:
+            raise ValueError(
+                f"excitation_nm must be positive, got {self.excitation_nm}"
+            )
+        if self.emission_nm <= 0:
+            raise ValueError(
+                f"emission_nm must be positive, got {self.emission_nm}"
+            )
+        if self.emission_band_index < 0:
+            raise ValueError(
+                f"emission_band_index must be >= 0, got {self.emission_band_index}"
+            )
+
+    def __repr__(self) -> str:
+        """Readable representation."""
+        return (
+            f"WavelengthBand(rank={self.rank}, ex={self.excitation_nm}nm, "
+            f"em={self.emission_nm}nm, score={self.influence_score:.2f})"
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all field values.
+        """
+        return {
+            "rank": self.rank,
+            "excitation_nm": self.excitation_nm,
+            "emission_nm": self.emission_nm,
+            "emission_band_index": self.emission_band_index,
+            "influence_score": self.influence_score,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "WavelengthBand":
+        """Create from dictionary.
+
+        Args:
+            data: Dictionary with WavelengthBand fields.
+
+        Returns:
+            A new WavelengthBand instance.
+        """
+        return cls(
+            rank=data["rank"],
+            excitation_nm=data["excitation_nm"],
+            emission_nm=data["emission_nm"],
+            emission_band_index=data["emission_band_index"],
+            influence_score=data["influence_score"],
         )
