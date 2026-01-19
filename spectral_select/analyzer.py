@@ -399,3 +399,81 @@ class Analyzer:
         logger.info(
             f"Model training complete. Final loss: {losses[-1]:.6f}"
         )
+
+    def _setup_baseline(self) -> None:
+        """Setup baseline latent representations for perturbation analysis.
+
+        Extracts patches from the spatial domain, validates them against the mask,
+        encodes them through the model, and stores baseline latent representations.
+        These baselines are used for measuring the effect of wavelength perturbations.
+        """
+        if self._dataset is None or self._model is None:
+            raise RuntimeError(
+                "_load_data and _load_or_train_model must be called before _setup_baseline"
+            )
+
+        logger.info("Setting up baseline latent representations...")
+
+        # Get all data and spatial dimensions from dataset
+        all_data = self._dataset.get_all_data()
+        height, width = self._dataset.get_spatial_dimensions()
+        mask = self._dataset.processed_mask
+
+        # Get patch parameters from config
+        patch_size = self._config.patch_size
+        stride = self._config.patch_stride
+        n_baseline_patches = self._config.n_baseline_patches
+
+        # Find valid patch coordinates (more than 50% valid pixels in mask)
+        patch_coords: List[Tuple[int, int]] = []
+
+        for y in range(0, height - patch_size + 1, stride):
+            for x in range(0, width - patch_size + 1, stride):
+                if mask is not None:
+                    patch_mask = mask[y : y + patch_size, x : x + patch_size]
+                    valid_ratio = np.sum(patch_mask) / (patch_size * patch_size)
+                    if valid_ratio <= 0.5:
+                        continue
+
+                patch_coords.append((y, x))
+                if len(patch_coords) >= n_baseline_patches:
+                    break
+            if len(patch_coords) >= n_baseline_patches:
+                break
+
+        if not patch_coords:
+            raise ValueError(
+                f"No valid patches found with size {patch_size} and stride {stride}. "
+                "Check mask coverage or reduce patch_size."
+            )
+
+        # Store patch coordinates for reproducibility
+        self._patch_coords = patch_coords
+
+        logger.info(
+            f"Selected {len(patch_coords)} patches of size {patch_size}x{patch_size}"
+        )
+
+        # Extract patches for each excitation wavelength
+        patches_data: Dict[float, torch.Tensor] = {}
+        for ex in all_data:
+            patches = []
+            for y, x in patch_coords:
+                patch = all_data[ex][y : y + patch_size, x : x + patch_size, :]
+                patches.append(patch)
+            patches_data[ex] = torch.stack(patches)
+
+        # Encode patches through model to get baseline latent representations
+        with torch.no_grad():
+            # Move patches to device
+            patches_data_device = {
+                ex: data.to(self._device) for ex, data in patches_data.items()
+            }
+
+            # Encode patches
+            self._baseline_latent = self._model.encode(patches_data_device)
+
+            # Decode for baseline reconstruction
+            self._baseline_reconstruction = self._model.decode(self._baseline_latent)
+
+        logger.info(f"Baseline latent shape: {self._baseline_latent.shape}")
