@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-19)
 
 **Core value:** Clean, stable, reproducible wavelength selection analysis that anyone can `from spectral_select import Analyzer` and use immediately.
-**Current focus:** Phase 6 — Ground Truth Validation (In progress)
+**Current focus:** Phase 7 — Notebook Migration (Ready to start)
 
 ## Current Position
 
 Phase: 6 of 8 (Ground Truth Validation)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-19 — Completed 06-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-19 — Completed 06-02-PLAN.md
 
-Progress: ██████████░ 65%
+Progress: ████████████░░ 70%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 14
+- Total plans completed: 15
 - Average duration: 5.1 min
-- Total execution time: 1.2 hours
+- Total execution time: 1.3 hours
 
 **By Phase:**
 
@@ -32,11 +32,11 @@ Progress: ██████████░ 65%
 | 3. Core Data Types | 2 | 9 min | 4.5 min |
 | 4. Analysis Engine | 4 | 26 min | 6.5 min |
 | 5. Visualization Module | 3 | 16 min | 5.3 min |
-| 6. Ground Truth Validation | 1 | 8 min | 8 min |
+| 6. Ground Truth Validation | 2 | 13 min | 6.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 05-01 (3 min), 05-02 (6 min), 05-03 (7 min), 06-01 (8 min)
-- Trend: Phase 6 started, validation module taking shape
+- Last 5 plans: 05-02 (6 min), 05-03 (7 min), 06-01 (8 min), 06-02 (5 min)
+- Trend: Phase 6 complete, validation module fully implemented
 
 ## Accumulated Context
 
@@ -86,6 +86,9 @@ Recent decisions affecting current work:
 - **06-01:** Validator.score() returns ARI as primary metric (sklearn convention)
 - **06-01:** Background pixels use -1 convention throughout
 - **06-01:** PNG loader uses 30px tolerance for background, configurable for classes
+- **06-02:** Store flattened ground_truth in Validator.fit() for later retrieval
+- **06-02:** Report format uses Markdown tables for GitHub/Jupyter rendering
+- **06-02:** Visualizer stores validation data in private attributes
 
 ### Deferred Issues
 
@@ -98,5 +101,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Completed 06-01-PLAN.md
+Stopped at: Completed 06-02-PLAN.md (Phase 6 complete)
 Resume file: None
