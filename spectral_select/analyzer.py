@@ -746,3 +746,44 @@ class Analyzer:
                     influence[ex] = band_differences.cpu().numpy() * importance_weight
 
         return influence
+
+    def _normalize_influences(self) -> None:
+        """Normalize influence scores based on configured method.
+
+        Applies normalization to the influence matrix to account for
+        different band characteristics:
+        - variance: Divide by per-band variance in original data
+        - max_per_excitation: Normalize each excitation to [0, 1]
+        - none: Skip normalization (use raw scores)
+        """
+        if self._influence_matrix is None:
+            raise RuntimeError("_compute_influence_scores must be called first")
+
+        method = self._config.normalization_method
+
+        logger.info(f"Applying {method} normalization...")
+
+        if method == "variance":
+            # Divide influence by per-band variance in original data
+            all_data = self._dataset.get_all_data()
+            for ex in self._influence_matrix:
+                if ex in all_data:
+                    # Compute variance across spatial dimensions for each band
+                    band_vars = np.var(all_data[ex].numpy(), axis=(0, 1))
+                    # Avoid division by zero
+                    band_vars[band_vars < 1e-10] = 1e-10
+                    self._influence_matrix[ex] = self._influence_matrix[ex] / band_vars
+
+        elif method == "max_per_excitation":
+            # Normalize each excitation's influences to [0, 1]
+            for ex in self._influence_matrix:
+                max_inf = np.max(self._influence_matrix[ex])
+                if max_inf > 1e-10:
+                    self._influence_matrix[ex] = self._influence_matrix[ex] / max_inf
+
+        elif method == "none":
+            # No normalization - keep raw influence scores
+            pass
+
+        else:
+            raise ValueError(f"Unknown normalization method: {method}")
