@@ -4,6 +4,8 @@ This module provides typed data classes for hyperspectral data handling:
 - LoadingOptions: Configuration for data preprocessing
 - ExcitationData: Per-excitation wavelength spectral cube
 - SpectraData: Multi-excitation hyperspectral data container
+- GroundTruth: Ground truth labels for clustering validation
+- ValidationMetrics: Clustering evaluation metrics
 
 Example:
     # Loading preprocessed data
@@ -18,6 +20,12 @@ Example:
         normalize_exposure=True,
         downscale_factor=2,
     )
+
+    # Validation
+    from spectral_select.types import GroundTruth, ValidationMetrics
+
+    gt = GroundTruth.from_array(labels_2d)
+    print(f"Classes: {gt.n_classes}")
 """
 
 from __future__ import annotations
@@ -787,3 +795,330 @@ class WavelengthResult:
             data = json.load(f)
 
         return cls.from_dict(data)
+
+
+# ============================================================================
+# Ground Truth and Validation Data Types
+# ============================================================================
+
+
+@dataclass
+class GroundTruth:
+    """Ground truth labels for clustering validation.
+
+    Container for 2D label arrays from annotated images, with support
+    for background pixels (label -1) and color-to-class mappings.
+
+    Attributes:
+        labels: 2D integer array where -1 indicates background.
+        color_mapping: Mapping from label integers to RGBA tuples.
+        class_names: Optional human-readable names for each class.
+
+    Example:
+        gt = GroundTruth.from_array(labels_2d)
+        print(f"Classes: {gt.n_classes}, valid pixels: {gt.valid_mask.sum()}")
+    """
+
+    labels: np.ndarray
+    color_mapping: Dict[int, Tuple[int, int, int, int]] = field(default_factory=dict)
+    class_names: Optional[List[str]] = None
+
+    def __post_init__(self) -> None:
+        """Validate ground truth data after initialization."""
+        if self.labels.ndim != 2:
+            raise ValueError(
+                f"labels must be 2D array, got shape {self.labels.shape}"
+            )
+
+        # Ensure labels are integer type
+        if not np.issubdtype(self.labels.dtype, np.integer):
+            self.labels = self.labels.astype(np.int32)
+
+        # Validate class_names length if provided
+        if self.class_names is not None:
+            if len(self.class_names) != self.n_classes:
+                raise ValueError(
+                    f"class_names length ({len(self.class_names)}) must equal "
+                    f"n_classes ({self.n_classes})"
+                )
+
+    @property
+    def n_classes(self) -> int:
+        """Number of ground truth classes (excluding background -1)."""
+        unique_labels = np.unique(self.labels)
+        return int(np.sum(unique_labels >= 0))
+
+    @property
+    def valid_mask(self) -> np.ndarray:
+        """Boolean mask where True indicates non-background pixels."""
+        return self.labels >= 0
+
+    @property
+    def shape(self) -> Tuple[int, int]:
+        """Spatial shape (height, width) of the labels array."""
+        return self.labels.shape
+
+    @classmethod
+    def from_array(
+        cls,
+        labels: np.ndarray,
+        class_names: Optional[List[str]] = None,
+    ) -> "GroundTruth":
+        """Create GroundTruth from a simple label array.
+
+        Convenience factory that auto-generates color mapping.
+
+        Args:
+            labels: 2D integer array with -1 for background.
+            class_names: Optional list of class names.
+
+        Returns:
+            A new GroundTruth instance.
+        """
+        # Generate default color mapping
+        unique_labels = np.unique(labels)
+        color_mapping: Dict[int, Tuple[int, int, int, int]] = {
+            -1: (0, 0, 0, 0)  # Background transparent
+        }
+
+        # Use distinct colors for each class
+        for label in unique_labels:
+            if label >= 0:
+                # Generate colors using golden ratio for visual separation
+                hue = (label * 137.5) % 360
+                # Simple HSV to RGB conversion for distinct colors
+                h = hue / 60
+                x = int(255 * (1 - abs(h % 2 - 1)))
+                i = int(h) % 6
+                rgb_map = [
+                    (255, x, 0), (x, 255, 0), (0, 255, x),
+                    (0, x, 255), (x, 0, 255), (255, 0, x)
+                ]
+                r, g, b = rgb_map[i]
+                color_mapping[int(label)] = (r, g, b, 255)
+
+        return cls(
+            labels=labels,
+            color_mapping=color_mapping,
+            class_names=class_names,
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Note: Labels array is converted to list; use to_pickle for large data.
+
+        Returns:
+            Dictionary with all ground truth data.
+        """
+        return {
+            "labels": self.labels.tolist(),
+            "color_mapping": {
+                str(k): list(v) for k, v in self.color_mapping.items()
+            },
+            "class_names": self.class_names,
+            "n_classes": self.n_classes,
+            "shape": self.shape,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "GroundTruth":
+        """Create from dictionary.
+
+        Args:
+            data: Dictionary with GroundTruth fields.
+
+        Returns:
+            A new GroundTruth instance.
+        """
+        labels = np.array(data["labels"], dtype=np.int32)
+        color_mapping = {
+            int(k): tuple(v) for k, v in data.get("color_mapping", {}).items()
+        }
+
+        return cls(
+            labels=labels,
+            color_mapping=color_mapping,
+            class_names=data.get("class_names"),
+        )
+
+
+@dataclass
+class ValidationMetrics:
+    """Clustering evaluation metrics against ground truth.
+
+    Contains comprehensive metrics for evaluating clustering results,
+    including sklearn-compatible scores and per-class statistics.
+
+    Attributes:
+        adjusted_rand_score: Adjusted Rand Index (-1 to 1, 1 = perfect).
+        normalized_mutual_info: Normalized Mutual Information (0 to 1).
+        adjusted_mutual_info: Adjusted Mutual Information.
+        fowlkes_mallows_score: Fowlkes-Mallows Index.
+        v_measure: V-measure (harmonic mean of homogeneity and completeness).
+        homogeneity: Homogeneity score (0 to 1).
+        completeness: Completeness score (0 to 1).
+        purity: Cluster purity (fraction of correctly assigned pixels).
+        cluster_to_gt_mapping: Optimal mapping from cluster IDs to GT classes.
+        confusion_matrix: Confusion matrix (rows=GT, cols=predicted).
+        per_class_precision: Precision for each ground truth class.
+        per_class_recall: Recall for each ground truth class.
+        per_class_f1: F1 score for each ground truth class.
+        n_ground_truth_classes: Number of classes in ground truth.
+        n_predicted_clusters: Number of predicted clusters.
+
+    Example:
+        metrics = validator.metrics
+        print(f"ARI: {metrics.adjusted_rand_score:.3f}")
+        print(metrics.summary())
+    """
+
+    adjusted_rand_score: float
+    normalized_mutual_info: float
+    adjusted_mutual_info: float
+    fowlkes_mallows_score: float
+    v_measure: float
+    homogeneity: float
+    completeness: float
+    purity: float
+    cluster_to_gt_mapping: Dict[int, int]
+    confusion_matrix: np.ndarray
+    per_class_precision: Dict[int, float]
+    per_class_recall: Dict[int, float]
+    per_class_f1: Dict[int, float]
+    n_ground_truth_classes: int
+    n_predicted_clusters: int
+
+    def __post_init__(self) -> None:
+        """Validate metrics after initialization."""
+        # Score range validation
+        score_attrs = [
+            ("adjusted_rand_score", -1.0, 1.0),
+            ("normalized_mutual_info", 0.0, 1.0),
+            ("v_measure", 0.0, 1.0),
+            ("homogeneity", 0.0, 1.0),
+            ("completeness", 0.0, 1.0),
+            ("purity", 0.0, 1.0),
+        ]
+        for attr, min_val, max_val in score_attrs:
+            val = getattr(self, attr)
+            if not (min_val <= val <= max_val):
+                raise ValueError(
+                    f"{attr} must be in [{min_val}, {max_val}], got {val}"
+                )
+
+        # Ensure confusion_matrix is 2D numpy array
+        if not isinstance(self.confusion_matrix, np.ndarray):
+            self.confusion_matrix = np.array(self.confusion_matrix)
+        if self.confusion_matrix.ndim != 2:
+            raise ValueError(
+                f"confusion_matrix must be 2D, got shape {self.confusion_matrix.shape}"
+            )
+
+    def summary(self) -> str:
+        """Generate a formatted summary string of all metrics.
+
+        Returns:
+            Multi-line string with all metrics formatted for display.
+        """
+        lines = [
+            "=" * 50,
+            "Clustering Validation Metrics",
+            "=" * 50,
+            "",
+            f"Clusters: {self.n_predicted_clusters}  |  "
+            f"Ground Truth Classes: {self.n_ground_truth_classes}",
+            "",
+            "Global Metrics:",
+            f"  Purity:             {self.purity:.4f}",
+            f"  Adjusted Rand:      {self.adjusted_rand_score:.4f}",
+            f"  NMI:                {self.normalized_mutual_info:.4f}",
+            f"  AMI:                {self.adjusted_mutual_info:.4f}",
+            f"  V-Measure:          {self.v_measure:.4f}",
+            f"  Homogeneity:        {self.homogeneity:.4f}",
+            f"  Completeness:       {self.completeness:.4f}",
+            f"  Fowlkes-Mallows:    {self.fowlkes_mallows_score:.4f}",
+            "",
+            "Per-Class F1 Scores:",
+        ]
+
+        for cls_id in sorted(self.per_class_f1.keys()):
+            f1 = self.per_class_f1[cls_id]
+            prec = self.per_class_precision.get(cls_id, 0.0)
+            rec = self.per_class_recall.get(cls_id, 0.0)
+            lines.append(f"  Class {cls_id}: F1={f1:.3f}  P={prec:.3f}  R={rec:.3f}")
+
+        lines.extend(["", "Cluster → GT Mapping:"])
+        for cluster_id, gt_id in sorted(self.cluster_to_gt_mapping.items()):
+            lines.append(f"  Cluster {cluster_id} → Class {gt_id}")
+
+        lines.append("=" * 50)
+        return "\n".join(lines)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization.
+
+        Returns:
+            Dictionary with all metric values.
+        """
+        return {
+            "adjusted_rand_score": self.adjusted_rand_score,
+            "normalized_mutual_info": self.normalized_mutual_info,
+            "adjusted_mutual_info": self.adjusted_mutual_info,
+            "fowlkes_mallows_score": self.fowlkes_mallows_score,
+            "v_measure": self.v_measure,
+            "homogeneity": self.homogeneity,
+            "completeness": self.completeness,
+            "purity": self.purity,
+            "cluster_to_gt_mapping": {
+                str(k): v for k, v in self.cluster_to_gt_mapping.items()
+            },
+            "confusion_matrix": self.confusion_matrix.tolist(),
+            "per_class_precision": {
+                str(k): v for k, v in self.per_class_precision.items()
+            },
+            "per_class_recall": {
+                str(k): v for k, v in self.per_class_recall.items()
+            },
+            "per_class_f1": {
+                str(k): v for k, v in self.per_class_f1.items()
+            },
+            "n_ground_truth_classes": self.n_ground_truth_classes,
+            "n_predicted_clusters": self.n_predicted_clusters,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ValidationMetrics":
+        """Create from dictionary.
+
+        Args:
+            data: Dictionary with ValidationMetrics fields.
+
+        Returns:
+            A new ValidationMetrics instance.
+        """
+        return cls(
+            adjusted_rand_score=data["adjusted_rand_score"],
+            normalized_mutual_info=data["normalized_mutual_info"],
+            adjusted_mutual_info=data["adjusted_mutual_info"],
+            fowlkes_mallows_score=data["fowlkes_mallows_score"],
+            v_measure=data["v_measure"],
+            homogeneity=data["homogeneity"],
+            completeness=data["completeness"],
+            purity=data["purity"],
+            cluster_to_gt_mapping={
+                int(k): v for k, v in data["cluster_to_gt_mapping"].items()
+            },
+            confusion_matrix=np.array(data["confusion_matrix"]),
+            per_class_precision={
+                int(k): v for k, v in data["per_class_precision"].items()
+            },
+            per_class_recall={
+                int(k): v for k, v in data["per_class_recall"].items()
+            },
+            per_class_f1={
+                int(k): v for k, v in data["per_class_f1"].items()
+            },
+            n_ground_truth_classes=data["n_ground_truth_classes"],
+            n_predicted_clusters=data["n_predicted_clusters"],
+        )
