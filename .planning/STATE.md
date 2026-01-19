@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-19)
 
 **Core value:** Clean, stable, reproducible wavelength selection analysis that anyone can `from spectral_select import Analyzer` and use immediately.
-**Current focus:** Phase 4 — Analysis Engine
+**Current focus:** Phase 4 — Analysis Engine (Complete)
 
 ## Current Position
 
 Phase: 4 of 8 (Analysis Engine)
-Plan: 3 of 4 in current phase
-Status: In progress
-Last activity: 2026-01-19 — Completed 04-03-PLAN.md
+Plan: 4 of 4 in current phase
+Status: Phase complete
+Last activity: 2026-01-19 — Completed 04-04-PLAN.md
 
-Progress: █████░░░░░ 41%
+Progress: █████░░░░░ 45%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 9
-- Average duration: 4.9 min
-- Total execution time: 0.7 hours
+- Total plans completed: 10
+- Average duration: 5.0 min
+- Total execution time: 0.8 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: █████░░░░░ 41%
 | 1. Package Structure | 2 | 6 min | 3 min |
 | 2. Config System | 2 | 6 min | 3 min |
 | 3. Core Data Types | 2 | 9 min | 4.5 min |
-| 4. Analysis Engine | 3 | 20 min | 6.7 min |
+| 4. Analysis Engine | 4 | 26 min | 6.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 03-02 (6 min), 04-01 (4 min), 04-02 (7 min), 04-03 (9 min)
-- Trend: stable (Phase 4 plans larger due to algorithm complexity)
+- Last 5 plans: 04-01 (4 min), 04-02 (7 min), 04-03 (9 min), 04-04 (6 min)
+- Trend: stable (Phase 4 complete with full Analyzer implementation)
 
 ## Accumulated Context
 
@@ -68,6 +68,9 @@ Recent decisions affecting current work:
 - **04-03:** Three dimension selection methods: variance, activation, pca
 - **04-03:** Three perturbation methods: percentile, standard_deviation, absolute_range
 - **04-03:** Use 1e-10 epsilon for division by zero protection
+- **04-04:** MMR uses cosine similarity on flattened spectral profiles
+- **04-04:** Min-distance constraint applies only within same excitation
+- **04-04:** TIFF layers saved as 16-bit normalized images
 
 ### Deferred Issues
 
@@ -80,5 +83,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Completed 04-03-PLAN.md
+Stopped at: Completed 04-04-PLAN.md (Phase 4 complete)
 Resume file: None
