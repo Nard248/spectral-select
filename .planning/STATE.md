@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-19)
 
 **Core value:** Clean, stable, reproducible wavelength selection analysis that anyone can `from spectral_select import Analyzer` and use immediately.
-**Current focus:** Phase 3 — Core Data Types
+**Current focus:** Phase 4 — Analysis Engine
 
 ## Current Position
 
-Phase: 3 of 8 (Core Data Types)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-19 — Completed 03-01-PLAN.md
+Phase: 3 of 8 (Core Data Types) - COMPLETE
+Plan: 2 of 2 in phase (all complete)
+Status: Phase complete
+Last activity: 2026-01-19 — Completed 03-02-PLAN.md
 
-Progress: ██▓░░░░░░░ 23%
+Progress: ███░░░░░░░ 27%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 3 min
-- Total execution time: 0.25 hours
+- Total plans completed: 6
+- Average duration: 4 min
+- Total execution time: 0.4 hours
 
 **By Phase:**
 
@@ -29,10 +29,10 @@ Progress: ██▓░░░░░░░ 23%
 |-------|-------|-------|----------|
 | 1. Package Structure | 2 | 6 min | 3 min |
 | 2. Config System | 2 | 6 min | 3 min |
-| 3. Core Data Types | 1 | 3 min | 3 min |
+| 3. Core Data Types | 2 | 9 min | 4.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-02 (2 min), 02-01 (3 min), 02-02 (3 min), 03-01 (3 min)
+- Last 5 plans: 02-01 (3 min), 02-02 (3 min), 03-01 (3 min), 03-02 (6 min)
 - Trend: stable
 
 ## Accumulated Context
@@ -55,6 +55,9 @@ Recent decisions affecting current work:
 - **03-01:** Exclude large arrays from SpectraData.to_dict() for lightweight serialization
 - **03-01:** Generate placeholder emission wavelengths when loading existing pkl format
 - **03-01:** Allow empty excitations dict for SpectraData initialization
+- **03-02:** JSON serialization for results (human-readable, portable)
+- **03-02:** Factory method from_bands() for computing metrics from selection list
+- **03-02:** Validate sequential ranks in WavelengthResult.__post_init__
 
 ### Deferred Issues
 
@@ -67,5 +70,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-19
-Stopped at: Completed 03-01-PLAN.md
+Stopped at: Completed 03-02-PLAN.md (Phase 3 complete)
 Resume file: None
