@@ -42,7 +42,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 02-01: Config dataclass with all variant options
+- [x] 02-01: Config dataclass with all variant options ✓
 - [ ] 02-02: Config loading from YAML/JSON and validation
 
 ### Phase 3: Core Data Types
@@ -119,7 +119,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Package Structure | 2/2 | Complete | 2026-01-19 |
-| 2. Config System | 0/2 | Not started | - |
+| 2. Config System | 1/2 | In progress | - |
 | 3. Core Data Types | 0/2 | Not started | - |
 | 4. Analysis Engine | 0/4 | Not started | - |
 | 5. Visualization Module | 0/3 | Not started | - |
