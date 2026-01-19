@@ -12,20 +12,36 @@ Usage:
     analyzer = Analyzer(config)
     results = analyzer.fit(data)
 
+For custom components, implement the protocols:
+    from spectral_select.protocols import ClassifierProtocol
+
 For more information, see the documentation and examples in the repository.
 """
 
 from .analyzer import Analyzer
 from .config import Config
+from .protocols import (
+    AutoencoderProtocol,
+    ClassifierProtocol,
+    ClusteringProtocol,
+    WavelengthRankerProtocol,
+)
 from .validation import Validator
 from .visualizer import Visualizer
 
 __version__ = "0.1.0"
 
 __all__ = [
+    # Core classes
     "Analyzer",
     "Config",
     "Validator",
     "Visualizer",
+    # Protocols for extensibility
+    "AutoencoderProtocol",
+    "ClassifierProtocol",
+    "ClusteringProtocol",
+    "WavelengthRankerProtocol",
+    # Metadata
     "__version__",
 ]
