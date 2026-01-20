@@ -442,6 +442,68 @@ class SpectraData:
             f"'excitation_wavelengths' keys, or SpectraData format."
         )
 
+    def to_pickle(self, path: Union[str, Path]) -> Path:
+        """Save to pickle format compatible with from_pickle().
+
+        Saves the SpectraData in the standard format used throughout the codebase,
+        allowing round-trip serialization (load -> process -> save -> reload).
+
+        Args:
+            path: Output file path. Parent directories created if needed.
+
+        Returns:
+            The path the file was written to.
+
+        Example:
+            data = SpectraData.from_raw("Data/Raw/Sample1")
+            # Process data...
+            data.to_pickle("Data/Processed/Sample1.pkl")
+        """
+        path = Path(path)
+
+        # Create parent directories if needed (Phase 02-02 decision)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Build output dict in format expected by from_pickle()
+        output_data: Dict[str, Dict[str, Any]] = {}
+        for ex_nm, ex_data in self.excitations.items():
+            ex_key = str(ex_nm)
+            output_data[ex_key] = {
+                "cube": ex_data.cube,
+                "wavelengths": ex_data.emission_wavelengths,
+            }
+
+        output: Dict[str, Any] = {
+            "data": output_data,
+            "excitation_wavelengths": self.excitation_wavelengths,
+        }
+
+        # Add mask if present
+        if self.mask is not None:
+            output["mask"] = self.mask
+
+        # Add exposure times if any excitation has them
+        exposure_times: Dict[str, float] = {}
+        for ex_nm, ex_data in self.excitations.items():
+            if ex_data.exposure_time is not None:
+                exposure_times[str(ex_nm)] = ex_data.exposure_time
+        if exposure_times:
+            output["exposure_times"] = exposure_times
+
+        # Add laser powers if any excitation has them
+        laser_powers: Dict[str, float] = {}
+        for ex_nm, ex_data in self.excitations.items():
+            if ex_data.laser_power is not None:
+                laser_powers[str(ex_nm)] = ex_data.laser_power
+        if laser_powers:
+            output["laser_powers"] = laser_powers
+
+        # Write using highest protocol for efficiency
+        with open(path, "wb") as f:
+            pickle.dump(output, protocol=pickle.HIGHEST_PROTOCOL, file=f)
+
+        return path
+
     @classmethod
     def from_raw(
         cls,
