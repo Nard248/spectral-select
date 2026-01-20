@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-01-19)
 
 **Core value:** Clean, stable, reproducible wavelength selection analysis that anyone can `from spectral_select import Analyzer` and use immediately.
-**Current focus:** 🎉 Milestone Complete — All phases finished
+**Current focus:** v1.1 Production Ready — Flexible config, organized outputs, data prep tools, comprehensive testing
 
 ## Current Position
 
-Phase: 8 of 8 (Testing & Validation)
-Plan: 4 of 4 in current phase
-Status: ✅ MILESTONE COMPLETE
-Last activity: 2026-01-20 — Completed 08-04-PLAN.md
+Phase: 9 of 16 (Flexible Model Config)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-01-20 — Milestone v1.1 created
 
-Progress: ████████████████ 100%
+Progress: ████████░░░░░░░░ 50% (v1.0 complete, v1.1 starting)
 
 ## Performance Metrics
 
@@ -116,5 +116,10 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: 🎉 MILESTONE COMPLETE — All 20 plans executed
+Stopped at: Milestone v1.1 initialization — Ready to plan Phase 9
 Resume file: None
+
+### Roadmap Evolution
+
+- v1.0 Library Refactor shipped: 8 phases, 20 plans (2026-01-20)
+- v1.1 Production Ready created: 8 phases (Phase 9-16), flexible config + tools + testing

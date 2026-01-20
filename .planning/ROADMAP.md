@@ -14,22 +14,121 @@ None
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [x] **Phase 1: Package Structure** - Create spectral_select/ package skeleton with proper imports (Complete)
-- [x] **Phase 2: Config System** - Unified configuration class supporting all variant behaviors (Complete)
-- [x] **Phase 3: Core Data Types** - Data classes for spectra, wavelengths, and results (Complete)
-- [x] **Phase 4: Analysis Engine** - Refactor core wavelength selection into Analyzer class (Complete)
-- [x] **Phase 5: Visualization Module** - Clean Visualizer class from scattered plotting code (Complete)
-- [x] **Phase 6: Ground Truth Validation** - Refactor validation metrics into dedicated module (Complete)
-- [x] **Phase 7: Notebook Migration** - Update existing notebooks to use new imports (Complete)
-- [x] **Phase 8: Testing & Validation** - Test suite ensuring bit-identical results (Complete)
+### v1.0 Library Refactor (Complete)
+- [x] **Phase 1: Package Structure** - Create spectral_select/ package skeleton with proper imports
+- [x] **Phase 2: Config System** - Unified configuration class supporting all variant behaviors
+- [x] **Phase 3: Core Data Types** - Data classes for spectra, wavelengths, and results
+- [x] **Phase 4: Analysis Engine** - Refactor core wavelength selection into Analyzer class
+- [x] **Phase 5: Visualization Module** - Clean Visualizer class from scattered plotting code
+- [x] **Phase 6: Ground Truth Validation** - Refactor validation metrics into dedicated module
+- [x] **Phase 7: Notebook Migration** - Update existing notebooks to use new imports
+- [x] **Phase 8: Testing & Validation** - Test suite ensuring bit-identical results
 
-## Phase Details
+### v1.1 Production Ready (In Progress)
+- [ ] **Phase 9: Flexible Model Config** - Parameterize autoencoder, support custom models
+- [ ] **Phase 10: Results Organization** - Structured results directories, checkpoint naming
+- [ ] **Phase 11: Excel Export & Reporting** - Wavelength pairs export, consistent reporting
+- [ ] **Phase 12: Data Pipeline Improvements** - Streamline raw→pkl workflow
+- [ ] **Phase 13: Masking GUI Tool** - Standalone mask creation app
+- [ ] **Phase 14: Jupyter ROI Widget** - ipywidgets-based ROI selection
+- [ ] **Phase 15: End-to-End Testing** - Test notebooks and scripts runability
+- [ ] **Phase 16: Coverage & Quality** - Increase coverage to 80%+
+
+## Milestones
+
+- ✅ **v1.0 Library Refactor** - Phases 1-8 (shipped 2026-01-20)
+- 🚧 **v1.1 Production Ready** - Phases 9-16 (in progress)
+
+---
+
+## 🚧 v1.1 Production Ready (In Progress)
+
+**Milestone Goal:** Transform the library into a production-ready tool with flexible configuration, organized outputs, data preparation tools, and comprehensive testing.
+
+### Phase 9: Flexible Model Config
+**Goal**: Parameterize autoencoder (layers, channels, latent_dim), add architecture selection, support custom models via protocol
+**Depends on**: Phase 8
+**Research**: Unlikely (internal refactoring)
+**Plans**: TBD
+
+Plans:
+- [ ] 09-01: TBD (run /gsd:plan-phase 9 to break down)
+
+### Phase 10: Results Organization
+**Goal**: Structured results directories (sample/run/artifacts), model checkpoint naming, wavelength selection tracking
+**Depends on**: Phase 9
+**Research**: Unlikely (internal patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 10-01: TBD
+
+### Phase 11: Excel Export & Reporting
+**Goal**: Simple flat table Excel export (Rank, Excitation_nm, Emission_nm, Score), consistent reporting format across experiments
+**Depends on**: Phase 10
+**Research**: Unlikely (openpyxl/xlsxwriter patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 11-01: TBD
+
+### Phase 12: Data Pipeline Improvements
+**Goal**: Streamline raw→pkl workflow, better error handling, consistent file naming conventions
+**Depends on**: Phase 9
+**Research**: Unlikely (internal refactoring)
+**Plans**: TBD
+
+Plans:
+- [ ] 12-01: TBD
+
+### Phase 13: Masking GUI Tool
+**Goal**: Standalone tkinter/Qt app for mask creation with drawing tools (polygon, brush, flood fill)
+**Depends on**: Phase 12
+**Research**: Likely (GUI frameworks, drawing tools)
+**Research topics**: tkinter canvas vs PyQt5/6, polygon drawing patterns, mask serialization
+**Plans**: TBD
+
+Plans:
+- [ ] 13-01: TBD
+
+### Phase 14: Jupyter ROI Widget
+**Goal**: ipywidgets-based ROI selection for notebooks, integration with SpectraData
+**Depends on**: Phase 13
+**Research**: Likely (ipywidgets patterns)
+**Research topics**: ipywidgets canvas/drawing, bqplot interaction, jupyter-matplotlib
+**Plans**: TBD
+
+Plans:
+- [ ] 14-01: TBD
+
+### Phase 15: End-to-End Testing
+**Goal**: Test all notebooks with reduced epochs, test data loading scripts, verify full pipeline runability
+**Depends on**: Phase 14
+**Research**: Unlikely (pytest patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 15-01: TBD
+
+### Phase 16: Coverage & Quality
+**Goal**: Increase test coverage to 80%+, add integration tests for full workflow, property-based tests
+**Depends on**: Phase 15
+**Research**: Unlikely (pytest/hypothesis patterns)
+**Plans**: TBD
+
+Plans:
+- [ ] 16-01: TBD
+
+---
+
+<details>
+<summary>✅ v1.0 Library Refactor (Phases 1-8) - SHIPPED 2026-01-20</summary>
 
 ### Phase 1: Package Structure
 **Goal**: Create the `spectral_select/` package skeleton with `__init__.py`, submodules, and `pyproject.toml` for editable install
 **Depends on**: Nothing (first phase)
 **Research**: Unlikely (standard Python packaging)
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
 - [x] 01-01: Package skeleton and pyproject.toml ✓
@@ -39,7 +138,7 @@ Plans:
 **Goal**: Unified `Config` class that captures all 5+ variant behaviors via configuration options instead of separate files
 **Depends on**: Phase 1
 **Research**: Unlikely (internal refactoring)
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
 - [x] 02-01: Config dataclass with all variant options ✓
@@ -49,7 +148,7 @@ Plans:
 **Goal**: Clean data classes (`SpectraData`, `WavelengthResult`, etc.) replacing scattered dict/array usage
 **Depends on**: Phase 2
 **Research**: Unlikely (internal code organization)
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
 - [x] 03-01: Data classes for input spectra and metadata ✓
@@ -59,7 +158,7 @@ Plans:
 **Goal**: Extract core wavelength selection algorithm into `Analyzer` class with clean `fit()`, `transform()`, `get_wavelengths()` API
 **Depends on**: Phase 3
 **Research**: Unlikely (algorithm extraction)
-**Plans**: TBD
+**Plans**: 4
 
 Plans:
 - [x] 04-01: Analyzer class skeleton with public API ✓
@@ -71,7 +170,7 @@ Plans:
 **Goal**: Clean `Visualizer` class consolidating scattered matplotlib code with consistent styling
 **Depends on**: Phase 4
 **Research**: Unlikely (matplotlib patterns)
-**Plans**: TBD
+**Plans**: 3
 
 Plans:
 - [x] 05-01: Visualizer class with core plotting methods ✓
@@ -82,7 +181,7 @@ Plans:
 **Goal**: Refactor `ground_truth_validation.py` into clean `Validator` class with metrics API
 **Depends on**: Phase 4
 **Research**: Unlikely (internal refactoring)
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
 - [x] 06-01: Validator class with metrics computation ✓
@@ -101,7 +200,7 @@ Plans:
 **Goal**: Pytest suite verifying bit-identical results between old and new implementations
 **Depends on**: Phase 7
 **Research**: Unlikely (standard pytest)
-**Plans**: TBD
+**Plans**: 4
 
 Plans:
 - [x] 08-01: Test fixtures with sample data ✓
@@ -109,18 +208,28 @@ Plans:
 - [x] 08-03: Integration tests comparing old vs new outputs ✓
 - [x] 08-04: CI configuration ✓
 
+</details>
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
+Phases execute in numeric order: 1 → 2 → ... → 8 → 9 → 10 → ... → 16
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Package Structure | 2/2 | Complete | 2026-01-19 |
-| 2. Config System | 2/2 | Complete | 2026-01-19 |
-| 3. Core Data Types | 2/2 | Complete | 2026-01-19 |
-| 4. Analysis Engine | 4/4 | Complete | 2026-01-19 |
-| 5. Visualization Module | 3/3 | Complete | 2026-01-19 |
-| 6. Ground Truth Validation | 2/2 | Complete | 2026-01-19 |
-| 7. Notebook Migration | 1/1 | Complete | 2026-01-19 |
-| 8. Testing & Validation | 4/4 | Complete | 2026-01-20 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Package Structure | v1.0 | 2/2 | Complete | 2026-01-19 |
+| 2. Config System | v1.0 | 2/2 | Complete | 2026-01-19 |
+| 3. Core Data Types | v1.0 | 2/2 | Complete | 2026-01-19 |
+| 4. Analysis Engine | v1.0 | 4/4 | Complete | 2026-01-19 |
+| 5. Visualization Module | v1.0 | 3/3 | Complete | 2026-01-19 |
+| 6. Ground Truth Validation | v1.0 | 2/2 | Complete | 2026-01-19 |
+| 7. Notebook Migration | v1.0 | 1/1 | Complete | 2026-01-19 |
+| 8. Testing & Validation | v1.0 | 4/4 | Complete | 2026-01-20 |
+| 9. Flexible Model Config | v1.1 | 0/? | Not started | - |
+| 10. Results Organization | v1.1 | 0/? | Not started | - |
+| 11. Excel Export & Reporting | v1.1 | 0/? | Not started | - |
+| 12. Data Pipeline Improvements | v1.1 | 0/? | Not started | - |
+| 13. Masking GUI Tool | v1.1 | 0/? | Not started | - |
+| 14. Jupyter ROI Widget | v1.1 | 0/? | Not started | - |
+| 15. End-to-End Testing | v1.1 | 0/? | Not started | - |
+| 16. Coverage & Quality | v1.1 | 0/? | Not started | - |
