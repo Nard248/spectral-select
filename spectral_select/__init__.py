@@ -36,6 +36,7 @@ from .types import (
     WavelengthBand,
     WavelengthResult,
 )
+from .loader import DataLoader, DataLoadingError
 from .results import ResultsManager
 from .validation import Validator, load_ground_truth_from_png
 from .visualizer import Visualizer
@@ -46,11 +47,14 @@ __all__ = [
     # Core classes
     "Analyzer",
     "Config",
+    "DataLoader",
     "ResultsManager",
     "Validator",
     "Visualizer",
     # Utilities
     "load_ground_truth_from_png",
+    # Exceptions
+    "DataLoadingError",
     # Data types
     "AnalysisMetrics",
     "ExcitationData",
