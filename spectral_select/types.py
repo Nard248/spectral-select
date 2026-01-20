@@ -442,6 +442,117 @@ class SpectraData:
             f"'excitation_wavelengths' keys, or SpectraData format."
         )
 
+    @classmethod
+    def from_raw(
+        cls,
+        data_path: Union[str, Path],
+        metadata_path: Optional[Union[str, Path]] = None,
+        mask: Optional[np.ndarray] = None,
+        sample_name: Optional[str] = None,
+        loading_options: Optional[LoadingOptions] = None,
+        **loader_kwargs,
+    ) -> "SpectraData":
+        """Load from raw .im3 hyperspectral files.
+
+        Convenience factory method that uses DataLoader internally to load
+        raw .im3 files and convert them to a SpectraData instance.
+
+        Requires pyimagej to be installed for .im3 file loading.
+
+        Args:
+            data_path: Path to directory containing .im3 files.
+            metadata_path: Optional path to Excel file with exposure metadata.
+            mask: Optional binary mask (1=valid, 0=masked pixels).
+            sample_name: Identifier for the sample (defaults to directory name).
+            loading_options: Preprocessing options (cutoff, normalization, etc.).
+            **loader_kwargs: Additional kwargs passed to DataLoader.load().
+
+        Returns:
+            A new SpectraData instance with loaded data.
+
+        Raises:
+            DataLoadingError: If loading fails (missing files, ImageJ issues, etc.).
+
+        Example:
+            # Basic usage
+            data = SpectraData.from_raw("Data/Raw/Lichens_2")
+
+            # With options
+            opts = LoadingOptions(cutoff_offset=20)
+            data = SpectraData.from_raw(
+                "Data/Raw/Lichens_2",
+                loading_options=opts,
+                mask=my_mask,
+            )
+        """
+        # Import lazily to avoid circular imports
+        from .loader import DataLoader, DataLoadingError
+
+        data_path = Path(data_path)
+
+        # Derive sample name from directory if not provided
+        if sample_name is None:
+            sample_name = data_path.name
+
+        # Get cutoff_offset from loading_options or use default
+        cutoff_offset = 30
+        if loading_options is not None:
+            cutoff_offset = loading_options.cutoff_offset
+
+        try:
+            loader = DataLoader(
+                data_path=data_path,
+                metadata_path=metadata_path,
+                cutoff_offset=cutoff_offset,
+            )
+
+            # Apply cutoff based on loading_options
+            apply_cutoff = True
+            if loading_options is not None:
+                apply_cutoff = (
+                    loading_options.apply_rayleigh_cutoff
+                    or loading_options.apply_second_order_cutoff
+                )
+
+            raw_data = loader.load(apply_cutoff=apply_cutoff, **loader_kwargs)
+
+        except Exception as e:
+            # Re-raise with context about the data path
+            if isinstance(e, DataLoadingError):
+                raise
+            raise DataLoadingError(
+                f"Failed to load raw data from {data_path}: {e}",
+                path=data_path,
+                cause=e,
+            )
+
+        # Build ExcitationData objects from loaded cubes
+        excitations: Dict[float, ExcitationData] = {}
+
+        for ex_str, ex_data in raw_data["data"].items():
+            ex_nm = float(ex_str)
+            excitations[ex_nm] = ExcitationData(
+                excitation_nm=ex_nm,
+                cube=ex_data["cube"],
+                emission_wavelengths=ex_data["wavelengths"],
+                exposure_time=ex_data.get("exposure_time"),
+                laser_power=ex_data.get("laser_power"),
+            )
+
+        if not excitations:
+            raise DataLoadingError(
+                "No excitation wavelengths loaded from raw data",
+                path=data_path,
+            )
+
+        return cls(
+            excitations=excitations,
+            mask=mask,
+            sample_name=sample_name,
+            loading_options=loading_options,
+            metadata=raw_data.get("metadata", {}),
+        )
+
 
 # ============================================================================
 # Output/Result Data Types
