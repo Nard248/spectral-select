@@ -444,6 +444,12 @@ class Analyzer:
         """
         metrics = self._result.metrics
 
+        def format_score(score: float) -> str:
+            """Format influence score with adaptive precision."""
+            if abs(score) < 0.001 and score != 0:
+                return f"{score:<15.2e}"
+            return f"{score:<15.6f}"
+
         with open(path, "w") as f:
             f.write(f"Wavelength Analysis Results: {self._config.sample_name}\n")
             f.write(f"Analysis Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
@@ -465,7 +471,7 @@ class Analyzer:
             for band in self._result.selected_bands:
                 f.write(
                     f"{band.rank:<5} {band.excitation_nm:<15.1f} "
-                    f"{band.emission_nm:<15.1f} {band.influence_score:<15.6f}\n"
+                    f"{band.emission_nm:<15.1f} {format_score(band.influence_score)}\n"
                 )
 
     def __repr__(self) -> str:
@@ -563,14 +569,17 @@ class Analyzer:
         # Get data from dataset to initialize model
         all_data = self._dataset.get_all_data()
 
-        # Initialize model with correct architecture parameters
+        # Initialize model with config-driven architecture parameters
         # Convert tensors to numpy for model initialization
         excitations_data = {ex: data.numpy() for ex, data in all_data.items()}
         self._model = HyperspectralCAEWithMasking(
             excitations_data=excitations_data,
-            k1=20,
-            k3=20,
-            filter_size=5,
+            k1=self._config.model_k1,
+            k3=self._config.model_k3,
+            filter_size=self._config.model_filter_size,
+            sparsity_target=self._config.model_sparsity_target,
+            sparsity_weight=self._config.model_sparsity_weight,
+            dropout_rate=self._config.model_dropout_rate,
         )
 
         # Attempt to load pretrained weights
@@ -629,13 +638,17 @@ class Analyzer:
         # Get mask from dataset
         mask = self._dataset.processed_mask
 
-        # Train with reasonable defaults
+        # Train with config-driven parameters
         self._model, losses = train_with_masking(
             model=self._model,
             dataset=self._dataset,
-            num_epochs=3000,
-            learning_rate=0.001,
+            num_epochs=self._config.training_epochs,
+            learning_rate=self._config.training_lr,
+            chunk_size=self._config.training_chunk_size,
+            chunk_overlap=self._config.training_chunk_overlap,
             device=str(self._device),
+            early_stopping_patience=self._config.training_early_stopping_patience,
+            scheduler_patience=self._config.training_scheduler_patience,
             mask=mask,
             output_dir=str(train_output_dir),
             verbose=True,
