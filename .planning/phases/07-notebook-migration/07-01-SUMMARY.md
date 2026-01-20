@@ -70,7 +70,7 @@ Each task was committed atomically:
 2. **Task 2: Create quickstart example notebook** - `a583d58` (feat)
 3. **Task 3: Create validation example notebook** - `3a55cf8` (feat)
 
-**Plan metadata:** (pending)
+**Plan metadata:** `42e387c` (docs: complete plan)
 
 ## Files Created/Modified
 
