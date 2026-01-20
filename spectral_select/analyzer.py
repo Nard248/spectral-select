@@ -37,7 +37,7 @@ from .config import Config
 from .types import AnalysisMetrics, SpectraData, WavelengthBand, WavelengthResult
 
 if TYPE_CHECKING:
-    pass
+    from .results import ResultsManager
 
 logger = logging.getLogger(__name__)
 
@@ -61,13 +61,21 @@ class Analyzer:
         wavelengths = analyzer.get_wavelengths()
     """
 
-    def __init__(self, config: Config) -> None:
+    def __init__(
+        self,
+        config: Config,
+        results_manager: Optional["ResultsManager"] = None,
+    ) -> None:
         """Initialize analyzer with configuration.
 
         Args:
             config: Configuration object with analysis parameters.
+            results_manager: Optional ResultsManager for structured output paths.
+                If not provided, one will be created lazily when save_results()
+                is called using config.output_dir and config.sample_name.
         """
         self._config = config
+        self._results_manager = results_manager
 
         # Setup compute device
         if config.device == "cuda" and torch.cuda.is_available():
@@ -87,7 +95,7 @@ class Analyzer:
         self._influence_matrix: Optional[Dict[str, Any]] = None
         self._result: Optional[WavelengthResult] = None
 
-        # Create output directory if specified
+        # Create output directory if specified (backward compatibility)
         if config.output_dir is not None:
             config.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -120,6 +128,26 @@ class Analyzer:
     def influence_matrix(self) -> Optional[Dict[str, Any]]:
         """The computed influence matrix, or None if not yet fitted."""
         return self._influence_matrix
+
+    @property
+    def results_manager(self) -> "ResultsManager":
+        """ResultsManager for structured output paths.
+
+        Lazily creates a ResultsManager if not provided at initialization,
+        using config.output_dir (or "results/") as base_dir and config.sample_name.
+
+        Returns:
+            ResultsManager instance for this analyzer.
+        """
+        if self._results_manager is None:
+            from .results import ResultsManager
+
+            base_dir = self._config.output_dir or Path("results")
+            self._results_manager = ResultsManager(
+                base_dir=base_dir,
+                sample_name=self._config.sample_name,
+            )
+        return self._results_manager
 
     def fit(self, data: SpectraData) -> Analyzer:
         """Run the full wavelength selection analysis pipeline.
@@ -346,6 +374,47 @@ class Analyzer:
 
         logger.info(f"Results saved to {out_dir}")
         return out_dir
+
+    def save_model(
+        self,
+        checkpoint_type: str = "final",
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Path:
+        """Save trained model to results directory using ResultsManager.
+
+        Delegates to ResultsManager.save_model_checkpoint() for consistent
+        checkpoint naming and metadata management.
+
+        Args:
+            checkpoint_type: Type of checkpoint - "best" or "final".
+            metadata: Optional metadata to save alongside the checkpoint.
+                If not provided, basic metadata (sample_name, timestamp) is added.
+
+        Returns:
+            Path to the saved model checkpoint file.
+
+        Raises:
+            RuntimeError: If no model has been trained/loaded.
+        """
+        if self._model is None:
+            raise RuntimeError(
+                "No model available. Call fit() first or load a model."
+            )
+
+        # Build default metadata if not provided
+        if metadata is None:
+            metadata = {}
+
+        metadata.setdefault("sample_name", self._config.sample_name)
+        metadata.setdefault("checkpoint_type", checkpoint_type)
+        metadata.setdefault("timestamp", datetime.now().isoformat())
+        metadata.setdefault("config_snapshot", self._config.to_dict())
+
+        path = self.results_manager.save_model_checkpoint(
+            self._model, checkpoint_type, metadata
+        )
+        logger.info(f"Saved {checkpoint_type} model to {path}")
+        return path
 
     def _extract_wavelength_layers(self, output_dir: Path) -> List[Dict[str, Any]]:
         """Extract and save wavelength layers as TIFF files.
