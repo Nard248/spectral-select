@@ -72,10 +72,11 @@ Plans:
 **Goal**: Simple flat table Excel export (Rank, Excitation_nm, Emission_nm, Score), consistent reporting format across experiments
 **Depends on**: Phase 10
 **Research**: Unlikely (openpyxl/xlsxwriter patterns)
-**Plans**: TBD
+**Plans**: 2
 
 Plans:
-- [ ] 11-01: TBD
+- [x] 11-01: WavelengthResult.to_excel() method ✓
+- [ ] 11-02: ResultsManager integration and Excel tests
 
 ### Phase 12: Data Pipeline Improvements
 **Goal**: Streamline raw→pkl workflow, better error handling, consistent file naming conventions
@@ -232,7 +233,7 @@ Phases execute in numeric order: 1 → 2 → ... → 8 → 9 → 10 → ... → 
 | 8. Testing & Validation | v1.0 | 4/4 | Complete | 2026-01-20 |
 | 9. Flexible Model Config | v1.1 | 2/2 | Complete | 2026-01-20 |
 | 10. Results Organization | v1.1 | 3/3 | Complete | 2026-01-20 |
-| 11. Excel Export & Reporting | v1.1 | 0/? | Not started | - |
+| 11. Excel Export & Reporting | v1.1 | 1/2 | In progress | - |
 | 12. Data Pipeline Improvements | v1.1 | 0/? | Not started | - |
 | 13. Masking GUI Tool | v1.1 | 0/? | Not started | - |
 | 14. Jupyter ROI Widget | v1.1 | 0/? | Not started | - |
