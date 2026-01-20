@@ -36,6 +36,7 @@ from .types import (
     WavelengthBand,
     WavelengthResult,
 )
+from .results import ResultsManager
 from .validation import Validator, load_ground_truth_from_png
 from .visualizer import Visualizer
 
@@ -45,6 +46,7 @@ __all__ = [
     # Core classes
     "Analyzer",
     "Config",
+    "ResultsManager",
     "Validator",
     "Visualizer",
     # Utilities
