@@ -25,6 +25,7 @@ from .types import ValidationMetrics, WavelengthResult
 
 if TYPE_CHECKING:
     from .analyzer import Analyzer
+    from .results import ResultsManager
     from .validation import Validator
 
 
@@ -75,6 +76,7 @@ class Visualizer:
         # Optional bound data (set by factory methods)
         self._result: Optional[WavelengthResult] = None
         self._analyzer: Optional["Analyzer"] = None
+        self._results_manager: Optional["ResultsManager"] = None
 
         # Create output directory
         self._output_dir.mkdir(parents=True, exist_ok=True)
@@ -196,6 +198,25 @@ class Visualizer:
         return instance
 
     @classmethod
+    def from_results_manager(
+        cls,
+        results_manager: "ResultsManager",
+        **kwargs,
+    ) -> "Visualizer":
+        """Create visualizer using ResultsManager for output paths.
+
+        Args:
+            results_manager: ResultsManager instance providing structured paths.
+            **kwargs: Additional arguments passed to __init__.
+
+        Returns:
+            Visualizer instance with output_dir set to results_manager.viz_dir.
+        """
+        instance = cls(output_dir=results_manager.viz_dir, **kwargs)
+        instance._results_manager = results_manager
+        return instance
+
+    @classmethod
     def from_analyzer(
         cls,
         analyzer: "Analyzer",
@@ -205,17 +226,23 @@ class Visualizer:
         """Create visualizer bound to an analyzer.
 
         The visualizer will use analyzer.result_ after fit() is called.
+        If analyzer has a ResultsManager configured, uses results_manager.viz_dir.
 
         Args:
             analyzer: Analyzer instance (should have fit() called).
-            output_dir: Output directory. Defaults to visualizations/{sample_name}.
+            output_dir: Output directory. Defaults to results_manager.viz_dir if
+                available, otherwise visualizations/{sample_name}.
             **kwargs: Additional arguments passed to __init__.
 
         Returns:
             Visualizer instance with analyzer bound.
         """
         if output_dir is None:
-            output_dir = Path("visualizations") / analyzer.config.sample_name
+            # Use ResultsManager viz_dir if analyzer has one configured
+            if analyzer._results_manager is not None:
+                output_dir = analyzer._results_manager.viz_dir
+            else:
+                output_dir = Path("visualizations") / analyzer.config.sample_name
 
         instance = cls(output_dir=output_dir, **kwargs)
         instance._analyzer = analyzer
