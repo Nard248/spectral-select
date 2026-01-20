@@ -38,6 +38,9 @@ from __future__ import annotations
 
 import json
 import os
+import platform
+import subprocess
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -381,6 +384,171 @@ class ResultsManager:
             "sample_name": self.sample_name,
             "run_id": self.run_id,
         }
+
+    def _get_environment_info(self) -> Dict[str, Any]:
+        """Get environment information for reproducibility.
+
+        Returns:
+            Dictionary with Python version, platform, and key package versions.
+        """
+        env_info: Dict[str, Any] = {
+            "python_version": sys.version,
+            "python_version_info": list(sys.version_info[:3]),
+            "platform": platform.platform(),
+            "platform_system": platform.system(),
+            "platform_machine": platform.machine(),
+        }
+
+        # Get package versions (optional - graceful failure)
+        packages = ["numpy", "torch", "spectral_select"]
+        versions: Dict[str, Optional[str]] = {}
+
+        for pkg in packages:
+            try:
+                if pkg == "spectral_select":
+                    from . import __version__
+
+                    versions[pkg] = __version__
+                else:
+                    import importlib.metadata
+
+                    versions[pkg] = importlib.metadata.version(pkg)
+            except Exception:
+                versions[pkg] = None
+
+        env_info["package_versions"] = versions
+        return env_info
+
+    def _get_git_info(self) -> Optional[Dict[str, Any]]:
+        """Get git repository information for provenance.
+
+        Returns:
+            Dictionary with commit hash, branch, and dirty status,
+            or None if not in a git repository or git is unavailable.
+        """
+        try:
+            # Check if we're in a git repository
+            result = subprocess.run(
+                ["git", "rev-parse", "--is-inside-work-tree"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode != 0:
+                return None
+
+            # Get commit hash
+            commit_result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            commit_hash = commit_result.stdout.strip() if commit_result.returncode == 0 else None
+
+            # Get short hash
+            short_result = subprocess.run(
+                ["git", "rev-parse", "--short", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            short_hash = short_result.stdout.strip() if short_result.returncode == 0 else None
+
+            # Get branch name
+            branch_result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            branch = branch_result.stdout.strip() if branch_result.returncode == 0 else None
+
+            # Check if working tree is dirty
+            status_result = subprocess.run(
+                ["git", "status", "--porcelain"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            is_dirty = bool(status_result.stdout.strip()) if status_result.returncode == 0 else None
+
+            return {
+                "commit_hash": commit_hash,
+                "commit_short": short_hash,
+                "branch": branch,
+                "is_dirty": is_dirty,
+            }
+
+        except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+            # Git not available or command failed
+            return None
+
+    def save_run_metadata(
+        self,
+        config: "Config",
+        extra: Optional[Dict[str, Any]] = None,
+    ) -> Path:
+        """Save comprehensive run metadata for reproducibility.
+
+        This captures the complete state at the time of the run including
+        configuration, environment, and git information.
+
+        Args:
+            config: Configuration object to snapshot.
+            extra: Optional additional metadata to include.
+
+        Returns:
+            Path to the saved metadata file.
+        """
+        metadata: Dict[str, Any] = {
+            "run_id": self.run_id,
+            "sample_name": self.sample_name,
+            "timestamp": datetime.now().isoformat(),
+            "config_snapshot": config.to_dict(),
+            "environment": self._get_environment_info(),
+            "git_info": self._get_git_info(),
+        }
+
+        if extra is not None:
+            metadata["extra"] = extra
+
+        metadata_path = self.run_dir / "run_metadata.json"
+        with open(metadata_path, "w", encoding="utf-8") as f:
+            json.dump(metadata, f, indent=2, default=str)
+
+        return metadata_path
+
+    def load_run_metadata(self) -> Dict[str, Any]:
+        """Load run metadata for the current run.
+
+        Returns:
+            Dictionary containing the saved run metadata.
+
+        Raises:
+            FileNotFoundError: If run_metadata.json doesn't exist.
+        """
+        metadata_path = self.run_dir / "run_metadata.json"
+        if not metadata_path.exists():
+            raise FileNotFoundError(
+                f"Run metadata not found: {metadata_path}. "
+                "Call save_run_metadata() first."
+            )
+
+        with open(metadata_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
+    def list_run_files(self) -> List[Path]:
+        """List all files in the current run directory.
+
+        Returns:
+            Sorted list of all file paths in the run directory (recursive).
+        """
+        if not self.run_dir.exists():
+            return []
+
+        files = [p for p in self.run_dir.rglob("*") if p.is_file()]
+        return sorted(files)
 
     def __repr__(self) -> str:
         """Return readable string representation."""
