@@ -105,7 +105,7 @@ Plans:
 
 Plans:
 - [x] 08-01: Test fixtures with sample data ✓
-- [ ] 08-02: Unit tests for Config and data types
+- [x] 08-02: Unit tests for Config and data types ✓
 - [ ] 08-03: Integration tests comparing old vs new outputs
 - [ ] 08-04: CI configuration
 
@@ -123,4 +123,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8
 | 5. Visualization Module | 3/3 | Complete | 2026-01-19 |
 | 6. Ground Truth Validation | 2/2 | Complete | 2026-01-19 |
 | 7. Notebook Migration | 1/1 | Complete | 2026-01-19 |
-| 8. Testing & Validation | 1/4 | In progress | - |
+| 8. Testing & Validation | 2/4 | In progress | - |
