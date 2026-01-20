@@ -84,9 +84,10 @@ Plans:
 **Depends on**: Phase 9
 **Research**: Unlikely (internal refactoring)
 **Plans**: TBD
+**Status**: In progress
 
 Plans:
-- [ ] 12-01: TBD
+- [x] 12-01: DataLoader wrapper and SpectraData.from_raw() ✓
 
 ### Phase 13: Masking GUI Tool
 **Goal**: Standalone tkinter/Qt app for mask creation with drawing tools (polygon, brush, flood fill)
@@ -235,7 +236,7 @@ Phases execute in numeric order: 1 → 2 → ... → 8 → 9 → 10 → ... → 
 | 9. Flexible Model Config | v1.1 | 2/2 | Complete | 2026-01-20 |
 | 10. Results Organization | v1.1 | 3/3 | Complete | 2026-01-20 |
 | 11. Excel Export & Reporting | v1.1 | 2/2 | Complete | 2026-01-20 |
-| 12. Data Pipeline Improvements | v1.1 | 0/? | Not started | - |
+| 12. Data Pipeline Improvements | v1.1 | 1/? | In progress | - |
 | 13. Masking GUI Tool | v1.1 | 0/? | Not started | - |
 | 14. Jupyter ROI Widget | v1.1 | 0/? | Not started | - |
 | 15. End-to-End Testing | v1.1 | 0/? | Not started | - |
