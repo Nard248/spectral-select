@@ -379,9 +379,19 @@ class SpectraData:
             FileNotFoundError: If the file doesn't exist.
             ValueError: If the pickle format is not recognized.
         """
+        import warnings
+
         path = Path(path)
         if not path.exists():
             raise FileNotFoundError(f"Pickle file not found: {path}")
+
+        # Warn if file extension is unexpected
+        if path.suffix.lower() not in ('.pkl', '.pickle'):
+            warnings.warn(
+                f"File extension '{path.suffix}' is not a typical pickle extension "
+                f"(.pkl, .pickle). Attempting to load anyway.",
+                UserWarning,
+            )
 
         with open(path, "rb") as f:
             pkl_data = pickle.load(f)
@@ -437,9 +447,20 @@ class SpectraData:
             if "excitations" in pkl_data:
                 return cls.from_dict(pkl_data)
 
+        # Build detailed error message
+        if isinstance(pkl_data, dict):
+            found_keys = list(pkl_data.keys())
+        else:
+            found_keys = f"(not a dict, got {type(pkl_data).__name__})"
+
         raise ValueError(
-            f"Unrecognized pickle format. Expected dict with 'data' and "
-            f"'excitation_wavelengths' keys, or SpectraData format."
+            f"Unrecognized pickle format in '{path}'.\n\n"
+            f"Found keys: {found_keys}\n\n"
+            f"Expected format:\n"
+            f"  - Standard: dict with 'data' and 'excitation_wavelengths' keys\n"
+            f"  - SpectraData: dict with 'excitations' key\n\n"
+            f"Hint: Use SpectraData.from_raw() to load raw .im3 files, "
+            f"or ensure the pickle was created with SpectraData.to_pickle()."
         )
 
     def to_pickle(self, path: Union[str, Path]) -> Path:
@@ -551,6 +572,24 @@ class SpectraData:
         from .loader import DataLoader, DataLoadingError
 
         data_path = Path(data_path)
+
+        # Check data_path exists before attempting to load
+        if not data_path.exists():
+            raise DataLoadingError(
+                f"Data path does not exist: {data_path}\n\n"
+                f"Hint: Ensure the path points to a directory containing .im3 files.",
+                path=data_path,
+            )
+
+        # Check if directory is empty
+        if data_path.is_dir():
+            contents = list(data_path.iterdir())
+            if not contents:
+                raise DataLoadingError(
+                    f"Directory is empty: {data_path}\n\n"
+                    f"Expected: Directory containing .im3 hyperspectral image files.",
+                    path=data_path,
+                )
 
         # Derive sample name from directory if not provided
         if sample_name is None:

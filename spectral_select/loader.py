@@ -114,6 +114,13 @@ class DataLoader:
         self.cutoff_offset = cutoff_offset
         self.verbose = verbose
 
+        # Validate data_path exists at initialization time
+        if not self.data_path.exists():
+            raise DataLoadingError(
+                f"Data path does not exist: {self.data_path}",
+                path=self.data_path,
+            )
+
         # Lazy-loaded internal loader
         self._loader: Optional[Any] = None
         self._imagej_available: Optional[bool] = None
@@ -132,7 +139,11 @@ class DataLoader:
                 self._imagej_available = True
             except ImportError:
                 self._imagej_available = False
-                logger.debug("pyimagej not installed - ImageJ loading unavailable")
+                logger.warning(
+                    "pyimagej not installed - .im3 file loading requires ImageJ.\n"
+                    "Install with: pip install pyimagej\n"
+                    "Note: First run will download ImageJ/Fiji which takes several minutes."
+                )
         return self._imagej_available
 
     def _get_loader(self) -> Any:
@@ -227,8 +238,22 @@ class DataLoader:
             # Call the internal loader
             loader.load_data(apply_cutoff=apply_cutoff, pattern=pattern)
         except FileNotFoundError as e:
+            # List directory contents to help debug
+            try:
+                contents = [f.name for f in self.data_path.iterdir()]
+                if len(contents) > 10:
+                    contents_str = str(contents[:10]) + f" ... ({len(contents)} total)"
+                else:
+                    contents_str = str(contents) if contents else "(empty)"
+            except Exception:
+                contents_str = "(unable to list)"
+
             raise DataLoadingError(
-                f"No .im3 files found matching pattern '{pattern}'",
+                f"No .im3 files found in {self.data_path}\n\n"
+                f"Directory contents: {contents_str}\n\n"
+                f"Expected: Directory containing .im3 hyperspectral image files.\n"
+                f"Hint: Check that data_path points to the raw data directory, "
+                f"not the processed output.",
                 path=self.data_path,
                 cause=e,
             )
@@ -236,13 +261,18 @@ class DataLoader:
             # Direct loading not implemented - need ImageJ
             if not self.imagej_available:
                 raise DataLoadingError(
-                    "Cannot load .im3 files: pyimagej is not installed. "
-                    "Install with: pip install pyimagej",
+                    "Cannot load .im3 files: pyimagej is not installed.\n\n"
+                    "To install pyimagej:\n"
+                    "  pip install pyimagej\n\n"
+                    "Note: First run will download ImageJ/Fiji (~500MB) which takes "
+                    "several minutes. Subsequent runs use the cached installation.",
                     path=self.data_path,
                     cause=e,
                 )
             raise DataLoadingError(
-                f"Direct .im3 loading failed: {e}",
+                f"Direct .im3 loading failed: {e}\n\n"
+                f"ImageJ is installed but direct loading is not supported.\n"
+                f"This may indicate an issue with the ImageJ initialization.",
                 path=self.data_path,
                 cause=e,
             )
