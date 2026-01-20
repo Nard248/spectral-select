@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TypeAlias, Union
 
 import numpy as np
+import pandas as pd
 
 # Type aliases for clarity
 SpectraArray: TypeAlias = "np.ndarray"
@@ -233,7 +234,7 @@ class SpectraData:
     def __post_init__(self) -> None:
         """Validate data after initialization."""
         if not self.excitations:
-            return  # Allow empty initialization
+            raise ValueError("excitations cannot be empty - at least one excitation required")
 
         # Get reference spatial shape from first excitation
         first_ex = next(iter(self.excitations.values()))
@@ -394,13 +395,22 @@ class SpectraData:
 
                 # Build ExcitationData objects
                 excitations = {}
-                for ex_nm, cube in raw_data.items():
+                for ex_nm, ex_data in raw_data.items():
                     ex_nm_float = float(ex_nm)
-                    # For existing format, we don't have emission wavelengths per-cube
-                    # Generate placeholder based on cube shape
-                    n_bands = cube.shape[2] if cube.ndim == 3 else 0
-                    # Estimate emission wavelengths (placeholder - actual values not in pkl)
-                    emission_wls = list(range(n_bands))  # Will need to be set properly
+
+                    # Handle nested dict format: {'cube': array, 'wavelengths': [...]}
+                    if isinstance(ex_data, dict) and "cube" in ex_data:
+                        cube = ex_data["cube"]
+                        emission_wls = ex_data.get("wavelengths", [])
+                        if not emission_wls:
+                            # Generate placeholder if not provided
+                            n_bands = cube.shape[2] if cube.ndim == 3 else 0
+                            emission_wls = list(range(n_bands))
+                    else:
+                        # Direct array format (legacy)
+                        cube = ex_data
+                        n_bands = cube.shape[2] if hasattr(cube, 'ndim') and cube.ndim == 3 else 0
+                        emission_wls = list(range(n_bands))
 
                     excitations[ex_nm_float] = ExcitationData(
                         excitation_nm=ex_nm_float,
@@ -488,9 +498,14 @@ class WavelengthBand:
 
     def __repr__(self) -> str:
         """Readable representation."""
+        # Use adaptive formatting: scientific for very small values, fixed for larger
+        if abs(self.influence_score) < 0.001 and self.influence_score != 0:
+            score_str = f"{self.influence_score:.2e}"
+        else:
+            score_str = f"{self.influence_score:.4f}"
         return (
             f"WavelengthBand(rank={self.rank}, ex={self.excitation_nm}nm, "
-            f"em={self.emission_nm}nm, score={self.influence_score:.2f})"
+            f"em={self.emission_nm}nm, score={score_str})"
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -795,6 +810,51 @@ class WavelengthResult:
             data = json.load(f)
 
         return cls.from_dict(data)
+
+    def to_excel(self, path: Union[str, Path], include_metrics: bool = True) -> None:
+        """Save result to Excel file with wavelength bands table.
+
+        Creates an Excel file with a "Wavelengths" sheet containing the selected
+        bands as a flat table. Optionally includes a "Metrics" sheet with analysis
+        metrics.
+
+        Args:
+            path: Path to the output Excel file (.xlsx).
+            include_metrics: If True, add a second sheet with analysis metrics.
+
+        Example:
+            result.to_excel("results/wavelengths.xlsx")
+            result.to_excel("results/wavelengths.xlsx", include_metrics=False)
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Create wavelengths DataFrame from selected bands
+        wavelengths_data = {
+            "Rank": [b.rank for b in self.selected_bands],
+            "Excitation_nm": [b.excitation_nm for b in self.selected_bands],
+            "Emission_nm": [b.emission_nm for b in self.selected_bands],
+            "Band_Index": [b.emission_band_index for b in self.selected_bands],
+            "Score": [b.influence_score for b in self.selected_bands],
+        }
+        wavelengths_df = pd.DataFrame(wavelengths_data)
+
+        # Write to Excel
+        with pd.ExcelWriter(path, engine="openpyxl") as writer:
+            wavelengths_df.to_excel(writer, sheet_name="Wavelengths", index=False)
+
+            if include_metrics:
+                # Create metrics DataFrame (single row)
+                metrics_data = {
+                    "Total_Bands": [self.metrics.total_bands_available],
+                    "Bands_Selected": [self.metrics.bands_selected],
+                    "Compression_Ratio": [self.metrics.compression_ratio],
+                    "Max_Score": [self.metrics.max_influence_score],
+                    "Min_Score": [self.metrics.min_influence_score],
+                    "Mean_Score": [self.metrics.mean_influence_score],
+                }
+                metrics_df = pd.DataFrame(metrics_data)
+                metrics_df.to_excel(writer, sheet_name="Metrics", index=False)
 
 
 # ============================================================================
