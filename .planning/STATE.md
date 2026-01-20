@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-19)
 ## Current Position
 
 Phase: 9 of 16 (Flexible Model Config)
-Plan: 1 of 1 in current phase
+Plan: 2 of 2 in current phase
 Status: Phase complete
-Last activity: 2026-01-20 — Completed 09-01-PLAN.md
+Last activity: 2026-01-20 — Completed 09-02-PLAN.md
 
-Progress: █████████░░░░░░░ 56% (21 of 37 potential plans)
+Progress: █████████░░░░░░░ 58% (22 of 38 potential plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21
-- Average duration: 4.7 min
-- Total execution time: 1.8 hours
+- Total plans completed: 22
+- Average duration: 4.6 min
+- Total execution time: 1.9 hours
 
 **By Phase:**
 
@@ -35,11 +35,11 @@ Progress: █████████░░░░░░░ 56% (21 of 37 potenti
 | 6. Ground Truth Validation | 2 | 13 min | 6.5 min |
 | 7. Notebook Migration | 1 | 4 min | 4 min |
 | 8. Testing & Validation | 4 | 16 min | 4.0 min |
-| 9. Flexible Model Config | 1 | 3 min | 3 min |
+| 9. Flexible Model Config | 2 | 6 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 08-02 (5 min), 08-03 (4 min), 08-04 (3 min), 09-01 (3 min)
-- Trend: Config extended with 12 model/training parameters
+- Last 5 plans: 08-03 (4 min), 08-04 (3 min), 09-01 (3 min), 09-02 (3 min)
+- Trend: Phase 9 complete - model factory with custom architecture support
 
 ## Accumulated Context
 
@@ -108,6 +108,9 @@ Recent decisions affecting current work:
 - **09-01:** Odd-only model_filter_size validation for symmetric padding
 - **09-01:** Optional[int] for training_early_stopping_patience (None=disabled)
 - **09-01:** Cross-field validation: training_chunk_overlap < training_chunk_size
+- **09-02:** Factory method _create_model() for architecture resolution
+- **09-02:** Lazy resolution: 'standard' string resolved at runtime to avoid circular imports
+- **09-02:** Custom architectures receive k1/k3/filter_size (subset of params)
 
 ### Deferred Issues
 
@@ -120,7 +123,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: Completed 09-01-PLAN.md — Phase 9 complete
+Stopped at: Completed 09-02-PLAN.md — Phase 9 complete
 Resume file: None
 
 ### Roadmap Evolution
