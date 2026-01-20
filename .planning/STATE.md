@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-19)
 ## Current Position
 
 Phase: 12 of 16 (Data Pipeline Improvements)
-Plan: 1 of ? in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-20 — Completed 12-01-PLAN.md
+Last activity: 2026-01-20 — Completed 12-02-PLAN.md
 
-Progress: ███████████░░░░░ 74% (28 of 38 potential plans)
+Progress: ████████████░░░░ 74% (29 of 39 potential plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 28
+- Total plans completed: 29
 - Average duration: 4.4 min
-- Total execution time: 2.4 hours
+- Total execution time: 2.5 hours
 
 **By Phase:**
 
@@ -38,11 +38,11 @@ Progress: ███████████░░░░░ 74% (28 of 38 potenti
 | 9. Flexible Model Config | 2 | 6 min | 3 min |
 | 10. Results Organization | 3 | 13 min | 4.3 min |
 | 11. Excel Export & Reporting | 2 | 8 min | 4 min |
-| 12. Data Pipeline Improvements | 1 | 4 min | 4 min |
+| 12. Data Pipeline Improvements | 2 | 9 min | 4.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 10-03 (5 min), 11-01 (3 min), 11-02 (5 min), 12-01 (4 min)
-- Trend: Phase 12 started with DataLoader wrapper and SpectraData.from_raw()
+- Last 5 plans: 11-01 (3 min), 11-02 (5 min), 12-01 (4 min), 12-02 (5 min)
+- Trend: Phase 12 complete with to_pickle() and improved error handling
 
 ## Accumulated Context
 
@@ -132,6 +132,9 @@ Recent decisions affecting current work:
 - **12-01:** Wrap HyperspectralDataLoader rather than duplicating code
 - **12-01:** Lazy ImageJ initialization only when actually loading .im3 files
 - **12-01:** DataLoadingError captures original exception as cause for debugging
+- **12-02:** to_pickle() output format matches from_pickle() expectations exactly
+- **12-02:** Error messages include: what happened, what found, what expected, hint
+- **12-02:** Validate paths at initialization time for early failure
 
 ### Deferred Issues
 
@@ -144,7 +147,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-20
-Stopped at: Completed 12-01-PLAN.md
+Stopped at: Completed 12-02-PLAN.md (Phase 12 complete)
 Resume file: None
 
 ### Roadmap Evolution
