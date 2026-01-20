@@ -38,11 +38,10 @@ class TestSpectraDataCreation:
         assert synthetic_spectra_data.mask is not None
         assert synthetic_spectra_data.excitation_wavelengths == [365.0, 405.0, 450.0]
 
-    def test_spectra_data_empty_initialization(self):
-        """Allow empty excitations on initialization."""
-        data = SpectraData(excitations={})
-        assert data.n_excitations == 0
-        assert data.spatial_shape == (0, 0)
+    def test_spectra_data_empty_initialization_raises(self):
+        """Empty excitations raises ValueError."""
+        with pytest.raises(ValueError, match="excitations cannot be empty"):
+            SpectraData(excitations={})
 
     def test_spectra_data_shape_validation(self):
         """Mismatched cube/mask shapes raise ValueError."""
@@ -545,3 +544,141 @@ class TestGroundTruth:
         assert valid[0, 0] is np.bool_(False)  # -1 is background
         assert valid[0, 1] is np.bool_(True)   # 0 is valid
         assert valid[1, 2] is np.bool_(False)  # -1 is background
+
+
+class TestWavelengthResultExcel:
+    """Tests for WavelengthResult.to_excel() export functionality."""
+
+    @pytest.fixture
+    def sample_wavelength_result(self) -> WavelengthResult:
+        """Create a sample WavelengthResult for Excel export testing."""
+        bands = [
+            WavelengthBand(
+                rank=1,
+                excitation_nm=365.0,
+                emission_nm=500.0,
+                emission_band_index=0,
+                influence_score=0.95,
+            ),
+            WavelengthBand(
+                rank=2,
+                excitation_nm=405.0,
+                emission_nm=520.0,
+                emission_band_index=2,
+                influence_score=0.85,
+            ),
+            WavelengthBand(
+                rank=3,
+                excitation_nm=365.0,
+                emission_nm=530.0,
+                emission_band_index=3,
+                influence_score=0.75,
+            ),
+        ]
+        metrics = AnalysisMetrics.from_bands(bands, total_available=100)
+        return WavelengthResult(
+            sample_name="excel_test_sample",
+            selected_bands=bands,
+            metrics=metrics,
+        )
+
+    def test_to_excel_creates_file(
+        self, sample_wavelength_result: WavelengthResult, tmp_path: Path
+    ):
+        """Verify to_excel() creates file at specified path."""
+        excel_path = tmp_path / "test_output.xlsx"
+        assert not excel_path.exists()
+
+        sample_wavelength_result.to_excel(excel_path)
+
+        assert excel_path.exists()
+
+    def test_to_excel_wavelengths_sheet(
+        self, sample_wavelength_result: WavelengthResult, tmp_path: Path
+    ):
+        """Verify Wavelengths sheet has correct columns and data."""
+        import pandas as pd
+
+        excel_path = tmp_path / "wavelengths_sheet_test.xlsx"
+        sample_wavelength_result.to_excel(excel_path)
+
+        # Read back the Wavelengths sheet
+        df = pd.read_excel(excel_path, sheet_name="Wavelengths")
+
+        # Check columns (includes Band_Index per implementation)
+        expected_columns = ["Rank", "Excitation_nm", "Emission_nm", "Band_Index", "Score"]
+        assert list(df.columns) == expected_columns
+
+        # Check data
+        assert len(df) == 3
+        assert df.iloc[0]["Rank"] == 1
+        assert df.iloc[0]["Excitation_nm"] == 365.0
+        assert df.iloc[0]["Emission_nm"] == 500.0
+        assert df.iloc[0]["Band_Index"] == 0
+        assert df.iloc[0]["Score"] == 0.95
+
+        assert df.iloc[2]["Rank"] == 3
+        assert df.iloc[2]["Score"] == 0.75
+
+    def test_to_excel_metrics_sheet(
+        self, sample_wavelength_result: WavelengthResult, tmp_path: Path
+    ):
+        """Verify Metrics sheet is present and has correct values when include_metrics=True."""
+        import pandas as pd
+
+        excel_path = tmp_path / "metrics_sheet_test.xlsx"
+        sample_wavelength_result.to_excel(excel_path, include_metrics=True)
+
+        # Read back the Metrics sheet
+        df = pd.read_excel(excel_path, sheet_name="Metrics")
+
+        # Check column names match implementation (horizontal layout)
+        expected_columns = {
+            "Total_Bands", "Bands_Selected", "Compression_Ratio",
+            "Max_Score", "Min_Score", "Mean_Score"
+        }
+        assert set(df.columns) == expected_columns
+
+        # Verify specific values
+        assert df.iloc[0]["Bands_Selected"] == 3
+        assert df.iloc[0]["Total_Bands"] == 100
+        assert abs(df.iloc[0]["Compression_Ratio"] - (100 / 3)) < 0.01
+
+    def test_to_excel_no_metrics(
+        self, sample_wavelength_result: WavelengthResult, tmp_path: Path
+    ):
+        """Verify only Wavelengths sheet when include_metrics=False."""
+        import pandas as pd
+
+        excel_path = tmp_path / "no_metrics_test.xlsx"
+        sample_wavelength_result.to_excel(excel_path, include_metrics=False)
+
+        # Read the Excel file and check sheet names
+        xlsx = pd.ExcelFile(excel_path)
+        sheet_names = xlsx.sheet_names
+
+        assert "Wavelengths" in sheet_names
+        assert "Metrics" not in sheet_names
+        assert len(sheet_names) == 1
+
+    def test_to_excel_creates_parent_dirs(
+        self, sample_wavelength_result: WavelengthResult, tmp_path: Path
+    ):
+        """Verify parent directories are created if needed."""
+        # Create a nested path that doesn't exist
+        excel_path = tmp_path / "nested" / "dir" / "output.xlsx"
+        assert not excel_path.parent.exists()
+
+        sample_wavelength_result.to_excel(excel_path)
+
+        assert excel_path.exists()
+        assert excel_path.parent.exists()
+
+    def test_to_excel_returns_none(
+        self, sample_wavelength_result: WavelengthResult, tmp_path: Path
+    ):
+        """Verify to_excel returns None (follows pattern of other save methods)."""
+        excel_path = tmp_path / "return_test.xlsx"
+        result = sample_wavelength_result.to_excel(excel_path)
+
+        assert result is None
