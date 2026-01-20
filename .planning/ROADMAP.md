@@ -25,7 +25,7 @@ None
 - [x] **Phase 8: Testing & Validation** - Test suite ensuring bit-identical results
 
 ### v1.1 Production Ready (In Progress)
-- [ ] **Phase 9: Flexible Model Config** - Parameterize autoencoder, support custom models
+- [x] **Phase 9: Flexible Model Config** - Parameterize autoencoder, support custom models
 - [ ] **Phase 10: Results Organization** - Structured results directories, checkpoint naming
 - [ ] **Phase 11: Excel Export & Reporting** - Wavelength pairs export, consistent reporting
 - [ ] **Phase 12: Data Pipeline Improvements** - Streamline raw→pkl workflow
@@ -45,14 +45,15 @@ None
 
 **Milestone Goal:** Transform the library into a production-ready tool with flexible configuration, organized outputs, data preparation tools, and comprehensive testing.
 
-### Phase 9: Flexible Model Config
+### Phase 9: Flexible Model Config ✓
 **Goal**: Parameterize autoencoder (layers, channels, latent_dim), add architecture selection, support custom models via protocol
 **Depends on**: Phase 8
 **Research**: Unlikely (internal refactoring)
-**Plans**: TBD
+**Plans**: 1
+**Completed**: 2026-01-20
 
 Plans:
-- [ ] 09-01: TBD (run /gsd:plan-phase 9 to break down)
+- [x] 09-01: Model and training config parameters ✓
 
 ### Phase 10: Results Organization
 **Goal**: Structured results directories (sample/run/artifacts), model checkpoint naming, wavelength selection tracking
@@ -225,7 +226,7 @@ Phases execute in numeric order: 1 → 2 → ... → 8 → 9 → 10 → ... → 
 | 6. Ground Truth Validation | v1.0 | 2/2 | Complete | 2026-01-19 |
 | 7. Notebook Migration | v1.0 | 1/1 | Complete | 2026-01-19 |
 | 8. Testing & Validation | v1.0 | 4/4 | Complete | 2026-01-20 |
-| 9. Flexible Model Config | v1.1 | 0/? | Not started | - |
+| 9. Flexible Model Config | v1.1 | 1/1 | Complete | 2026-01-20 |
 | 10. Results Organization | v1.1 | 0/? | Not started | - |
 | 11. Excel Export & Reporting | v1.1 | 0/? | Not started | - |
 | 12. Data Pipeline Improvements | v1.1 | 0/? | Not started | - |
