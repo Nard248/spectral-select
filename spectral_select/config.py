@@ -149,6 +149,14 @@ class Config:
     patch_stride: int = 16
     random_seed: int = 42
 
+    # Model architecture parameters
+    model_k1: int = 20  # Number of filters in first encoder layer
+    model_k3: int = 20  # Number of filters in third encoder layer
+    model_filter_size: int = 5  # Convolutional kernel size (must be odd)
+    model_sparsity_target: float = 0.1  # Target sparsity for regularization
+    model_sparsity_weight: float = 1.0  # Weight of sparsity loss term
+    model_dropout_rate: float = 0.5  # Dropout probability during training
+
     # Pluggable components
     # Type hint uses Union for flexibility with string identifiers or class references
     classifier: Union[str, Type[ClassifierProtocol], Callable[..., Any]] = "knn"
@@ -168,6 +176,10 @@ class Config:
 
     def _validate_string_options(self) -> None:
         """Validate string-based configuration options."""
+        # Validate sample_name is not empty or whitespace-only
+        if not self.sample_name or not self.sample_name.strip():
+            raise ValueError("sample_name cannot be empty or whitespace-only")
+
         if self.dimension_selection_method not in _VALID_DIMENSION_METHODS:
             raise ValueError(
                 f"dimension_selection_method must be one of {sorted(_VALID_DIMENSION_METHODS)}, "
@@ -238,6 +250,48 @@ class Config:
 
         if not self.perturbation_magnitudes:
             raise ValueError("perturbation_magnitudes cannot be empty")
+
+        if any(m < 0 for m in self.perturbation_magnitudes):
+            raise ValueError(
+                f"perturbation_magnitudes must all be non-negative, "
+                f"got {self.perturbation_magnitudes}"
+            )
+
+        # Model architecture validation
+        if self.model_k1 <= 0:
+            raise ValueError(f"model_k1 must be positive, got {self.model_k1}")
+
+        if self.model_k3 <= 0:
+            raise ValueError(f"model_k3 must be positive, got {self.model_k3}")
+
+        if self.model_filter_size <= 0:
+            raise ValueError(
+                f"model_filter_size must be positive, got {self.model_filter_size}"
+            )
+
+        if self.model_filter_size % 2 == 0:
+            raise ValueError(
+                f"model_filter_size must be odd for symmetric padding, "
+                f"got {self.model_filter_size}"
+            )
+
+        if not 0.0 <= self.model_sparsity_target <= 1.0:
+            raise ValueError(
+                f"model_sparsity_target must be between 0 and 1, "
+                f"got {self.model_sparsity_target}"
+            )
+
+        if self.model_sparsity_weight < 0:
+            raise ValueError(
+                f"model_sparsity_weight must be non-negative, "
+                f"got {self.model_sparsity_weight}"
+            )
+
+        if not 0.0 <= self.model_dropout_rate <= 1.0:
+            raise ValueError(
+                f"model_dropout_rate must be between 0 and 1, "
+                f"got {self.model_dropout_rate}"
+            )
 
     def _convert_paths(self) -> None:
         """Convert string paths to Path objects if needed."""
