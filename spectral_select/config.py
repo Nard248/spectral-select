@@ -157,6 +157,14 @@ class Config:
     model_sparsity_weight: float = 1.0  # Weight of sparsity loss term
     model_dropout_rate: float = 0.5  # Dropout probability during training
 
+    # Training parameters
+    training_epochs: int = 3000  # Number of training epochs for autoencoder
+    training_lr: float = 0.001  # Learning rate for optimizer
+    training_chunk_size: int = 64  # Spatial chunk size for training
+    training_chunk_overlap: int = 8  # Overlap between adjacent chunks
+    training_early_stopping_patience: Optional[int] = None  # Early stopping (None=disabled)
+    training_scheduler_patience: int = 5  # LR scheduler patience
+
     # Pluggable components
     # Type hint uses Union for flexibility with string identifiers or class references
     classifier: Union[str, Type[ClassifierProtocol], Callable[..., Any]] = "knn"
@@ -291,6 +299,47 @@ class Config:
             raise ValueError(
                 f"model_dropout_rate must be between 0 and 1, "
                 f"got {self.model_dropout_rate}"
+            )
+
+        # Training parameters validation
+        if self.training_epochs <= 0:
+            raise ValueError(
+                f"training_epochs must be positive, got {self.training_epochs}"
+            )
+
+        if self.training_lr <= 0:
+            raise ValueError(f"training_lr must be positive, got {self.training_lr}")
+
+        if self.training_chunk_size <= 0:
+            raise ValueError(
+                f"training_chunk_size must be positive, got {self.training_chunk_size}"
+            )
+
+        if self.training_chunk_overlap < 0:
+            raise ValueError(
+                f"training_chunk_overlap must be non-negative, "
+                f"got {self.training_chunk_overlap}"
+            )
+
+        if self.training_chunk_overlap >= self.training_chunk_size:
+            raise ValueError(
+                f"training_chunk_overlap ({self.training_chunk_overlap}) must be less "
+                f"than training_chunk_size ({self.training_chunk_size})"
+            )
+
+        if (
+            self.training_early_stopping_patience is not None
+            and self.training_early_stopping_patience <= 0
+        ):
+            raise ValueError(
+                f"training_early_stopping_patience must be positive or None, "
+                f"got {self.training_early_stopping_patience}"
+            )
+
+        if self.training_scheduler_patience <= 0:
+            raise ValueError(
+                f"training_scheduler_patience must be positive, "
+                f"got {self.training_scheduler_patience}"
             )
 
     def _convert_paths(self) -> None:
