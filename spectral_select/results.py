@@ -141,6 +141,9 @@ class ResultsManager:
             )
         return self.model_dir / f"{checkpoint_type}_model.pth"
 
+    # Default filename for Excel export
+    DEFAULT_EXPORT_FILENAME: str = "wavelength_selection.xlsx"
+
     def get_result_path(self, filename: str) -> Path:
         """Get path for a result file in the run directory.
 
@@ -149,6 +152,20 @@ class ResultsManager:
 
         Returns:
             Full path to the result file.
+        """
+        return self.run_dir / filename
+
+    def get_export_path(self, filename: str) -> Path:
+        """Get path for an export file in the run directory.
+
+        This is an alias for get_result_path() provided for semantic clarity
+        when working with export files like Excel spreadsheets.
+
+        Args:
+            filename: Name of the export file (e.g., "wavelength_selection.xlsx").
+
+        Returns:
+            Full path to the export file.
         """
         return self.run_dir / filename
 
