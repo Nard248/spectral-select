@@ -49,11 +49,12 @@ None
 **Goal**: Parameterize autoencoder (layers, channels, latent_dim), add architecture selection, support custom models via protocol
 **Depends on**: Phase 8
 **Research**: Unlikely (internal refactoring)
-**Plans**: 1
+**Plans**: 2
 **Completed**: 2026-01-20
 
 Plans:
 - [x] 09-01: Model and training config parameters ✓
+- [x] 09-02: Analyzer model integration ✓
 
 ### Phase 10: Results Organization
 **Goal**: Structured results directories (sample/run/artifacts), model checkpoint naming, wavelength selection tracking
@@ -226,7 +227,7 @@ Phases execute in numeric order: 1 → 2 → ... → 8 → 9 → 10 → ... → 
 | 6. Ground Truth Validation | v1.0 | 2/2 | Complete | 2026-01-19 |
 | 7. Notebook Migration | v1.0 | 1/1 | Complete | 2026-01-19 |
 | 8. Testing & Validation | v1.0 | 4/4 | Complete | 2026-01-20 |
-| 9. Flexible Model Config | v1.1 | 1/1 | Complete | 2026-01-20 |
+| 9. Flexible Model Config | v1.1 | 2/2 | Complete | 2026-01-20 |
 | 10. Results Organization | v1.1 | 0/? | Not started | - |
 | 11. Excel Export & Reporting | v1.1 | 0/? | Not started | - |
 | 12. Data Pipeline Improvements | v1.1 | 0/? | Not started | - |
