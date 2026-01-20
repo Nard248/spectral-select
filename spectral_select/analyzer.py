@@ -550,6 +550,55 @@ class Analyzer:
             f"spatial {self._spatial_shape[0]}x{self._spatial_shape[1]}"
         )
 
+    def _create_model(self, excitations_data: Dict[float, np.ndarray]) -> Any:
+        """Create model instance based on config.autoencoder_architecture.
+
+        Supports built-in 'standard' architecture or custom classes implementing
+        AutoencoderProtocol.
+
+        Args:
+            excitations_data: Dictionary mapping excitation wavelengths to numpy arrays.
+
+        Returns:
+            Instantiated model ready for training or inference.
+
+        Raises:
+            ValueError: If autoencoder_architecture is an unknown string identifier.
+        """
+        architecture = self._config.resolve_autoencoder()
+
+        # Handle built-in string identifiers
+        if isinstance(architecture, str):
+            if architecture == "standard":
+                # TODO: Phase 8 cleanup - remove sys.path manipulation
+                project_root = Path(__file__).parent.parent
+                if str(project_root) not in sys.path:
+                    sys.path.insert(0, str(project_root))
+
+                from scripts.models import HyperspectralCAEWithMasking
+
+                logger.info("Using built-in 'standard' autoencoder architecture")
+                return HyperspectralCAEWithMasking(
+                    excitations_data=excitations_data,
+                    k1=self._config.model_k1,
+                    k3=self._config.model_k3,
+                    filter_size=self._config.model_filter_size,
+                    sparsity_target=self._config.model_sparsity_target,
+                    sparsity_weight=self._config.model_sparsity_weight,
+                    dropout_rate=self._config.model_dropout_rate,
+                )
+            else:
+                raise ValueError(f"Unknown built-in autoencoder: {architecture}")
+
+        # Handle custom class/callable
+        logger.info(f"Using custom autoencoder: {architecture}")
+        return architecture(
+            excitations_data=excitations_data,
+            k1=self._config.model_k1,
+            k3=self._config.model_k3,
+            filter_size=self._config.model_filter_size,
+        )
+
     def _load_or_train_model(self) -> None:
         """Load pretrained model or train a new one if needed.
 
@@ -559,28 +608,12 @@ class Analyzer:
         if self._dataset is None:
             raise RuntimeError("_load_data must be called before _load_or_train_model")
 
-        # TODO: Phase 8 cleanup - remove sys.path manipulation
-        project_root = Path(__file__).parent.parent
-        if str(project_root) not in sys.path:
-            sys.path.insert(0, str(project_root))
-
-        from scripts.models import HyperspectralCAEWithMasking
-
         # Get data from dataset to initialize model
         all_data = self._dataset.get_all_data()
 
-        # Initialize model with config-driven architecture parameters
-        # Convert tensors to numpy for model initialization
+        # Create model using factory method (uses config architecture)
         excitations_data = {ex: data.numpy() for ex, data in all_data.items()}
-        self._model = HyperspectralCAEWithMasking(
-            excitations_data=excitations_data,
-            k1=self._config.model_k1,
-            k3=self._config.model_k3,
-            filter_size=self._config.model_filter_size,
-            sparsity_target=self._config.model_sparsity_target,
-            sparsity_weight=self._config.model_sparsity_weight,
-            dropout_rate=self._config.model_dropout_rate,
-        )
+        self._model = self._create_model(excitations_data)
 
         # Attempt to load pretrained weights
         model_path = self._config.model_path

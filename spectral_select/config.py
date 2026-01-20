@@ -54,6 +54,9 @@ if TYPE_CHECKING:
 # Actual implementations will be added in later phases
 BUILT_IN_CLASSIFIERS: dict[str, Any] = {"knn": None}
 BUILT_IN_CLUSTERING: dict[str, Any] = {"kmeans": None}
+# Built-in autoencoder: "standard" maps to None (placeholder), resolved lazily at runtime
+# to avoid circular imports. The actual HyperspectralCAEWithMasking is imported
+# in Analyzer._create_model() when the string identifier "standard" is received.
 BUILT_IN_AUTOENCODERS: dict[str, Any] = {"standard": None}
 BUILT_IN_WAVELENGTH_RANKERS: dict[str, Any] = {"perturbation": None}
 
