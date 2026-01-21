@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-19)
 
 ## Current Position
 
-Phase: 12 of 16 (Data Pipeline Improvements)
-Plan: 3 of 3 in current phase
-Status: Phase complete
-Last activity: 2026-01-21 — Completed 12-03-PLAN.md
+Phase: 13 of 16 (Masking GUI Tool)
+Plan: 1 of ? in current phase
+Status: In progress
+Last activity: 2026-01-21 — Completed 13-01-PLAN.md
 
-Progress: █████████████░░░ 77% (30 of 39 potential plans)
+Progress: █████████████░░░ 79% (31 of 39 potential plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 30
-- Average duration: 4.4 min
-- Total execution time: 2.6 hours
+- Total plans completed: 31
+- Average duration: 4.5 min
+- Total execution time: 2.7 hours
 
 **By Phase:**
 
@@ -39,10 +39,11 @@ Progress: █████████████░░░ 77% (30 of 39 potenti
 | 10. Results Organization | 3 | 13 min | 4.3 min |
 | 11. Excel Export & Reporting | 2 | 8 min | 4 min |
 | 12. Data Pipeline Improvements | 3 | 14 min | 4.7 min |
+| 13. Masking GUI Tool | 1 | 6 min | 6 min |
 
 **Recent Trend:**
-- Last 5 plans: 11-02 (5 min), 12-01 (4 min), 12-02 (5 min), 12-03 (5 min)
-- Trend: Phase 12 complete with comprehensive data pipeline tests
+- Last 5 plans: 12-01 (4 min), 12-02 (5 min), 12-03 (5 min), 13-01 (6 min)
+- Trend: Phase 13 started with ViewerApp core implementation
 
 ## Accumulated Context
 
@@ -138,6 +139,10 @@ Recent decisions affecting current work:
 - **12-03:** Skip integration tests requiring ImageJ (CI-friendly)
 - **12-03:** Test from_raw() error paths since success requires ImageJ
 - **12-03:** Roundtrip tests verify cubes, masks, emission_wavelengths, exposure_time, laser_power
+- **13-01:** Use tkinter + matplotlib FigureCanvasTkAgg for GUI (stdlib + existing dep)
+- **13-01:** Lazy SpectraData import in viewer to avoid circular imports
+- **13-01:** Graceful ImageJ failure with info dialog for raw file loading
+- **13-01:** Private attributes with public properties for state encapsulation
 
 ### Deferred Issues
 
@@ -150,7 +155,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 12-03-PLAN.md (Phase 12 complete)
+Stopped at: Completed 13-01-PLAN.md
 Resume file: None
 
 ### Roadmap Evolution
