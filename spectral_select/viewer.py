@@ -172,6 +172,79 @@ def create_rgb_image(
     return rgb.astype(np.float32)
 
 
+def compose_false_color(
+    cube: np.ndarray,
+    r_band: int,
+    g_band: int,
+    b_band: int,
+    percentile: float = 98.0,
+) -> np.ndarray:
+    """Create a false color RGB image from specified bands.
+
+    Allows arbitrary band-to-channel assignment for custom RGB visualization.
+    Each channel is independently normalized using percentile-based contrast.
+
+    Args:
+        cube: 3D array in (height, width, bands) format.
+        r_band: Band index to map to red channel.
+        g_band: Band index to map to green channel.
+        b_band: Band index to map to blue channel.
+        percentile: Percentile for contrast normalization (default 98).
+
+    Returns:
+        RGB image as (height, width, 3) float array in [0, 1] range.
+
+    Raises:
+        IndexError: If any band index is out of range.
+
+    Example:
+        # Create false color with bands 10, 25, 40 as RGB
+        rgb = compose_false_color(cube, r_band=10, g_band=25, b_band=40)
+        plt.imshow(rgb)
+    """
+    # Handle NaN values
+    cube = np.nan_to_num(cube, nan=0.0)
+
+    height, width, n_bands = cube.shape
+
+    # Validate band indices
+    for name, idx in [("r_band", r_band), ("g_band", g_band), ("b_band", b_band)]:
+        if not (0 <= idx < n_bands):
+            raise IndexError(f"{name}={idx} out of range for cube with {n_bands} bands")
+
+    # Extract bands
+    r_data = cube[:, :, r_band]
+    g_data = cube[:, :, g_band]
+    b_data = cube[:, :, b_band]
+
+    # Normalize each channel independently
+    def normalize_band(band: np.ndarray) -> np.ndarray:
+        if np.any(band > 0):
+            pval = np.percentile(band[band > 0], percentile)
+        else:
+            pval = 1.0
+        if pval == 0:
+            pval = 1.0
+        return np.clip(band / pval, 0, 1)
+
+    r_norm = normalize_band(r_data)
+    g_norm = normalize_band(g_data)
+    b_norm = normalize_band(b_data)
+
+    rgb = np.stack([r_norm, g_norm, b_norm], axis=2)
+    return rgb.astype(np.float32)
+
+
+# False color presets: name -> (r_fraction, g_fraction, b_fraction)
+# Fractions are converted to band indices based on total bands
+FALSE_COLOR_PRESETS: Dict[str, Tuple[float, float, float]] = {
+    "Default (20/50/80%)": (0.2, 0.5, 0.8),
+    "Lower Spectrum": (0.1, 0.2, 0.3),
+    "Upper Spectrum": (0.7, 0.8, 0.9),
+    "Wide Spread": (0.0, 0.5, 1.0),
+}
+
+
 class ViewerApp:
     """Interactive viewer for multi-excitation hyperspectral data.
 
@@ -224,6 +297,14 @@ class ViewerApp:
         self._animation_loop = tk.BooleanVar(value=True)
         self._animation_id: Optional[str] = None
         self._emission_wavelengths: List[float] = []
+
+        # False color composer state
+        self._false_color_enabled = tk.BooleanVar(value=False)
+        self._false_color_live = tk.BooleanVar(value=False)
+        self._fc_r_band = tk.IntVar(value=0)
+        self._fc_g_band = tk.IntVar(value=0)
+        self._fc_b_band = tk.IntVar(value=0)
+        self._fc_preset = tk.StringVar(value="Default (20/50/80%)")
 
         # Build the UI
         self._create_widgets()
@@ -285,6 +366,7 @@ class ViewerApp:
         self._create_excitation_section()
         self._create_display_section()
         self._create_band_browser_section()
+        self._create_false_color_section()
         self._create_tools_section()
 
         # Build canvas area
@@ -478,6 +560,89 @@ class ViewerApp:
 
         # Update speed label when slider moves
         self._animation_speed.trace_add("write", self._update_speed_label)
+
+    def _create_false_color_section(self) -> None:
+        """Create the False Color Composer section."""
+        fc_frame = ttk.LabelFrame(self._control_panel, text="False Color")
+        fc_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        # Enable false color checkbox
+        enable_frame = ttk.Frame(fc_frame)
+        enable_frame.pack(fill=tk.X, padx=5, pady=2)
+
+        ttk.Checkbutton(
+            enable_frame,
+            text="Enable False Color",
+            variable=self._false_color_enabled,
+            command=self._on_false_color_toggled,
+        ).pack(side=tk.LEFT)
+
+        ttk.Checkbutton(
+            enable_frame,
+            text="Live Preview",
+            variable=self._false_color_live,
+        ).pack(side=tk.LEFT, padx=10)
+
+        # Preset dropdown
+        preset_frame = ttk.Frame(fc_frame)
+        preset_frame.pack(fill=tk.X, padx=5, pady=2)
+
+        ttk.Label(preset_frame, text="Preset:").pack(side=tk.LEFT)
+
+        self._fc_preset_combo = ttk.Combobox(
+            preset_frame,
+            textvariable=self._fc_preset,
+            values=list(FALSE_COLOR_PRESETS.keys()) + ["Custom"],
+            state="readonly",
+            width=20,
+        )
+        self._fc_preset_combo.pack(side=tk.LEFT, padx=5, fill=tk.X, expand=True)
+        self._fc_preset_combo.bind("<<ComboboxSelected>>", self._on_fc_preset_changed)
+
+        # Channel assignment rows
+        self._fc_r_combo: Optional[ttk.Combobox] = None
+        self._fc_g_combo: Optional[ttk.Combobox] = None
+        self._fc_b_combo: Optional[ttk.Combobox] = None
+
+        # R channel
+        r_frame = ttk.Frame(fc_frame)
+        r_frame.pack(fill=tk.X, padx=5, pady=1)
+
+        ttk.Label(r_frame, text="R:", width=3, foreground="red").pack(side=tk.LEFT)
+        self._fc_r_combo = ttk.Combobox(r_frame, state="readonly", width=20)
+        self._fc_r_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._fc_r_combo.bind("<<ComboboxSelected>>", self._on_fc_channel_changed)
+        self._fc_r_label = ttk.Label(r_frame, text="", width=10)
+        self._fc_r_label.pack(side=tk.LEFT, padx=2)
+
+        # G channel
+        g_frame = ttk.Frame(fc_frame)
+        g_frame.pack(fill=tk.X, padx=5, pady=1)
+
+        ttk.Label(g_frame, text="G:", width=3, foreground="green").pack(side=tk.LEFT)
+        self._fc_g_combo = ttk.Combobox(g_frame, state="readonly", width=20)
+        self._fc_g_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._fc_g_combo.bind("<<ComboboxSelected>>", self._on_fc_channel_changed)
+        self._fc_g_label = ttk.Label(g_frame, text="", width=10)
+        self._fc_g_label.pack(side=tk.LEFT, padx=2)
+
+        # B channel
+        b_frame = ttk.Frame(fc_frame)
+        b_frame.pack(fill=tk.X, padx=5, pady=1)
+
+        ttk.Label(b_frame, text="B:", width=3, foreground="blue").pack(side=tk.LEFT)
+        self._fc_b_combo = ttk.Combobox(b_frame, state="readonly", width=20)
+        self._fc_b_combo.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._fc_b_combo.bind("<<ComboboxSelected>>", self._on_fc_channel_changed)
+        self._fc_b_label = ttk.Label(b_frame, text="", width=10)
+        self._fc_b_label.pack(side=tk.LEFT, padx=2)
+
+        # Buttons
+        btn_frame = ttk.Frame(fc_frame)
+        btn_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        ttk.Button(btn_frame, text="Apply", command=self._on_fc_apply).pack(side=tk.LEFT, padx=2)
+        ttk.Button(btn_frame, text="Reset", command=self._on_fc_reset).pack(side=tk.LEFT, padx=2)
 
     def _create_tools_section(self) -> None:
         """Create the Tools section (placeholder for masking tools)."""
@@ -826,6 +991,128 @@ class ViewerApp:
         speed = self._animation_speed.get()
         self._animation_id = self.root.after(speed, self._animate_next_band)
 
+    def _on_false_color_toggled(self) -> None:
+        """Handle false color enable/disable toggle."""
+        if self._false_color_enabled.get():
+            # Switch to composite mode when enabling false color
+            self._display_mode.set("composite")
+        self._update_display()
+
+    def _on_fc_preset_changed(self, event: Optional[Any] = None) -> None:
+        """Handle false color preset selection change."""
+        preset_name = self._fc_preset.get()
+
+        if preset_name == "Custom":
+            # Keep current selections
+            return
+
+        if preset_name not in FALSE_COLOR_PRESETS:
+            return
+
+        n_bands = len(self._emission_wavelengths)
+        if n_bands == 0:
+            return
+
+        # Get fractions from preset and convert to band indices
+        r_frac, g_frac, b_frac = FALSE_COLOR_PRESETS[preset_name]
+        r_idx = int(n_bands * r_frac)
+        g_idx = int(n_bands * g_frac)
+        b_idx = min(int(n_bands * b_frac), n_bands - 1)
+
+        # Update combo selections
+        self._update_fc_channel_selection(self._fc_r_combo, r_idx, self._fc_r_label)
+        self._update_fc_channel_selection(self._fc_g_combo, g_idx, self._fc_g_label)
+        self._update_fc_channel_selection(self._fc_b_combo, b_idx, self._fc_b_label)
+
+        # Store band indices
+        self._fc_r_band.set(r_idx)
+        self._fc_g_band.set(g_idx)
+        self._fc_b_band.set(b_idx)
+
+        # Apply if live preview enabled
+        if self._false_color_live.get() and self._false_color_enabled.get():
+            self._update_display()
+
+    def _on_fc_channel_changed(self, event: Optional[Any] = None) -> None:
+        """Handle false color channel dropdown change."""
+        # Parse band index from combo selection
+        def get_band_from_combo(combo: ttk.Combobox, label: ttk.Label) -> int:
+            selection = combo.get()
+            if not selection:
+                return 0
+            try:
+                # Format: "15: 520.0 nm"
+                band_idx = int(selection.split(":")[0])
+                if 0 <= band_idx < len(self._emission_wavelengths):
+                    wavelength = self._emission_wavelengths[band_idx]
+                    label.config(text=f"{wavelength:.1f} nm")
+                return band_idx
+            except (ValueError, IndexError):
+                return 0
+
+        self._fc_r_band.set(get_band_from_combo(self._fc_r_combo, self._fc_r_label))
+        self._fc_g_band.set(get_band_from_combo(self._fc_g_combo, self._fc_g_label))
+        self._fc_b_band.set(get_band_from_combo(self._fc_b_combo, self._fc_b_label))
+
+        # Mark as custom
+        self._fc_preset.set("Custom")
+
+        # Apply if live preview enabled
+        if self._false_color_live.get() and self._false_color_enabled.get():
+            self._update_display()
+
+    def _on_fc_apply(self) -> None:
+        """Apply false color composition."""
+        # Enable false color if not already
+        self._false_color_enabled.set(True)
+        self._display_mode.set("composite")
+        self._update_display()
+
+    def _on_fc_reset(self) -> None:
+        """Reset false color to default preset."""
+        self._fc_preset.set("Default (20/50/80%)")
+        self._on_fc_preset_changed()
+
+    def _update_fc_channel_selection(
+        self, combo: Optional[ttk.Combobox], band_idx: int, label: ttk.Label
+    ) -> None:
+        """Update a false color channel combo to select the specified band."""
+        if combo is None:
+            return
+
+        n_bands = len(self._emission_wavelengths)
+        if n_bands == 0 or band_idx < 0 or band_idx >= n_bands:
+            return
+
+        # Find and select the matching entry
+        wavelength = self._emission_wavelengths[band_idx]
+        target = f"{band_idx}: {wavelength:.1f} nm"
+
+        values = combo["values"]
+        if target in values:
+            combo.set(target)
+            label.config(text=f"{wavelength:.1f} nm")
+
+    def _populate_false_color_combos(self) -> None:
+        """Populate false color channel dropdowns with current bands."""
+        n_bands = len(self._emission_wavelengths)
+        if n_bands == 0:
+            return
+
+        # Build options list: "index: wavelength nm"
+        options = [
+            f"{i}: {self._emission_wavelengths[i]:.1f} nm"
+            for i in range(n_bands)
+        ]
+
+        # Update all combos
+        for combo in [self._fc_r_combo, self._fc_g_combo, self._fc_b_combo]:
+            if combo is not None:
+                combo["values"] = options
+
+        # Set default selection using preset
+        self._on_fc_preset_changed()
+
     def _update_display(self) -> None:
         """Update the image display with current settings."""
         if self._spectra_data is None or self._current_excitation is None:
@@ -849,6 +1136,10 @@ class ViewerApp:
                 current = self._current_band.get()
                 if current >= n_bands:
                     self._current_band.set(n_bands - 1)
+
+                # Populate false color combos if not already done
+                if self._fc_r_combo is not None and len(self._fc_r_combo["values"]) != n_bands:
+                    self._populate_false_color_combos()
 
             # Check display mode
             display_mode = self._display_mode.get()
@@ -904,14 +1195,37 @@ class ViewerApp:
 
             else:
                 # Composite mode - Create RGB image
-                method = self._rgb_method.get()
                 percentile = 98 if self._auto_contrast.get() else 100
 
-                self._current_image = create_rgb_image(
-                    self._current_cube,
-                    method=method,
-                    percentile=percentile,
-                )
+                # Check if false color is enabled
+                if self._false_color_enabled.get() and n_bands > 0:
+                    # Use custom band assignment
+                    r_band = self._fc_r_band.get()
+                    g_band = self._fc_g_band.get()
+                    b_band = self._fc_b_band.get()
+
+                    # Validate bands are in range
+                    r_band = min(r_band, n_bands - 1)
+                    g_band = min(g_band, n_bands - 1)
+                    b_band = min(b_band, n_bands - 1)
+
+                    self._current_image = compose_false_color(
+                        self._current_cube,
+                        r_band=r_band,
+                        g_band=g_band,
+                        b_band=b_band,
+                        percentile=percentile,
+                    )
+                    title_suffix = f" (FC: R={r_band}, G={g_band}, B={b_band})"
+                else:
+                    # Use default RGB method
+                    method = self._rgb_method.get()
+                    self._current_image = create_rgb_image(
+                        self._current_cube,
+                        method=method,
+                        percentile=percentile,
+                    )
+                    title_suffix = ""
 
                 # Apply manual contrast if not auto
                 if not self._auto_contrast.get():
@@ -930,7 +1244,7 @@ class ViewerApp:
                     aspect="equal",
                     interpolation="nearest",
                 )
-                self._ax.set_title(f"Excitation: {self._current_excitation} nm")
+                self._ax.set_title(f"Excitation: {self._current_excitation} nm{title_suffix}")
 
             self._ax.set_xticks([])
             self._ax.set_yticks([])
