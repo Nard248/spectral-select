@@ -41,6 +41,7 @@ from .results import ResultsManager
 from .validation import Validator, load_ground_truth_from_png
 from .viewer import ViewerApp, create_rgb_image, detect_cube_format, launch_viewer
 from .visualizer import Visualizer
+from .widgets import ROIWidget, create_display_image, path_to_mask
 
 __version__ = "0.1.0"
 
@@ -53,11 +54,14 @@ __all__ = [
     "Validator",
     "ViewerApp",
     "Visualizer",
+    "ROIWidget",
     # Utilities
     "create_rgb_image",
+    "create_display_image",
     "detect_cube_format",
     "launch_viewer",
     "load_ground_truth_from_png",
+    "path_to_mask",
     # Exceptions
     "DataLoadingError",
     # Data types
