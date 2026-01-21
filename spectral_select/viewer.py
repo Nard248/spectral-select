@@ -18,13 +18,17 @@ Example:
 
 from __future__ import annotations
 
+import csv
 import logging
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
 
 import numpy as np
+
+if TYPE_CHECKING:
+    from .types import SpectraData
 
 logger = logging.getLogger(__name__)
 
@@ -244,6 +248,70 @@ FALSE_COLOR_PRESETS: Dict[str, Tuple[float, float, float]] = {
     "Wide Spread": (0.0, 0.5, 1.0),
 }
 
+# Maximum number of spectra to compare in multi-point mode
+MAX_COMPARE_SPECTRA = 5
+
+# Colors for multi-point spectrum comparison
+SPECTRUM_COLORS = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"]
+
+
+def extract_spectrum(cube: np.ndarray, x: int, y: int) -> np.ndarray:
+    """Extract spectrum at pixel (x, y) from cube.
+
+    Retrieves all spectral band values for a single pixel location.
+
+    Args:
+        cube: 3D hyperspectral cube in (height, width, bands) format.
+        x: X coordinate (column).
+        y: Y coordinate (row).
+
+    Returns:
+        1D array of spectral values for the pixel.
+
+    Raises:
+        IndexError: If coordinates are out of bounds.
+
+    Example:
+        spec = extract_spectrum(cube, 50, 50)
+        print(f"Spectrum shape: {spec.shape}")
+    """
+    height, width = cube.shape[0], cube.shape[1]
+
+    if not (0 <= y < height and 0 <= x < width):
+        raise IndexError(f"Coordinates ({x}, {y}) out of bounds for shape ({height}, {width})")
+
+    return cube[y, x, :].copy()
+
+
+def extract_multi_excitation_spectrum(
+    spectra_data: "SpectraData", x: int, y: int
+) -> Dict[float, np.ndarray]:
+    """Extract spectra at pixel across all excitations.
+
+    Retrieves the spectrum at a given pixel for each excitation wavelength,
+    useful for analyzing the full 4D response at a location.
+
+    Args:
+        spectra_data: SpectraData instance with multiple excitations.
+        x: X coordinate (column).
+        y: Y coordinate (row).
+
+    Returns:
+        Dictionary mapping excitation wavelength to spectrum array.
+
+    Example:
+        spectra = extract_multi_excitation_spectrum(data, 50, 50)
+        for ex_nm, spec in spectra.items():
+            print(f"Ex {ex_nm}nm: {spec.shape}")
+    """
+    result: Dict[float, np.ndarray] = {}
+
+    for ex_nm in spectra_data.excitation_wavelengths:
+        ex_data = spectra_data.get_excitation(ex_nm)
+        result[ex_nm] = extract_spectrum(ex_data.cube, x, y)
+
+    return result
+
 
 class ViewerApp:
     """Interactive viewer for multi-excitation hyperspectral data.
@@ -311,6 +379,12 @@ class ViewerApp:
         self._zoom_factor = 1.2  # Zoom step multiplier
         self._image_shape: Optional[Tuple[int, int]] = None  # (height, width)
 
+        # Spectrum panel state
+        self._spectrum_compare_mode = tk.BooleanVar(value=False)
+        self._spectrum_auto_scale = tk.BooleanVar(value=True)
+        self._spectrum_traces: List[Tuple[int, int, np.ndarray]] = []  # [(x, y, spectrum), ...]
+        self._clicked_pixel: Optional[Tuple[int, int]] = None  # Most recent click
+
         # Build the UI
         self._create_widgets()
         self._bind_events()
@@ -362,9 +436,13 @@ class ViewerApp:
         self._control_panel = ttk.Frame(self._main_frame, width=250)
         self._main_frame.add(self._control_panel, weight=0)
 
-        # Right: Canvas area
+        # Center: Canvas area
         self._canvas_frame = ttk.Frame(self._main_frame)
         self._main_frame.add(self._canvas_frame, weight=1)
+
+        # Right: Analysis panels (spectrum, histogram, stats)
+        self._right_panel = ttk.Frame(self._main_frame, width=300)
+        self._main_frame.add(self._right_panel, weight=0)
 
         # Build control panel sections
         self._create_data_section()
@@ -379,6 +457,9 @@ class ViewerApp:
 
         # Info bar at bottom of canvas
         self._create_info_bar()
+
+        # Build right panel sections
+        self._create_spectrum_panel()
 
     def _create_data_section(self) -> None:
         """Create the Data control section."""
@@ -656,6 +737,278 @@ class ViewerApp:
 
         ttk.Label(tools_frame, text="(Masking tools coming soon)").pack(padx=5, pady=10)
 
+    def _create_spectrum_panel(self) -> None:
+        """Create the spectrum panel for click-to-plot visualization."""
+        try:
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+            from matplotlib.figure import Figure
+        except ImportError:
+            logger.error("matplotlib not available - spectrum panel creation failed")
+            return
+
+        # Create spectrum frame in the right panel area
+        self._spectrum_frame = ttk.LabelFrame(self._right_panel, text="Spectrum")
+        self._spectrum_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Controls at top
+        controls_frame = ttk.Frame(self._spectrum_frame)
+        controls_frame.pack(fill=tk.X, padx=5, pady=2)
+
+        # Compare mode checkbox
+        ttk.Checkbutton(
+            controls_frame,
+            text="Compare Mode",
+            variable=self._spectrum_compare_mode,
+        ).pack(side=tk.LEFT, padx=2)
+
+        # Auto scale checkbox
+        ttk.Checkbutton(
+            controls_frame,
+            text="Auto Scale",
+            variable=self._spectrum_auto_scale,
+        ).pack(side=tk.LEFT, padx=5)
+
+        # Clear button
+        ttk.Button(
+            controls_frame,
+            text="Clear",
+            command=self._clear_spectrum_traces,
+        ).pack(side=tk.LEFT, padx=5)
+
+        # Export button
+        ttk.Button(
+            controls_frame,
+            text="Export CSV",
+            command=self._export_spectrum_csv,
+        ).pack(side=tk.LEFT, padx=5)
+
+        # Create matplotlib figure for spectrum
+        self._spectrum_figure = Figure(figsize=(4, 2), dpi=100)
+        self._spectrum_ax = self._spectrum_figure.add_subplot(111)
+        self._spectrum_figure.subplots_adjust(left=0.15, right=0.95, top=0.9, bottom=0.2)
+
+        # Create canvas
+        self._spectrum_canvas = FigureCanvasTkAgg(
+            self._spectrum_figure, master=self._spectrum_frame
+        )
+        self._spectrum_canvas_widget = self._spectrum_canvas.get_tk_widget()
+        self._spectrum_canvas_widget.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Initial empty state
+        self._spectrum_ax.text(
+            0.5, 0.5,
+            "Click on image to plot spectrum",
+            ha="center", va="center",
+            transform=self._spectrum_ax.transAxes,
+            fontsize=10,
+            color="gray",
+        )
+        self._spectrum_ax.set_xticks([])
+        self._spectrum_ax.set_yticks([])
+        self._spectrum_canvas.draw()
+
+    def _clear_spectrum_traces(self) -> None:
+        """Clear all spectrum traces from compare mode."""
+        self._spectrum_traces = []
+        self._clicked_pixel = None
+        self._update_spectrum_plot()
+
+    def _export_spectrum_csv(self) -> None:
+        """Export current spectrum data to CSV file."""
+        if not self._spectrum_traces and self._clicked_pixel is None:
+            messagebox.showinfo("Info", "No spectrum data to export.")
+            return
+
+        file_path = filedialog.asksaveasfilename(
+            title="Export Spectrum Data",
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            initialfile="spectrum_data.csv",
+        )
+
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, "w", newline="") as csvfile:
+                writer = csv.writer(csvfile)
+
+                # Header row
+                header = ["Wavelength_nm"]
+                if self._spectrum_traces:
+                    for x, y, _ in self._spectrum_traces:
+                        header.append(f"Pixel_({x},{y})")
+                elif self._clicked_pixel:
+                    x, y = self._clicked_pixel
+                    header.append(f"Pixel_({x},{y})")
+                writer.writerow(header)
+
+                # Data rows
+                if self._emission_wavelengths:
+                    wavelengths = self._emission_wavelengths
+                else:
+                    # Use band indices if wavelengths not available
+                    if self._spectrum_traces:
+                        wavelengths = list(range(len(self._spectrum_traces[0][2])))
+                    elif self._clicked_pixel and self._current_cube is not None:
+                        wavelengths = list(range(self._current_cube.shape[2]))
+                    else:
+                        wavelengths = []
+
+                for i, wl in enumerate(wavelengths):
+                    row = [wl]
+                    if self._spectrum_traces:
+                        for _, _, spec in self._spectrum_traces:
+                            row.append(spec[i] if i < len(spec) else "")
+                    elif self._clicked_pixel and self._current_cube is not None:
+                        x, y = self._clicked_pixel
+                        row.append(self._current_cube[y, x, i])
+                    writer.writerow(row)
+
+            self._update_status(f"Exported spectrum to {Path(file_path).name}")
+            logger.info(f"Spectrum data exported to {file_path}")
+
+        except Exception as e:
+            logger.error(f"Failed to export spectrum: {e}")
+            messagebox.showerror("Error", f"Failed to export spectrum:\n\n{e}")
+
+    def _update_spectrum_plot(self) -> None:
+        """Update the spectrum plot with current data."""
+        if not hasattr(self, "_spectrum_ax"):
+            return
+
+        self._spectrum_ax.clear()
+
+        # Check if we have data to plot
+        has_data = False
+
+        if self._spectrum_compare_mode.get() and self._spectrum_traces:
+            # Multi-trace compare mode
+            for i, (x, y, spectrum) in enumerate(self._spectrum_traces):
+                color = SPECTRUM_COLORS[i % len(SPECTRUM_COLORS)]
+                if self._emission_wavelengths:
+                    self._spectrum_ax.plot(
+                        self._emission_wavelengths[:len(spectrum)],
+                        spectrum,
+                        color=color,
+                        label=f"({x}, {y})",
+                        linewidth=1,
+                        marker=".",
+                        markersize=3,
+                    )
+                else:
+                    self._spectrum_ax.plot(
+                        spectrum,
+                        color=color,
+                        label=f"({x}, {y})",
+                        linewidth=1,
+                        marker=".",
+                        markersize=3,
+                    )
+                has_data = True
+
+            if has_data:
+                self._spectrum_ax.legend(loc="best", fontsize=8)
+
+        elif self._clicked_pixel and self._current_cube is not None:
+            # Single spectrum mode
+            x, y = self._clicked_pixel
+            try:
+                spectrum = extract_spectrum(self._current_cube, x, y)
+                if self._emission_wavelengths:
+                    self._spectrum_ax.plot(
+                        self._emission_wavelengths[:len(spectrum)],
+                        spectrum,
+                        color=SPECTRUM_COLORS[0],
+                        linewidth=1,
+                        marker=".",
+                        markersize=3,
+                    )
+                else:
+                    self._spectrum_ax.plot(
+                        spectrum,
+                        color=SPECTRUM_COLORS[0],
+                        linewidth=1,
+                        marker=".",
+                        markersize=3,
+                    )
+                has_data = True
+            except IndexError:
+                pass
+
+        if has_data:
+            # Configure axes
+            self._spectrum_ax.set_xlabel("Wavelength (nm)" if self._emission_wavelengths else "Band Index", fontsize=9)
+            self._spectrum_ax.set_ylabel("Intensity", fontsize=9)
+            self._spectrum_ax.grid(True, alpha=0.3)
+
+            if self._clicked_pixel:
+                x, y = self._clicked_pixel
+                self._spectrum_ax.set_title(f"Spectrum at ({x}, {y})", fontsize=10)
+            else:
+                self._spectrum_ax.set_title("Spectrum", fontsize=10)
+
+            # Auto-scale or fixed range
+            if not self._spectrum_auto_scale.get():
+                self._spectrum_ax.set_ylim(0, None)
+
+            self._spectrum_ax.tick_params(axis="both", labelsize=8)
+
+        else:
+            # No data - show placeholder
+            self._spectrum_ax.text(
+                0.5, 0.5,
+                "Click on image to plot spectrum",
+                ha="center", va="center",
+                transform=self._spectrum_ax.transAxes,
+                fontsize=10,
+                color="gray",
+            )
+            self._spectrum_ax.set_xticks([])
+            self._spectrum_ax.set_yticks([])
+
+        self._spectrum_figure.tight_layout()
+        self._spectrum_canvas.draw()
+
+    def _on_canvas_click(self, event: Any) -> None:
+        """Handle left-click on canvas for spectrum extraction."""
+        if event.inaxes != self._ax or self._current_cube is None:
+            return
+
+        x, y = event.xdata, event.ydata
+        if x is None or y is None:
+            return
+
+        x_int, y_int = int(x), int(y)
+        height, width = self._current_cube.shape[0], self._current_cube.shape[1]
+
+        if not (0 <= x_int < width and 0 <= y_int < height):
+            return
+
+        # Extract spectrum at clicked point
+        try:
+            spectrum = extract_spectrum(self._current_cube, x_int, y_int)
+        except IndexError:
+            return
+
+        self._clicked_pixel = (x_int, y_int)
+
+        # Handle compare mode
+        if self._spectrum_compare_mode.get():
+            # Add to traces (max 5)
+            if len(self._spectrum_traces) >= MAX_COMPARE_SPECTRA:
+                # Remove oldest trace
+                self._spectrum_traces.pop(0)
+            self._spectrum_traces.append((x_int, y_int, spectrum))
+        else:
+            # Single mode - clear traces and just track clicked pixel
+            self._spectrum_traces = []
+
+        # Update spectrum plot
+        self._update_spectrum_plot()
+
+        logger.debug(f"Spectrum extracted at ({x_int}, {y_int})")
+
     def _create_canvas(self) -> None:
         """Create the matplotlib canvas for image display."""
         try:
@@ -761,6 +1114,7 @@ class ViewerApp:
         if hasattr(self, "_canvas"):
             self._canvas.mpl_connect("motion_notify_event", self._on_mouse_move)
             self._canvas.mpl_connect("scroll_event", self._on_mouse_scroll)
+            self._canvas.mpl_connect("button_press_event", self._on_canvas_click)
 
     def _toggle_controls(self, enabled: bool = True) -> None:
         """Enable or disable controls based on data loading state."""
