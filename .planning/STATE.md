@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-19)
 ## Current Position
 
 Phase: 14 of 16 (Jupyter ROI Widget)
-Plan: 1 of 2 in current phase
-Status: In progress
-Last activity: 2026-01-21 — Completed 14-01-PLAN.md
+Plan: 2 of 2 in current phase
+Status: Phase complete
+Last activity: 2026-01-21 — Completed 14-02-PLAN.md
 
-Progress: █████████████░░░ 87% (36 of 39 potential plans)
+Progress: ██████████████░░ 90% (37 of 39 potential plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 33
-- Average duration: 4.6 min
-- Total execution time: 3.0 hours
+- Total plans completed: 34
+- Average duration: 4.8 min
+- Total execution time: 3.2 hours
 
 **By Phase:**
 
@@ -40,11 +40,11 @@ Progress: █████████████░░░ 87% (36 of 39 potenti
 | 11. Excel Export & Reporting | 2 | 8 min | 4 min |
 | 12. Data Pipeline Improvements | 3 | 14 min | 4.7 min |
 | 13. Masking GUI Tool | 3 | 28 min | 9.3 min |
-| 14. Jupyter ROI Widget | 1 | 8 min | 8 min |
+| 14. Jupyter ROI Widget | 2 | 20 min | 10 min |
 
 **Recent Trend:**
-- Last 5 plans: 13-01 (6 min), 13-02 (10 min), 13-03 (12 min), 14-01 (8 min)
-- Trend: Phase 14 in progress - ROIWidget core complete
+- Last 5 plans: 13-02 (10 min), 13-03 (12 min), 14-01 (8 min), 14-02 (12 min)
+- Trend: Phase 14 complete - ROIWidget with multi-class labeling
 
 ## Accumulated Context
 
@@ -157,6 +157,11 @@ Recent decisions affecting current work:
 - **14-01:** Bounds stored as (row_min, row_max, col_min, col_max) matching numpy slice convention
 - **14-01:** get_roi_code() provides copy-pasteable Python code for reproducibility
 - **14-01:** ipywidgets Output context manager for matplotlib figure capture
+- **14-02:** CLASS_COLORS list with 8 predefined colors for multi-class overlay
+- **14-02:** Masks stored per-class in _class_labels dict, combined via get_combined_mask()
+- **14-02:** PNG mask format: 0=background, 1=class_0, 2=class_1, etc. (shifted by 1)
+- **14-02:** to_ground_truth() builds color_mapping from CLASS_COLORS_RGBA constant
+- **14-02:** path_to_mask handles empty/degenerate paths returning all-False mask
 
 ### Deferred Issues
 
@@ -169,8 +174,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 14-01-PLAN.md
-Resume file: .planning/phases/14-jupyter-roi-widget/14-02-PLAN.md
+Stopped at: Completed 14-02-PLAN.md (Phase 14 complete)
+Resume file: None (Phase 15 not yet planned)
 
 ### Roadmap Evolution
 
