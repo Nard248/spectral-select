@@ -104,11 +104,11 @@ class Visualizer:
 
     @property
     def has_result(self) -> bool:
-        """Whether a result is available (from _result or _analyzer.result_)."""
+        """Whether a result is available (from _result or _analyzer.result)."""
         if self._result is not None:
             return True
         if self._analyzer is not None:
-            return hasattr(self._analyzer, "result_") and self._analyzer.result_ is not None
+            return hasattr(self._analyzer, "result") and self._analyzer.result is not None
         return False
 
     def _setup_style(self) -> None:
@@ -225,7 +225,7 @@ class Visualizer:
     ) -> "Visualizer":
         """Create visualizer bound to an analyzer.
 
-        The visualizer will use analyzer.result_ after fit() is called.
+        The visualizer will use analyzer.result after fit() is called.
         If analyzer has a ResultsManager configured, uses results_manager.viz_dir.
 
         Args:
@@ -326,7 +326,7 @@ class Visualizer:
             matrix_dict = influence_matrix
         elif self.has_result:
             # Build from result's selected bands
-            result = self._result if self._result else self._analyzer.result_
+            result = self._result if self._result else self._analyzer.result
             matrix_dict: Dict[float, np.ndarray] = {}
 
             # Get unique excitations and their band counts
@@ -398,7 +398,7 @@ class Visualizer:
         if not self.has_result:
             raise ValueError("No result available for wavelength scatter plot")
 
-        result = self._result if self._result else self._analyzer.result_
+        result = self._result if self._result else self._analyzer.result
 
         # Extract data for plotting (limit to top_n for readability)
         top_bands = result.selected_bands[:top_n]
@@ -465,7 +465,7 @@ class Visualizer:
         if not self.has_result:
             raise ValueError("No result available for excitation distribution plot")
 
-        result = self._result if self._result else self._analyzer.result_
+        result = self._result if self._result else self._analyzer.result
 
         # Count selections per excitation
         excitation_counts: Dict[float, int] = {}
@@ -527,7 +527,7 @@ class Visualizer:
         if not self.has_result:
             raise ValueError("No result available for influence ranking plot")
 
-        result = self._result if self._result else self._analyzer.result_
+        result = self._result if self._result else self._analyzer.result
 
         # Extract ranks and influences
         ranks = [band.rank for band in result.selected_bands]
@@ -578,7 +578,7 @@ class Visualizer:
         if not self.has_result:
             raise ValueError("No result available for wavelength coverage plot")
 
-        result = self._result if self._result else self._analyzer.result_
+        result = self._result if self._result else self._analyzer.result
 
         # Create figure
         fig, ax = plt.subplots(figsize=self._figsize)
@@ -1063,7 +1063,7 @@ class Visualizer:
         if not self.has_result:
             raise ValueError("No result available for summary dashboard")
 
-        result = self._result if self._result else self._analyzer.result_
+        result = self._result if self._result else self._analyzer.result
         metrics = result.metrics
 
         # Create figure with subplots

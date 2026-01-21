@@ -1,3 +1,35 @@
+### Project-specific ignores
+
+# macOS system files
+.DS_Store
+**/.DS_Store
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Claude Code files
+.claude/
+
+# Planning and temporary files
+.planning/
+archive/
+Untitled.ipynb
+*.tmp
+
+# Generated results and outputs (large files)
+results/
+model_output/
+**/model_output/
+
+# Data files are already ignored below (*.pkl, *.npy, etc.)
+# But explicitly ignore the Data directory contents
+Data/processed/
+Data/Raw/
+
 ### Python template
 # Byte-compiled / optimized / DLL files
 __pycache__/
