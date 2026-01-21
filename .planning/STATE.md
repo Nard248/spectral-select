@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-01-19)
 ## Current Position
 
 Phase: 13 of 16 (Masking GUI Tool)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-01-21 — Completed 13-02-PLAN.md
+Plan: 3 of 3 in current phase
+Status: Complete
+Last activity: 2026-01-21 — Completed 13-03-PLAN.md (Phase 13 complete)
 
-Progress: █████████████░░░ 82% (32 of 39 potential plans)
+Progress: █████████████░░░ 85% (35 of 39 potential plans)
 
 ## Performance Metrics
 
@@ -39,11 +39,11 @@ Progress: █████████████░░░ 82% (32 of 39 potenti
 | 10. Results Organization | 3 | 13 min | 4.3 min |
 | 11. Excel Export & Reporting | 2 | 8 min | 4 min |
 | 12. Data Pipeline Improvements | 3 | 14 min | 4.7 min |
-| 13. Masking GUI Tool | 2 | 16 min | 8 min |
+| 13. Masking GUI Tool | 3 | 28 min | 9.3 min |
 
 **Recent Trend:**
-- Last 5 plans: 12-02 (5 min), 12-03 (5 min), 13-01 (6 min), 13-02 (10 min)
-- Trend: Phase 13 added band browser, false color composer, and zoom controls
+- Last 5 plans: 12-03 (5 min), 13-01 (6 min), 13-02 (10 min), 13-03 (12 min)
+- Trend: Phase 13 complete - ME-HSI Viewer with full analysis panels
 
 ## Accumulated Context
 
@@ -147,6 +147,11 @@ Recent decisions affecting current work:
 - **13-02:** Animation uses root.after() for non-blocking playback
 - **13-02:** Mouse wheel zoom centers on cursor position for intuitive navigation
 - **13-02:** Module-level compose_false_color() for testability
+- **13-03:** extract_spectrum() returns cube[y, x, :] copy for safe modification
+- **13-03:** compute_image_statistics() handles NaN values gracefully
+- **13-03:** Histogram uses 256 bins with 2%/98% percentile markers
+- **13-03:** Statistics panel supports 'Current View' vs 'All Bands' mode toggle
+- **13-03:** ROI statistics section only shown when mask exists
 
 ### Deferred Issues
 
@@ -159,7 +164,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 13-02-PLAN.md
+Stopped at: Completed 13-03-PLAN.md (Phase 13 complete)
 Resume file: None
 
 ### Roadmap Evolution

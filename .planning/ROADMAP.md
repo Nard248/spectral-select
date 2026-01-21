@@ -29,7 +29,7 @@ None
 - [x] **Phase 10: Results Organization** - Structured results directories, checkpoint naming
 - [x] **Phase 11: Excel Export & Reporting** - Wavelength pairs export, consistent reporting
 - [x] **Phase 12: Data Pipeline Improvements** - Streamline raw→pkl workflow
-- [ ] **Phase 13: Masking GUI Tool** - Standalone mask creation app
+- [x] **Phase 13: Masking GUI Tool** - Standalone mask creation app
 - [ ] **Phase 14: Jupyter ROI Widget** - ipywidgets-based ROI selection
 - [ ] **Phase 15: End-to-End Testing** - Test notebooks and scripts runability
 - [ ] **Phase 16: Coverage & Quality** - Increase coverage to 80%+
@@ -91,18 +91,18 @@ Plans:
 - [x] 12-02: SpectraData.to_pickle() and error handling improvements ✓
 - [x] 12-03: Data pipeline tests ✓
 
-### Phase 13: Masking GUI Tool
+### Phase 13: Masking GUI Tool ✓
 **Goal**: Standalone tkinter/Qt app for mask creation with drawing tools (polygon, brush, flood fill)
 **Depends on**: Phase 12
 **Research**: Likely (GUI frameworks, drawing tools)
 **Research topics**: tkinter canvas vs PyQt5/6, polygon drawing patterns, mask serialization
-**Plans**: 3 (estimated)
-**Status**: In progress
+**Plans**: 3
+**Completed**: 2026-01-21
 
 Plans:
 - [x] 13-01: ME-HSI Viewer core framework ✓
 - [x] 13-02: Band browser and false color composer ✓
-- [ ] 13-03: Mask operations and saving
+- [x] 13-03: Spectral profile and statistics panels ✓
 
 ### Phase 14: Jupyter ROI Widget
 **Goal**: ipywidgets-based ROI selection for notebooks, integration with SpectraData
@@ -242,7 +242,7 @@ Phases execute in numeric order: 1 → 2 → ... → 8 → 9 → 10 → ... → 
 | 10. Results Organization | v1.1 | 3/3 | Complete | 2026-01-20 |
 | 11. Excel Export & Reporting | v1.1 | 2/2 | Complete | 2026-01-20 |
 | 12. Data Pipeline Improvements | v1.1 | 3/3 | Complete | 2026-01-21 |
-| 13. Masking GUI Tool | v1.1 | 2/3 | In progress | - |
+| 13. Masking GUI Tool | v1.1 | 3/3 | Complete | 2026-01-21 |
 | 14. Jupyter ROI Widget | v1.1 | 0/? | Not started | - |
 | 15. End-to-End Testing | v1.1 | 0/? | Not started | - |
 | 16. Coverage & Quality | v1.1 | 0/? | Not started | - |
