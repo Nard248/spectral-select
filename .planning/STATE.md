@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-19)
 
 ## Current Position
 
-Phase: 14 of 16 (Jupyter ROI Widget)
-Plan: 2 of 2 in current phase
-Status: Phase complete
-Last activity: 2026-01-21 — Completed 14-02-PLAN.md
+Phase: 15 of 16 (End-to-End Testing)
+Plan: 1 of 3 in current phase
+Status: In progress
+Last activity: 2026-01-21 — Completed 15-01-PLAN.md
 
-Progress: ██████████████░░ 90% (37 of 39 potential plans)
+Progress: ██████████████░░ 90% (35 of 39 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 34
-- Average duration: 4.8 min
-- Total execution time: 3.2 hours
+- Total plans completed: 35
+- Average duration: 4.7 min
+- Total execution time: 3.25 hours
 
 **By Phase:**
 
@@ -41,10 +41,11 @@ Progress: ██████████████░░ 90% (37 of 39 potenti
 | 12. Data Pipeline Improvements | 3 | 14 min | 4.7 min |
 | 13. Masking GUI Tool | 3 | 28 min | 9.3 min |
 | 14. Jupyter ROI Widget | 2 | 20 min | 10 min |
+| 15. End-to-End Testing | 1 | 3 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 13-02 (10 min), 13-03 (12 min), 14-01 (8 min), 14-02 (12 min)
-- Trend: Phase 14 complete - ROIWidget with multi-class labeling
+- Last 5 plans: 13-03 (12 min), 14-01 (8 min), 14-02 (12 min), 15-01 (3 min)
+- Trend: Phase 15 started - notebook smoke tests
 
 ## Accumulated Context
 
@@ -162,6 +163,9 @@ Recent decisions affecting current work:
 - **14-02:** PNG mask format: 0=background, 1=class_0, 2=class_1, etc. (shifted by 1)
 - **14-02:** to_ground_truth() builds color_mapping from CLASS_COLORS_RGBA constant
 - **14-02:** path_to_mask handles empty/degenerate paths returning all-False mask
+- **15-01:** Smoke tests over full execution: test imports and structure, not model training
+- **15-01:** pytest-xdist for future parallel test execution of slow notebook tests
+- **15-01:** Mark slow tests with @pytest.mark.slow for selective exclusion
 
 ### Deferred Issues
 
@@ -174,8 +178,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 14-02-PLAN.md (Phase 14 complete)
-Resume file: None (Phase 15 not yet planned)
+Stopped at: Completed 15-01-PLAN.md
+Resume file: None
 
 ### Roadmap Evolution
 
