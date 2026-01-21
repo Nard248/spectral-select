@@ -461,10 +461,11 @@ class ViewerApp:
         initial_dir = self._last_directory or str(Path.home())
 
         file_path = filedialog.askopenfilename(
-            title="Open SpectraData File",
+            title="Open Hyperspectral Data",
             initialdir=initial_dir,
             filetypes=[
                 ("SpectraData files", "*.pkl"),
+                ("Raw hyperspectral", "*.im3"),
                 ("All files", "*.*"),
             ],
         )
@@ -475,8 +476,27 @@ class ViewerApp:
         self._last_directory = str(Path(file_path).parent)
         self._load_file(file_path)
 
+    def _on_open_directory(self) -> None:
+        """Handle Open Directory action for raw .im3 files."""
+        initial_dir = self._last_directory or str(Path.home())
+
+        dir_path = filedialog.askdirectory(
+            title="Select Directory with .im3 Files",
+            initialdir=initial_dir,
+        )
+
+        if not dir_path:
+            return
+
+        self._last_directory = dir_path
+        self._load_raw_directory(dir_path)
+
     def _load_file(self, file_path: str) -> None:
-        """Load a SpectraData file."""
+        """Load a hyperspectral data file.
+
+        Supports both SpectraData pickle files (.pkl) and raw .im3 files.
+        For .im3 files, attempts to load via DataLoader (requires ImageJ).
+        """
         path = Path(file_path)
         self._update_status(f"Loading {path.name}...")
 
@@ -484,38 +504,91 @@ class ViewerApp:
             # Import SpectraData lazily to avoid circular imports
             from .types import SpectraData
 
+            # Check file type
+            if path.suffix.lower() == ".im3":
+                # Raw .im3 file - need to load directory containing it
+                self._load_raw_directory(str(path.parent))
+                return
+
+            # Load SpectraData pickle
             self._spectra_data = SpectraData.from_pickle(path)
-
-            # Update UI
-            self._file_label.config(text=path.name)
-            self.root.title(f"ME-HSI Viewer - {path.name}")
-
-            # Populate excitation selector
-            wavelengths = self._spectra_data.excitation_wavelengths
-            self._excitation_combo["values"] = [str(w) for w in wavelengths]
-
-            # Select first excitation
-            if wavelengths:
-                self._excitation_var.set(str(wavelengths[0]))
-                self._current_excitation = wavelengths[0]
-
-            # Enable controls
-            self._toggle_controls(enabled=True)
-
-            # Update display
-            self._update_display()
-
-            # Update status
-            h, w = self._spectra_data.spatial_shape
-            n_ex = self._spectra_data.n_excitations
-            self._update_status(f"Loaded: {path.name} ({n_ex} excitations, {h}x{w})")
-
-            logger.info(f"Loaded SpectraData from {path}")
+            self._finalize_load(path.name)
 
         except Exception as e:
             logger.error(f"Failed to load {path}: {e}")
             messagebox.showerror("Error", f"Failed to load file:\n\n{e}")
             self._update_status("Error loading file")
+
+    def _load_raw_directory(self, dir_path: str) -> None:
+        """Load raw .im3 files from a directory.
+
+        Uses DataLoader/SpectraData.from_raw() to load raw hyperspectral data.
+        Gracefully handles ImageJ unavailability with an info dialog.
+        """
+        path = Path(dir_path)
+        self._update_status(f"Loading raw data from {path.name}...")
+
+        try:
+            from .loader import DataLoadingError
+            from .types import SpectraData
+
+            # Attempt to load raw data
+            self._spectra_data = SpectraData.from_raw(path)
+            self._finalize_load(path.name)
+
+        except DataLoadingError as e:
+            # Check if it's an ImageJ/pyimagej issue
+            if "pyimagej" in str(e).lower() or "imagej" in str(e).lower():
+                messagebox.showinfo(
+                    "ImageJ Required",
+                    "Loading raw .im3 files requires pyimagej.\n\n"
+                    "To install:\n"
+                    "  pip install pyimagej\n\n"
+                    "Note: First run will download ImageJ (~500MB).\n\n"
+                    "Alternative: Load a pre-processed .pkl file instead.",
+                )
+                logger.info("ImageJ not available for raw file loading")
+            else:
+                logger.error(f"Failed to load raw data from {path}: {e}")
+                messagebox.showerror("Error", f"Failed to load raw data:\n\n{e}")
+
+            self._update_status("Ready")
+
+        except Exception as e:
+            logger.error(f"Failed to load raw data from {path}: {e}")
+            messagebox.showerror("Error", f"Failed to load raw data:\n\n{e}")
+            self._update_status("Error loading file")
+
+    def _finalize_load(self, file_name: str) -> None:
+        """Finalize data loading - update UI after successful load."""
+        if self._spectra_data is None:
+            return
+
+        # Update UI
+        self._file_label.config(text=file_name)
+        self.root.title(f"ME-HSI Viewer - {file_name}")
+
+        # Populate excitation selector
+        wavelengths = self._spectra_data.excitation_wavelengths
+        self._excitation_combo["values"] = [str(w) for w in wavelengths]
+
+        # Select first excitation
+        if wavelengths:
+            self._excitation_var.set(str(wavelengths[0]))
+            self._current_excitation = wavelengths[0]
+
+        # Enable controls
+        self._toggle_controls(enabled=True)
+
+        # Update display
+        self._update_display()
+
+        # Update status
+        h, w = self._spectra_data.spatial_shape
+        n_ex = self._spectra_data.n_excitations
+        self._update_status(f"Loaded: {file_name} ({n_ex} excitations, {h}x{w})")
+
+        logger.info(f"Loaded SpectraData: {file_name}")
 
     def _on_excitation_changed(self, event: Optional[Any] = None) -> None:
         """Handle excitation wavelength selection change."""
