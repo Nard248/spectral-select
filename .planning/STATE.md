@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-19)
 ## Current Position
 
 Phase: 15 of 16 (End-to-End Testing)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-01-21 — Completed 15-02-PLAN.md
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-01-21 — Completed 15-03-PLAN.md
 
-Progress: ███████████████░ 92% (36 of 39 plans)
+Progress: ███████████████░ 95% (37 of 39 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 36
-- Average duration: 4.6 min
-- Total execution time: 3.3 hours
+- Total plans completed: 37
+- Average duration: 4.5 min
+- Total execution time: 3.4 hours
 
 **By Phase:**
 
@@ -41,11 +41,11 @@ Progress: ███████████████░ 92% (36 of 39 plans)
 | 12. Data Pipeline Improvements | 3 | 14 min | 4.7 min |
 | 13. Masking GUI Tool | 3 | 28 min | 9.3 min |
 | 14. Jupyter ROI Widget | 2 | 20 min | 10 min |
-| 15. End-to-End Testing | 2 | 6 min | 3 min |
+| 15. End-to-End Testing | 3 | 8 min | 2.7 min |
 
 **Recent Trend:**
-- Last 5 plans: 14-01 (8 min), 14-02 (12 min), 15-01 (3 min), 15-02 (3 min)
-- Trend: Phase 15 testing - pipeline integration tests
+- Last 5 plans: 14-02 (12 min), 15-01 (3 min), 15-02 (3 min), 15-03 (2 min)
+- Trend: Phase 15 complete - all import smoke tests passing
 
 ## Accumulated Context
 
@@ -169,6 +169,9 @@ Recent decisions affecting current work:
 - **15-02:** Extract 10 configs from full_pipeline_integration_test.py into PIPELINE_CONFIGS constant
 - **15-02:** Test config validity and Analyzer instantiation without full training
 - **15-02:** Mask belongs at SpectraData level, not ExcitationData
+- **15-03:** Consolidated dependency tests with import tests for efficiency
+- **15-03:** Graceful pytest.skip for tkinter/ipywidgets in CI environments
+- **15-03:** 34 tests exceeds 20+ requirement (3 package, 9 module, 5 GUI, 5 circular, 10 deps, 3 optional)
 
 ### Deferred Issues
 
@@ -181,7 +184,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 15-02-PLAN.md
+Stopped at: Completed 15-03-PLAN.md (Phase 15 complete)
 Resume file: None
 
 ### Roadmap Evolution

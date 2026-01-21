@@ -31,7 +31,7 @@ None
 - [x] **Phase 12: Data Pipeline Improvements** - Streamline raw→pkl workflow
 - [x] **Phase 13: Masking GUI Tool** - Standalone mask creation app
 - [x] **Phase 14: Jupyter ROI Widget** - ipywidgets-based ROI selection
-- [ ] **Phase 15: End-to-End Testing** - Test notebooks and scripts runability
+- [x] **Phase 15: End-to-End Testing** - Test notebooks and scripts runability
 - [ ] **Phase 16: Coverage & Quality** - Increase coverage to 80%+
 
 ## Milestones
@@ -116,16 +116,17 @@ Plans:
 - [x] 14-01: ROIWidget core with ipympl and LassoSelector ✓
 - [x] 14-02: Multi-class ROI labeling and GroundTruth export ✓
 
-### Phase 15: End-to-End Testing (In Progress)
+### Phase 15: End-to-End Testing ✓
 **Goal**: Test all notebooks with reduced epochs, test data loading scripts, verify full pipeline runability
 **Depends on**: Phase 14
 **Research**: Unlikely (pytest patterns)
 **Plans**: 3
+**Completed**: 2026-01-21
 
 Plans:
 - [x] 15-01: Notebook test infrastructure ✓
 - [x] 15-02: Pipeline integration tests ✓
-- [ ] 15-03: TBD
+- [x] 15-03: Import smoke tests ✓
 
 ### Phase 16: Coverage & Quality
 **Goal**: Increase test coverage to 80%+, add integration tests for full workflow, property-based tests
@@ -248,5 +249,5 @@ Phases execute in numeric order: 1 → 2 → ... → 8 → 9 → 10 → ... → 
 | 12. Data Pipeline Improvements | v1.1 | 3/3 | Complete | 2026-01-21 |
 | 13. Masking GUI Tool | v1.1 | 3/3 | Complete | 2026-01-21 |
 | 14. Jupyter ROI Widget | v1.1 | 2/2 | Complete | 2026-01-21 |
-| 15. End-to-End Testing | v1.1 | 2/3 | In progress | - |
+| 15. End-to-End Testing | v1.1 | 3/3 | Complete | 2026-01-21 |
 | 16. Coverage & Quality | v1.1 | 0/? | Not started | - |
