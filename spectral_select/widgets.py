@@ -15,17 +15,25 @@ Example:
 
     # After drawing ROI
     mask = widget.get_mask()
+
+    # Multi-class labeling
+    widget.add_class("Lichen")
+    widget.add_class("Bark")
+    widget.set_class(0)  # Draw as Lichen
+    # ... draw regions ...
+    gt = widget.to_ground_truth()  # Export for validation
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 import numpy as np
 from matplotlib.path import Path as MplPath
 
 if TYPE_CHECKING:
-    from .types import SpectraData
+    from .types import GroundTruth, SpectraData
 
 
 def create_display_image(
@@ -146,6 +154,9 @@ class ROIWidget:
     Displays a hyperspectral image and allows drawing ROIs using
     matplotlib's LassoSelector or RectangleSelector. Requires %matplotlib widget.
 
+    Supports multi-class labeling: create multiple classes, draw regions for each,
+    and export as GroundTruth for validation workflows.
+
     Attributes:
         fig: Matplotlib figure containing the image.
         ax: Matplotlib axes with the displayed image.
@@ -165,7 +176,31 @@ class ROIWidget:
         mask = widget.get_mask()
         bounds = widget.get_bounds()  # (row_min, row_max, col_min, col_max)
         print(widget.get_roi_code())  # Copy-pasteable code
+
+        # Multi-class labeling
+        widget.add_class("Lichen")
+        widget.add_class("Bark")
+        widget.set_class(0)  # Select Lichen for drawing
+        # ... draw regions ...
+        gt = widget.to_ground_truth()  # Export for Validator
     """
+
+    # Class colors for multi-class overlay visualization
+    CLASS_COLORS: List[str] = [
+        "red", "blue", "green", "orange", "purple", "cyan", "magenta", "yellow"
+    ]
+
+    # RGBA values for CLASS_COLORS (for GroundTruth export)
+    CLASS_COLORS_RGBA: Dict[str, Tuple[int, int, int, int]] = {
+        "red": (255, 0, 0, 255),
+        "blue": (0, 0, 255, 255),
+        "green": (0, 255, 0, 255),
+        "orange": (255, 165, 0, 255),
+        "purple": (128, 0, 128, 255),
+        "cyan": (0, 255, 255, 255),
+        "magenta": (255, 0, 255, 255),
+        "yellow": (255, 255, 0, 255),
+    }
 
     def __init__(
         self,
@@ -208,16 +243,27 @@ class ROIWidget:
         self._cube = ex_data.cube
         self._spatial_shape = (ex_data.height, ex_data.width)
 
-        # State
+        # Single-mask state (backward compatibility)
         self._mask: Optional[np.ndarray] = None
         self._bounds: Optional[Tuple[int, int, int, int]] = None  # (row_min, row_max, col_min, col_max)
         self._vertices: Optional[List[Tuple[float, float]]] = None  # For lasso
+
+        # Multi-class ROI state
+        self._class_labels: Dict[int, np.ndarray] = {}  # class_id -> binary mask
+        self._current_class: int = 0  # Currently selected class for drawing
+        self._class_names: List[str] = ["Class 0"]  # Human-readable names
+
+        # GUI state
         self._fig: Optional["Figure"] = None  # noqa: F821
         self._ax: Optional["Axes"] = None  # noqa: F821
         self._selector = None  # LassoSelector or RectangleSelector
         self._image_artist: Optional["AxesImage"] = None  # noqa: F821
         self._overlay_artist: Optional["AxesImage"] = None  # noqa: F821
         self._output: Optional["Output"] = None  # noqa: F821
+
+        # ipywidgets controls (initialized in display())
+        self._class_dropdown = None
+        self._class_name_input = None
 
     @property
     def fig(self) -> Optional["Figure"]:  # noqa: F821
@@ -243,17 +289,19 @@ class ROIWidget:
         """Display the widget in a Jupyter notebook.
 
         Creates an interactive matplotlib figure with selection tool
-        for drawing ROI selections.
+        for drawing ROI selections, plus class management controls.
 
         Returns:
-            ipywidgets VBox containing the figure and instruction label.
+            ipywidgets VBox containing the figure, class controls, and instructions.
 
         Note:
             Requires %matplotlib widget magic to be enabled in notebook.
         """
         # Import ipywidgets lazily
         try:
-            from ipywidgets import Label, VBox, Output
+            from ipywidgets import (
+                Button, Dropdown, HBox, Label, Output, Text, VBox
+            )
         except ImportError:
             raise ImportError(
                 "ipywidgets is required for ROIWidget. "
@@ -300,21 +348,56 @@ class ROIWidget:
             plt.tight_layout()
             plt.show()
 
+        # Create class management controls
+        self._class_dropdown = Dropdown(
+            options=[(name, i) for i, name in enumerate(self._class_names)],
+            value=self._current_class,
+            description="Class:",
+            layout={"width": "200px"},
+        )
+        self._class_dropdown.observe(self._on_class_change, names="value")
+
+        self._class_name_input = Text(
+            value=self._class_names[self._current_class],
+            placeholder="Class name",
+            description="Name:",
+            layout={"width": "200px"},
+        )
+        self._class_name_input.on_submit(self._on_rename_submit)
+
+        add_class_btn = Button(description="Add Class", button_style="success")
+        add_class_btn.on_click(self._on_add_class_click)
+
+        clear_current_btn = Button(description="Clear Current", button_style="warning")
+        clear_current_btn.on_click(self._on_clear_current_click)
+
+        clear_all_btn = Button(description="Clear All", button_style="danger")
+        clear_all_btn.on_click(self._on_clear_all_click)
+
+        # Control row layout
+        controls_row = HBox([
+            self._class_dropdown,
+            self._class_name_input,
+            add_class_btn,
+            clear_current_btn,
+            clear_all_btn,
+        ])
+
         # Create instruction label
         if self._tool == "rectangle":
             instruction_text = (
-                "Click and drag to draw a rectangle. "
-                "Use widget.get_bounds() for coordinates, widget.get_roi_code() for copy-paste code."
+                "Draw ROIs for the selected class. Use Add Class for multiple classes. "
+                "Export with widget.to_ground_truth()."
             )
         else:
             instruction_text = (
-                "Click and drag to draw a lasso selection. "
-                "Use widget.get_mask() to retrieve selection."
+                "Draw lasso ROIs for the selected class. Use Add Class for multiple classes. "
+                "Export with widget.to_ground_truth()."
             )
 
         instruction_label = Label(instruction_text)
 
-        return VBox([self._output, instruction_label])
+        return VBox([self._output, controls_row, instruction_label])
 
     def _on_rect_select(self, eclick, erelease) -> None:
         """Handle rectangle selection completion.
@@ -334,12 +417,18 @@ class ROIWidget:
         row_min = max(0, min(y1, y2))
         row_max = min(height, max(y1, y2))
 
-        # Store bounds (row_min, row_max, col_min, col_max)
+        # Store bounds for get_roi_code() compatibility
         self._bounds = (row_min, row_max, col_min, col_max)
 
-        # Create mask from bounds
-        self._mask = np.zeros(self._spatial_shape, dtype=bool)
-        self._mask[row_min:row_max, col_min:col_max] = True
+        # Create mask for this selection
+        new_mask = np.zeros(self._spatial_shape, dtype=bool)
+        new_mask[row_min:row_max, col_min:col_max] = True
+
+        # Add to current class mask using logical OR
+        self._add_to_class_mask(self._current_class, new_mask)
+
+        # Update single-mask for backward compatibility
+        self._mask = self.get_combined_mask() >= 0  # Any class assigned
 
         # Update display with overlay
         self._update_overlay()
@@ -357,10 +446,16 @@ class ROIWidget:
         self._vertices = vertices
 
         # Convert vertices to mask
-        self._mask = path_to_mask(vertices, self._spatial_shape)
+        new_mask = path_to_mask(vertices, self._spatial_shape)
+
+        # Add to current class mask using logical OR
+        self._add_to_class_mask(self._current_class, new_mask)
+
+        # Update single-mask for backward compatibility
+        self._mask = self.get_combined_mask() >= 0  # Any class assigned
 
         # Compute bounding box from mask
-        rows, cols = np.where(self._mask)
+        rows, cols = np.where(new_mask)
         if len(rows) > 0:
             self._bounds = (int(rows.min()), int(rows.max()) + 1,
                            int(cols.min()), int(cols.max()) + 1)
@@ -371,7 +466,7 @@ class ROIWidget:
         self._update_overlay()
 
     def _update_overlay(self) -> None:
-        """Update the mask overlay on the image."""
+        """Update the mask overlay on the image showing all classes."""
         if self._ax is None or self._fig is None:
             return
 
@@ -380,12 +475,37 @@ class ROIWidget:
             self._overlay_artist.remove()
             self._overlay_artist = None
 
-        if self._mask is not None:
-            # Create RGBA overlay (red with alpha)
-            overlay = np.zeros((*self._spatial_shape, 4), dtype=np.float32)
-            overlay[self._mask, 0] = 1.0  # Red channel
-            overlay[self._mask, 3] = 0.3  # Alpha channel
+        # Create RGBA overlay for all classes
+        overlay = np.zeros((*self._spatial_shape, 4), dtype=np.float32)
 
+        # Color name to normalized RGB
+        color_to_rgb = {
+            "red": (1.0, 0.0, 0.0),
+            "blue": (0.0, 0.0, 1.0),
+            "green": (0.0, 1.0, 0.0),
+            "orange": (1.0, 0.65, 0.0),
+            "purple": (0.5, 0.0, 0.5),
+            "cyan": (0.0, 1.0, 1.0),
+            "magenta": (1.0, 0.0, 1.0),
+            "yellow": (1.0, 1.0, 0.0),
+        }
+
+        # Draw each class with its color
+        for class_id, mask in self._class_labels.items():
+            if mask is None or not mask.any():
+                continue
+
+            # Get color for this class (cycle if > 8 classes)
+            color_name = self.CLASS_COLORS[class_id % len(self.CLASS_COLORS)]
+            r, g, b = color_to_rgb.get(color_name, (1.0, 0.0, 0.0))
+
+            # Apply color to masked pixels
+            overlay[mask, 0] = r
+            overlay[mask, 1] = g
+            overlay[mask, 2] = b
+            overlay[mask, 3] = 0.4  # Alpha
+
+        if overlay[:, :, 3].any():
             self._overlay_artist = self._ax.imshow(overlay)
 
         # Redraw canvas
@@ -401,11 +521,180 @@ class ROIWidget:
         return self._mask.copy() if self._mask is not None else None
 
     def clear(self) -> None:
-        """Clear the current ROI selection."""
+        """Clear the current class's ROI selection."""
+        if self._current_class in self._class_labels:
+            del self._class_labels[self._current_class]
         self._mask = None
         self._bounds = None
         self._vertices = None
         self._update_overlay()
+
+    def clear_all(self) -> None:
+        """Clear all ROI selections for all classes."""
+        self._class_labels.clear()
+        self._mask = None
+        self._bounds = None
+        self._vertices = None
+        self._update_overlay()
+
+    # =========================================================================
+    # Multi-class ROI management
+    # =========================================================================
+
+    def _add_to_class_mask(self, class_id: int, mask: np.ndarray) -> None:
+        """Add a mask region to a class using logical OR.
+
+        Args:
+            class_id: Class ID to add to.
+            mask: Boolean mask to add.
+        """
+        if class_id not in self._class_labels:
+            self._class_labels[class_id] = np.zeros(self._spatial_shape, dtype=bool)
+
+        self._class_labels[class_id] = np.logical_or(
+            self._class_labels[class_id], mask
+        )
+
+    def add_class(self, name: Optional[str] = None) -> int:
+        """Add a new class for ROI labeling.
+
+        Args:
+            name: Human-readable name for the class. If None, auto-generates.
+
+        Returns:
+            The new class ID (0-indexed).
+        """
+        new_id = len(self._class_names)
+        if name is None:
+            name = f"Class {new_id}"
+        self._class_names.append(name)
+
+        # Update dropdown if it exists
+        if self._class_dropdown is not None:
+            self._class_dropdown.options = [
+                (n, i) for i, n in enumerate(self._class_names)
+            ]
+            self._class_dropdown.value = new_id
+
+        self._current_class = new_id
+        return new_id
+
+    def set_class(self, class_id: int) -> None:
+        """Set the current class for drawing.
+
+        Args:
+            class_id: Class ID to make active (0-indexed).
+
+        Raises:
+            ValueError: If class_id is out of range.
+        """
+        if class_id < 0 or class_id >= len(self._class_names):
+            raise ValueError(
+                f"class_id {class_id} out of range [0, {len(self._class_names)})"
+            )
+        self._current_class = class_id
+
+        # Update dropdown if it exists
+        if self._class_dropdown is not None:
+            self._class_dropdown.value = class_id
+
+        # Update name input if it exists
+        if self._class_name_input is not None:
+            self._class_name_input.value = self._class_names[class_id]
+
+    def rename_class(self, class_id: int, name: str) -> None:
+        """Rename a class.
+
+        Args:
+            class_id: Class ID to rename.
+            name: New name for the class.
+
+        Raises:
+            ValueError: If class_id is out of range.
+        """
+        if class_id < 0 or class_id >= len(self._class_names):
+            raise ValueError(
+                f"class_id {class_id} out of range [0, {len(self._class_names)})"
+            )
+        self._class_names[class_id] = name
+
+        # Update dropdown if it exists
+        if self._class_dropdown is not None:
+            self._class_dropdown.options = [
+                (n, i) for i, n in enumerate(self._class_names)
+            ]
+
+    def get_class_mask(self, class_id: int) -> Optional[np.ndarray]:
+        """Get the mask for a specific class.
+
+        Args:
+            class_id: Class ID to get mask for.
+
+        Returns:
+            Boolean mask for the class, or None if no pixels assigned.
+        """
+        mask = self._class_labels.get(class_id)
+        return mask.copy() if mask is not None else None
+
+    def get_combined_mask(self) -> np.ndarray:
+        """Get combined labels array with class IDs per pixel.
+
+        Returns:
+            2D integer array where:
+            - -1 = background (no ROI selected)
+            - 0, 1, 2, ... = class labels
+        """
+        combined = np.full(self._spatial_shape, -1, dtype=np.int32)
+
+        # Apply class masks in order (later classes overwrite earlier on overlap)
+        for class_id in sorted(self._class_labels.keys()):
+            mask = self._class_labels[class_id]
+            if mask is not None:
+                combined[mask] = class_id
+
+        return combined
+
+    @property
+    def n_classes(self) -> int:
+        """Number of defined classes."""
+        return len(self._class_names)
+
+    @property
+    def class_names(self) -> List[str]:
+        """List of class names."""
+        return self._class_names.copy()
+
+    @property
+    def current_class(self) -> int:
+        """Currently selected class ID."""
+        return self._current_class
+
+    # =========================================================================
+    # UI event handlers
+    # =========================================================================
+
+    def _on_class_change(self, change) -> None:
+        """Handle class dropdown selection change."""
+        if change["type"] == "change" and change["name"] == "value":
+            self._current_class = change["new"]
+            if self._class_name_input is not None:
+                self._class_name_input.value = self._class_names[self._current_class]
+
+    def _on_rename_submit(self, text_widget) -> None:
+        """Handle class name text input submission."""
+        self.rename_class(self._current_class, text_widget.value)
+
+    def _on_add_class_click(self, button) -> None:
+        """Handle Add Class button click."""
+        self.add_class()
+
+    def _on_clear_current_click(self, button) -> None:
+        """Handle Clear Current button click."""
+        self.clear()
+
+    def _on_clear_all_click(self, button) -> None:
+        """Handle Clear All button click."""
+        self.clear_all()
 
     def get_bounds(self) -> Optional[Tuple[int, int, int, int]]:
         """Get the ROI bounding box coordinates.
