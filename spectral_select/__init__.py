@@ -39,6 +39,7 @@ from .types import (
 from .loader import DataLoader, DataLoadingError
 from .results import ResultsManager
 from .validation import Validator, load_ground_truth_from_png
+from .viewer import ViewerApp, create_rgb_image, detect_cube_format, launch_viewer
 from .visualizer import Visualizer
 
 __version__ = "0.1.0"
@@ -50,8 +51,12 @@ __all__ = [
     "DataLoader",
     "ResultsManager",
     "Validator",
+    "ViewerApp",
     "Visualizer",
     # Utilities
+    "create_rgb_image",
+    "detect_cube_format",
+    "launch_viewer",
     "load_ground_truth_from_png",
     # Exceptions
     "DataLoadingError",
