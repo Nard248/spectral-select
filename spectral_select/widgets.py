@@ -144,23 +144,27 @@ class ROIWidget:
     """Interactive ROI selection widget for Jupyter notebooks.
 
     Displays a hyperspectral image and allows drawing ROIs using
-    matplotlib's LassoSelector. Requires %matplotlib widget magic.
+    matplotlib's LassoSelector or RectangleSelector. Requires %matplotlib widget.
 
     Attributes:
         fig: Matplotlib figure containing the image.
         ax: Matplotlib axes with the displayed image.
         mask: Current ROI mask (None if no selection).
+        bounds: Current ROI bounds as (row_min, row_max, col_min, col_max).
 
     Example:
         %matplotlib widget
         from spectral_select import SpectraData, ROIWidget
 
+        # Rectangle selection (default)
         data = SpectraData.from_saved("sample.pkl")
-        widget = ROIWidget(data)
+        widget = ROIWidget(data, tool="rectangle")
         widget.display()
 
         # After drawing ROI
         mask = widget.get_mask()
+        bounds = widget.get_bounds()  # (row_min, row_max, col_min, col_max)
+        print(widget.get_roi_code())  # Copy-pasteable code
     """
 
     def __init__(
@@ -168,6 +172,7 @@ class ROIWidget:
         data: "SpectraData",
         excitation: Optional[float] = None,
         figsize: Tuple[float, float] = (8, 6),
+        tool: str = "rectangle",
     ) -> None:
         """Initialize ROI selection widget.
 
@@ -175,12 +180,17 @@ class ROIWidget:
             data: SpectraData object containing hyperspectral cube.
             excitation: Excitation wavelength to display. If None, uses first.
             figsize: Figure size as (width, height) in inches.
+            tool: Selection tool - "rectangle" (default) or "lasso".
         """
         # Import SpectraData lazily to avoid circular imports
         from .types import SpectraData as SD
 
         self._data: SD = data
         self._figsize = figsize
+        self._tool = tool.lower()
+
+        if self._tool not in ("rectangle", "lasso"):
+            raise ValueError(f"tool must be 'rectangle' or 'lasso', got '{tool}'")
 
         # Select excitation wavelength
         if excitation is None:
@@ -200,9 +210,11 @@ class ROIWidget:
 
         # State
         self._mask: Optional[np.ndarray] = None
+        self._bounds: Optional[Tuple[int, int, int, int]] = None  # (row_min, row_max, col_min, col_max)
+        self._vertices: Optional[List[Tuple[float, float]]] = None  # For lasso
         self._fig: Optional["Figure"] = None  # noqa: F821
         self._ax: Optional["Axes"] = None  # noqa: F821
-        self._selector: Optional["LassoSelector"] = None  # noqa: F821
+        self._selector = None  # LassoSelector or RectangleSelector
         self._image_artist: Optional["AxesImage"] = None  # noqa: F821
         self._overlay_artist: Optional["AxesImage"] = None  # noqa: F821
         self._output: Optional["Output"] = None  # noqa: F821
@@ -222,10 +234,15 @@ class ROIWidget:
         """Current ROI mask (None if no selection)."""
         return self._mask.copy() if self._mask is not None else None
 
+    @property
+    def bounds(self) -> Optional[Tuple[int, int, int, int]]:
+        """Current ROI bounds as (row_min, row_max, col_min, col_max)."""
+        return self._bounds
+
     def display(self) -> "VBox":  # noqa: F821
         """Display the widget in a Jupyter notebook.
 
-        Creates an interactive matplotlib figure with LassoSelector tool
+        Creates an interactive matplotlib figure with selection tool
         for drawing ROI selections.
 
         Returns:
@@ -244,7 +261,7 @@ class ROIWidget:
             )
 
         import matplotlib.pyplot as plt
-        from matplotlib.widgets import LassoSelector
+        from matplotlib.widgets import LassoSelector, RectangleSelector
 
         # Create output widget to capture matplotlib figure
         self._output = Output()
@@ -257,30 +274,77 @@ class ROIWidget:
             display_img = create_display_image(self._cube, method="mean")
             self._image_artist = self._ax.imshow(display_img, cmap="gray")
 
-            # Set title with excitation info
-            self._ax.set_title(f"Excitation: {self._excitation} nm - Draw ROI with lasso")
+            # Set title with excitation and tool info
+            tool_name = "rectangle" if self._tool == "rectangle" else "lasso"
+            self._ax.set_title(f"Excitation: {self._excitation} nm - Draw ROI ({tool_name})")
             self._ax.set_xlabel("X (pixels)")
             self._ax.set_ylabel("Y (pixels)")
 
-            # Initialize LassoSelector
-            self._selector = LassoSelector(
-                self._ax,
-                onselect=self._on_select,
-                button=1,  # Left mouse button
-            )
+            # Initialize selector based on tool choice
+            if self._tool == "rectangle":
+                self._selector = RectangleSelector(
+                    self._ax,
+                    onselect=self._on_rect_select,
+                    useblit=True,
+                    button=[1],  # Left mouse button
+                    interactive=True,  # Allow resizing after drawing
+                    spancoords="data",
+                )
+            else:
+                self._selector = LassoSelector(
+                    self._ax,
+                    onselect=self._on_lasso_select,
+                    button=1,  # Left mouse button
+                )
 
             plt.tight_layout()
             plt.show()
 
         # Create instruction label
-        instruction_label = Label(
-            "Click and drag to draw a lasso selection. "
-            "Release to complete. Use widget.get_mask() to retrieve selection."
-        )
+        if self._tool == "rectangle":
+            instruction_text = (
+                "Click and drag to draw a rectangle. "
+                "Use widget.get_bounds() for coordinates, widget.get_roi_code() for copy-paste code."
+            )
+        else:
+            instruction_text = (
+                "Click and drag to draw a lasso selection. "
+                "Use widget.get_mask() to retrieve selection."
+            )
+
+        instruction_label = Label(instruction_text)
 
         return VBox([self._output, instruction_label])
 
-    def _on_select(self, vertices: List[Tuple[float, float]]) -> None:
+    def _on_rect_select(self, eclick, erelease) -> None:
+        """Handle rectangle selection completion.
+
+        Args:
+            eclick: Mouse click event (start corner).
+            erelease: Mouse release event (end corner).
+        """
+        # Get coordinates (note: x=column, y=row in matplotlib)
+        x1, y1 = int(round(eclick.xdata)), int(round(eclick.ydata))
+        x2, y2 = int(round(erelease.xdata)), int(round(erelease.ydata))
+
+        # Ensure proper ordering and clip to image bounds
+        height, width = self._spatial_shape
+        col_min = max(0, min(x1, x2))
+        col_max = min(width, max(x1, x2))
+        row_min = max(0, min(y1, y2))
+        row_max = min(height, max(y1, y2))
+
+        # Store bounds (row_min, row_max, col_min, col_max)
+        self._bounds = (row_min, row_max, col_min, col_max)
+
+        # Create mask from bounds
+        self._mask = np.zeros(self._spatial_shape, dtype=bool)
+        self._mask[row_min:row_max, col_min:col_max] = True
+
+        # Update display with overlay
+        self._update_overlay()
+
+    def _on_lasso_select(self, vertices: List[Tuple[float, float]]) -> None:
         """Handle lasso selection completion.
 
         Args:
@@ -289,8 +353,19 @@ class ROIWidget:
         if not vertices or len(vertices) < 3:
             return
 
+        # Store vertices
+        self._vertices = vertices
+
         # Convert vertices to mask
         self._mask = path_to_mask(vertices, self._spatial_shape)
+
+        # Compute bounding box from mask
+        rows, cols = np.where(self._mask)
+        if len(rows) > 0:
+            self._bounds = (int(rows.min()), int(rows.max()) + 1,
+                           int(cols.min()), int(cols.max()) + 1)
+        else:
+            self._bounds = None
 
         # Update display with overlay
         self._update_overlay()
@@ -328,4 +403,72 @@ class ROIWidget:
     def clear(self) -> None:
         """Clear the current ROI selection."""
         self._mask = None
+        self._bounds = None
+        self._vertices = None
         self._update_overlay()
+
+    def get_bounds(self) -> Optional[Tuple[int, int, int, int]]:
+        """Get the ROI bounding box coordinates.
+
+        Returns:
+            Tuple of (row_min, row_max, col_min, col_max) as integers,
+            or None if no selection made. Can be used directly for array slicing:
+            `data[row_min:row_max, col_min:col_max]`
+        """
+        return self._bounds
+
+    def get_roi_code(self, var_name: str = "roi") -> Optional[str]:
+        """Get copy-pasteable Python code to recreate this ROI.
+
+        Returns code that can be pasted into a notebook cell to define
+        the ROI coordinates as a tuple or to create a mask directly.
+
+        Args:
+            var_name: Variable name to use in the generated code.
+
+        Returns:
+            String containing Python code, or None if no selection.
+
+        Example:
+            >>> print(widget.get_roi_code())
+            # ROI bounds: (row_min, row_max, col_min, col_max)
+            roi = (50, 150, 100, 200)
+
+            # To slice data:
+            # region = cube[50:150, 100:200, :]
+
+            # To create mask:
+            # mask = np.zeros((height, width), dtype=bool)
+            # mask[50:150, 100:200] = True
+        """
+        if self._bounds is None:
+            return None
+
+        row_min, row_max, col_min, col_max = self._bounds
+        height, width = self._spatial_shape
+
+        code = f'''# ROI bounds: (row_min, row_max, col_min, col_max)
+{var_name} = ({row_min}, {row_max}, {col_min}, {col_max})
+
+# To slice data:
+# region = cube[{row_min}:{row_max}, {col_min}:{col_max}, :]
+
+# To create mask:
+# mask = np.zeros(({height}, {width}), dtype=bool)
+# mask[{row_min}:{row_max}, {col_min}:{col_max}] = True'''
+
+        return code
+
+    def print_roi_code(self, var_name: str = "roi") -> None:
+        """Print copy-pasteable Python code to recreate this ROI.
+
+        Convenience method that prints the output of get_roi_code().
+
+        Args:
+            var_name: Variable name to use in the generated code.
+        """
+        code = self.get_roi_code(var_name)
+        if code is None:
+            print("No ROI selection made yet.")
+        else:
+            print(code)
