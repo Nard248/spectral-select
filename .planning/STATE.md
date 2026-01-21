@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-19)
 ## Current Position
 
 Phase: 14 of 16 (Jupyter ROI Widget)
-Plan: 0 of 2 in current phase
-Status: Planning complete
-Last activity: 2026-01-21 — Created 14-01-PLAN.md and 14-02-PLAN.md
+Plan: 1 of 2 in current phase
+Status: In progress
+Last activity: 2026-01-21 — Completed 14-01-PLAN.md
 
-Progress: █████████████░░░ 85% (35 of 39 potential plans)
+Progress: █████████████░░░ 87% (36 of 39 potential plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 32
+- Total plans completed: 33
 - Average duration: 4.6 min
-- Total execution time: 2.9 hours
+- Total execution time: 3.0 hours
 
 **By Phase:**
 
@@ -40,10 +40,11 @@ Progress: █████████████░░░ 85% (35 of 39 potenti
 | 11. Excel Export & Reporting | 2 | 8 min | 4 min |
 | 12. Data Pipeline Improvements | 3 | 14 min | 4.7 min |
 | 13. Masking GUI Tool | 3 | 28 min | 9.3 min |
+| 14. Jupyter ROI Widget | 1 | 8 min | 8 min |
 
 **Recent Trend:**
-- Last 5 plans: 12-03 (5 min), 13-01 (6 min), 13-02 (10 min), 13-03 (12 min)
-- Trend: Phase 13 complete - ME-HSI Viewer with full analysis panels
+- Last 5 plans: 13-01 (6 min), 13-02 (10 min), 13-03 (12 min), 14-01 (8 min)
+- Trend: Phase 14 in progress - ROIWidget core complete
 
 ## Accumulated Context
 
@@ -152,6 +153,10 @@ Recent decisions affecting current work:
 - **13-03:** Histogram uses 256 bins with 2%/98% percentile markers
 - **13-03:** Statistics panel supports 'Current View' vs 'All Bands' mode toggle
 - **13-03:** ROI statistics section only shown when mask exists
+- **14-01:** Rectangle selector as default tool (more common use case)
+- **14-01:** Bounds stored as (row_min, row_max, col_min, col_max) matching numpy slice convention
+- **14-01:** get_roi_code() provides copy-pasteable Python code for reproducibility
+- **14-01:** ipywidgets Output context manager for matplotlib figure capture
 
 ### Deferred Issues
 
@@ -164,8 +169,8 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Created Phase 14 plans (14-01-PLAN.md, 14-02-PLAN.md)
-Resume file: .planning/phases/14-jupyter-roi-widget/14-01-PLAN.md
+Stopped at: Completed 14-01-PLAN.md
+Resume file: .planning/phases/14-jupyter-roi-widget/14-02-PLAN.md
 
 ### Roadmap Evolution
 

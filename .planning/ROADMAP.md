@@ -112,7 +112,7 @@ Plans:
 **Plans**: 2
 
 Plans:
-- [ ] 14-01: ROIWidget core with ipympl and LassoSelector
+- [x] 14-01: ROIWidget core with ipympl and LassoSelector ✓
 - [ ] 14-02: Multi-class ROI labeling and GroundTruth export
 
 ### Phase 15: End-to-End Testing
@@ -244,6 +244,6 @@ Phases execute in numeric order: 1 → 2 → ... → 8 → 9 → 10 → ... → 
 | 11. Excel Export & Reporting | v1.1 | 2/2 | Complete | 2026-01-20 |
 | 12. Data Pipeline Improvements | v1.1 | 3/3 | Complete | 2026-01-21 |
 | 13. Masking GUI Tool | v1.1 | 3/3 | Complete | 2026-01-21 |
-| 14. Jupyter ROI Widget | v1.1 | 0/2 | Planned | - |
+| 14. Jupyter ROI Widget | v1.1 | 1/2 | In progress | - |
 | 15. End-to-End Testing | v1.1 | 0/? | Not started | - |
 | 16. Coverage & Quality | v1.1 | 0/? | Not started | - |
