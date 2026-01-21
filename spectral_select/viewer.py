@@ -495,6 +495,12 @@ class ViewerApp:
         self._cached_stats: Optional[Dict[str, float]] = None
         self._cached_stats_image_id: Optional[int] = None  # Track which image stats are for
 
+        # Panel visibility state
+        self._show_spectrum_panel = tk.BooleanVar(value=True)
+        self._show_histogram_panel = tk.BooleanVar(value=True)
+        self._show_statistics_panel = tk.BooleanVar(value=True)
+        self._show_right_panel = tk.BooleanVar(value=True)
+
         # Build the UI
         self._create_widgets()
         self._bind_events()
@@ -522,6 +528,9 @@ class ViewerApp:
 
     def _create_widgets(self) -> None:
         """Create all UI widgets and layout."""
+        # Create menu bar
+        self._create_menu_bar()
+
         # Main container with toolbar at top
         self._toolbar_frame = ttk.Frame(self.root)
         self._toolbar_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=2)
@@ -572,6 +581,110 @@ class ViewerApp:
         self._create_spectrum_panel()
         self._create_histogram_panel()
         self._create_statistics_panel()
+
+    def _create_menu_bar(self) -> None:
+        """Create the application menu bar."""
+        self._menu_bar = tk.Menu(self.root)
+        self.root.config(menu=self._menu_bar)
+
+        # File menu
+        file_menu = tk.Menu(self._menu_bar, tearoff=0)
+        self._menu_bar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Open...", command=self._on_open, accelerator="Ctrl+O")
+        file_menu.add_command(label="Open Directory...", command=self._on_open_directory)
+        file_menu.add_separator()
+        file_menu.add_command(label="Save Mask...", command=self._on_save_mask)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.root.quit)
+
+        # View menu
+        view_menu = tk.Menu(self._menu_bar, tearoff=0)
+        self._menu_bar.add_cascade(label="View", menu=view_menu)
+
+        # Panel visibility toggles
+        view_menu.add_checkbutton(
+            label="Analysis Panel",
+            variable=self._show_right_panel,
+            command=self._toggle_right_panel,
+        )
+        view_menu.add_separator()
+        view_menu.add_checkbutton(
+            label="Spectrum Panel",
+            variable=self._show_spectrum_panel,
+            command=self._toggle_spectrum_panel,
+        )
+        view_menu.add_checkbutton(
+            label="Histogram Panel",
+            variable=self._show_histogram_panel,
+            command=self._toggle_histogram_panel,
+        )
+        view_menu.add_checkbutton(
+            label="Statistics Panel",
+            variable=self._show_statistics_panel,
+            command=self._toggle_statistics_panel,
+        )
+        view_menu.add_separator()
+
+        # Zoom options
+        view_menu.add_command(label="Zoom In", command=self._zoom_in, accelerator="+")
+        view_menu.add_command(label="Zoom Out", command=self._zoom_out, accelerator="-")
+        view_menu.add_command(label="Fit to Window", command=self._zoom_fit, accelerator="0")
+        view_menu.add_command(label="Actual Size (1:1)", command=self._zoom_actual, accelerator="1")
+
+        # Help menu
+        help_menu = tk.Menu(self._menu_bar, tearoff=0)
+        self._menu_bar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="About", command=self._show_about)
+
+    def _toggle_right_panel(self) -> None:
+        """Toggle visibility of the entire right analysis panel."""
+        if self._show_right_panel.get():
+            # Show the panel
+            self._main_frame.add(self._right_panel, weight=0)
+        else:
+            # Hide the panel
+            self._main_frame.forget(self._right_panel)
+
+    def _toggle_spectrum_panel(self) -> None:
+        """Toggle visibility of the spectrum panel."""
+        if not hasattr(self, "_spectrum_frame"):
+            return
+
+        if self._show_spectrum_panel.get():
+            self._spectrum_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        else:
+            self._spectrum_frame.pack_forget()
+
+    def _toggle_histogram_panel(self) -> None:
+        """Toggle visibility of the histogram panel."""
+        if not hasattr(self, "_histogram_frame"):
+            return
+
+        if self._show_histogram_panel.get():
+            self._histogram_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        else:
+            self._histogram_frame.pack_forget()
+
+    def _toggle_statistics_panel(self) -> None:
+        """Toggle visibility of the statistics panel."""
+        if not hasattr(self, "_stats_frame"):
+            return
+
+        if self._show_statistics_panel.get():
+            self._stats_frame.pack(fill=tk.X, padx=5, pady=5)
+        else:
+            self._stats_frame.pack_forget()
+
+    def _show_about(self) -> None:
+        """Show the About dialog."""
+        messagebox.showinfo(
+            "About ME-HSI Viewer",
+            "ME-HSI Viewer\n\n"
+            "Interactive viewer for Multi-Excitation\n"
+            "Hyperspectral Imaging data.\n\n"
+            "Part of the spectral_select library.\n\n"
+            "Version 0.1.0",
+        )
 
     def _create_data_section(self) -> None:
         """Create the Data control section."""
