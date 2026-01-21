@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-19)
 ## Current Position
 
 Phase: 15 of 16 (End-to-End Testing)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-01-21 — Completed 15-01-PLAN.md
+Last activity: 2026-01-21 — Completed 15-02-PLAN.md
 
-Progress: ██████████████░░ 90% (35 of 39 plans)
+Progress: ███████████████░ 92% (36 of 39 plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 35
-- Average duration: 4.7 min
-- Total execution time: 3.25 hours
+- Total plans completed: 36
+- Average duration: 4.6 min
+- Total execution time: 3.3 hours
 
 **By Phase:**
 
@@ -41,11 +41,11 @@ Progress: ██████████████░░ 90% (35 of 39 plans)
 | 12. Data Pipeline Improvements | 3 | 14 min | 4.7 min |
 | 13. Masking GUI Tool | 3 | 28 min | 9.3 min |
 | 14. Jupyter ROI Widget | 2 | 20 min | 10 min |
-| 15. End-to-End Testing | 1 | 3 min | 3 min |
+| 15. End-to-End Testing | 2 | 6 min | 3 min |
 
 **Recent Trend:**
-- Last 5 plans: 13-03 (12 min), 14-01 (8 min), 14-02 (12 min), 15-01 (3 min)
-- Trend: Phase 15 started - notebook smoke tests
+- Last 5 plans: 14-01 (8 min), 14-02 (12 min), 15-01 (3 min), 15-02 (3 min)
+- Trend: Phase 15 testing - pipeline integration tests
 
 ## Accumulated Context
 
@@ -166,6 +166,9 @@ Recent decisions affecting current work:
 - **15-01:** Smoke tests over full execution: test imports and structure, not model training
 - **15-01:** pytest-xdist for future parallel test execution of slow notebook tests
 - **15-01:** Mark slow tests with @pytest.mark.slow for selective exclusion
+- **15-02:** Extract 10 configs from full_pipeline_integration_test.py into PIPELINE_CONFIGS constant
+- **15-02:** Test config validity and Analyzer instantiation without full training
+- **15-02:** Mask belongs at SpectraData level, not ExcitationData
 
 ### Deferred Issues
 
@@ -178,7 +181,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-01-21
-Stopped at: Completed 15-01-PLAN.md
+Stopped at: Completed 15-02-PLAN.md
 Resume file: None
 
 ### Roadmap Evolution
