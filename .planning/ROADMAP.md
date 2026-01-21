@@ -96,10 +96,13 @@ Plans:
 **Depends on**: Phase 12
 **Research**: Likely (GUI frameworks, drawing tools)
 **Research topics**: tkinter canvas vs PyQt5/6, polygon drawing patterns, mask serialization
-**Plans**: TBD
+**Plans**: 3 (estimated)
+**Status**: In progress
 
 Plans:
-- [ ] 13-01: TBD
+- [x] 13-01: ME-HSI Viewer core framework ✓
+- [ ] 13-02: Basic masking tools (polygon, rectangle drawing)
+- [ ] 13-03: Mask operations and saving
 
 ### Phase 14: Jupyter ROI Widget
 **Goal**: ipywidgets-based ROI selection for notebooks, integration with SpectraData
@@ -239,7 +242,7 @@ Phases execute in numeric order: 1 → 2 → ... → 8 → 9 → 10 → ... → 
 | 10. Results Organization | v1.1 | 3/3 | Complete | 2026-01-20 |
 | 11. Excel Export & Reporting | v1.1 | 2/2 | Complete | 2026-01-20 |
 | 12. Data Pipeline Improvements | v1.1 | 3/3 | Complete | 2026-01-21 |
-| 13. Masking GUI Tool | v1.1 | 0/? | Not started | - |
+| 13. Masking GUI Tool | v1.1 | 1/3 | In progress | - |
 | 14. Jupyter ROI Widget | v1.1 | 0/? | Not started | - |
 | 15. End-to-End Testing | v1.1 | 0/? | Not started | - |
 | 16. Coverage & Quality | v1.1 | 0/? | Not started | - |
