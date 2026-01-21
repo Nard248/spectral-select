@@ -215,6 +215,16 @@ class ViewerApp:
         self._min_val = tk.DoubleVar(value=0.0)
         self._max_val = tk.DoubleVar(value=100.0)
 
+        # Band browser state
+        self._current_band = tk.IntVar(value=0)
+        self._display_mode = tk.StringVar(value="composite")  # "composite" or "single"
+        self._colormap = tk.StringVar(value="viridis")
+        self._animation_running = False
+        self._animation_speed = tk.IntVar(value=100)  # milliseconds
+        self._animation_loop = tk.BooleanVar(value=True)
+        self._animation_id: Optional[str] = None
+        self._emission_wavelengths: List[float] = []
+
         # Build the UI
         self._create_widgets()
         self._bind_events()
@@ -274,6 +284,7 @@ class ViewerApp:
         self._create_data_section()
         self._create_excitation_section()
         self._create_display_section()
+        self._create_band_browser_section()
         self._create_tools_section()
 
         # Build canvas area
@@ -352,6 +363,121 @@ class ViewerApp:
         ttk.Button(display_frame, text="Apply", command=self._on_display_changed).pack(
             fill=tk.X, padx=5, pady=5
         )
+
+    def _create_band_browser_section(self) -> None:
+        """Create the Band Browser section for single-band viewing."""
+        browser_frame = ttk.LabelFrame(self._control_panel, text="Band Browser")
+        browser_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        # Display mode selection (Composite vs Single Band)
+        mode_frame = ttk.Frame(browser_frame)
+        mode_frame.pack(fill=tk.X, padx=5, pady=2)
+
+        ttk.Radiobutton(
+            mode_frame,
+            text="Composite",
+            variable=self._display_mode,
+            value="composite",
+            command=self._on_display_mode_changed,
+        ).pack(side=tk.LEFT, padx=2)
+
+        ttk.Radiobutton(
+            mode_frame,
+            text="Single Band",
+            variable=self._display_mode,
+            value="single",
+            command=self._on_display_mode_changed,
+        ).pack(side=tk.LEFT, padx=2)
+
+        # Band slider
+        slider_frame = ttk.Frame(browser_frame)
+        slider_frame.pack(fill=tk.X, padx=5, pady=2)
+
+        ttk.Label(slider_frame, text="Band:").pack(side=tk.LEFT)
+
+        self._band_slider = ttk.Scale(
+            slider_frame,
+            from_=0,
+            to=0,
+            variable=self._current_band,
+            orient=tk.HORIZONTAL,
+            command=self._on_band_slider_changed,
+        )
+        self._band_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+
+        # Band spinbox for direct entry
+        self._band_spinbox = ttk.Spinbox(
+            slider_frame,
+            from_=0,
+            to=0,
+            width=5,
+            textvariable=self._current_band,
+            command=self._on_band_spinbox_changed,
+        )
+        self._band_spinbox.pack(side=tk.LEFT, padx=2)
+        self._band_spinbox.bind("<Return>", lambda e: self._on_band_spinbox_changed())
+
+        # Wavelength label
+        self._wavelength_label = ttk.Label(browser_frame, text="Wavelength: -- nm")
+        self._wavelength_label.pack(fill=tk.X, padx=5, pady=2)
+
+        # Colormap selector
+        cmap_frame = ttk.Frame(browser_frame)
+        cmap_frame.pack(fill=tk.X, padx=5, pady=2)
+
+        ttk.Label(cmap_frame, text="Colormap:").pack(side=tk.LEFT)
+
+        self._cmap_combo = ttk.Combobox(
+            cmap_frame,
+            textvariable=self._colormap,
+            values=["viridis", "gray", "hot", "cool", "plasma", "inferno"],
+            state="readonly",
+            width=10,
+        )
+        self._cmap_combo.pack(side=tk.LEFT, padx=5)
+        self._cmap_combo.bind("<<ComboboxSelected>>", lambda e: self._update_display())
+
+        # Animation controls
+        anim_frame = ttk.LabelFrame(browser_frame, text="Animation")
+        anim_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        # Play/Stop buttons
+        btn_frame = ttk.Frame(anim_frame)
+        btn_frame.pack(fill=tk.X, padx=5, pady=2)
+
+        self._play_btn = ttk.Button(btn_frame, text="▶ Play", command=self._on_play_animation)
+        self._play_btn.pack(side=tk.LEFT, padx=2)
+
+        self._stop_btn = ttk.Button(btn_frame, text="■ Stop", command=self._on_stop_animation, state=tk.DISABLED)
+        self._stop_btn.pack(side=tk.LEFT, padx=2)
+
+        # Loop checkbox
+        ttk.Checkbutton(
+            btn_frame,
+            text="Loop",
+            variable=self._animation_loop,
+        ).pack(side=tk.LEFT, padx=5)
+
+        # Speed slider
+        speed_frame = ttk.Frame(anim_frame)
+        speed_frame.pack(fill=tk.X, padx=5, pady=2)
+
+        ttk.Label(speed_frame, text="Speed:").pack(side=tk.LEFT)
+
+        self._speed_slider = ttk.Scale(
+            speed_frame,
+            from_=500,  # Slow
+            to=50,  # Fast (reversed for intuitive control)
+            variable=self._animation_speed,
+            orient=tk.HORIZONTAL,
+        )
+        self._speed_slider.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=2)
+
+        self._speed_label = ttk.Label(speed_frame, text="100ms")
+        self._speed_label.pack(side=tk.LEFT, padx=2)
+
+        # Update speed label when slider moves
+        self._animation_speed.trace_add("write", self._update_speed_label)
 
     def _create_tools_section(self) -> None:
         """Create the Tools section (placeholder for masking tools)."""
@@ -604,6 +730,102 @@ class ViewerApp:
         """Handle display settings change."""
         self._update_display()
 
+    def _on_display_mode_changed(self) -> None:
+        """Handle display mode toggle (Composite vs Single Band)."""
+        self._update_display()
+
+    def _on_band_slider_changed(self, value: str) -> None:
+        """Handle band slider movement."""
+        # Debounce rapid slider movements
+        self._update_band_display()
+
+    def _on_band_spinbox_changed(self) -> None:
+        """Handle band spinbox value change."""
+        try:
+            band = self._current_band.get()
+            n_bands = len(self._emission_wavelengths)
+            if n_bands > 0:
+                # Clamp to valid range
+                band = max(0, min(band, n_bands - 1))
+                self._current_band.set(band)
+            self._update_band_display()
+        except (ValueError, tk.TclError):
+            pass
+
+    def _update_band_display(self) -> None:
+        """Update the wavelength label and display for current band."""
+        band = self._current_band.get()
+
+        # Update wavelength label
+        if self._emission_wavelengths and 0 <= band < len(self._emission_wavelengths):
+            wavelength = self._emission_wavelengths[band]
+            self._wavelength_label.config(text=f"Wavelength: {wavelength:.1f} nm")
+        else:
+            self._wavelength_label.config(text="Wavelength: -- nm")
+
+        # Update display if in single-band mode
+        if self._display_mode.get() == "single":
+            self._update_display()
+
+    def _update_speed_label(self, *args: Any) -> None:
+        """Update the animation speed label."""
+        speed = self._animation_speed.get()
+        self._speed_label.config(text=f"{speed}ms")
+
+    def _on_play_animation(self) -> None:
+        """Start band animation playback."""
+        if self._animation_running:
+            return
+
+        self._animation_running = True
+        self._play_btn.config(state=tk.DISABLED)
+        self._stop_btn.config(state=tk.NORMAL)
+
+        # Switch to single-band mode for animation
+        self._display_mode.set("single")
+        self._animate_next_band()
+
+    def _on_stop_animation(self) -> None:
+        """Stop band animation playback."""
+        self._animation_running = False
+        self._play_btn.config(state=tk.NORMAL)
+        self._stop_btn.config(state=tk.DISABLED)
+
+        # Cancel any pending animation callback
+        if self._animation_id is not None:
+            self.root.after_cancel(self._animation_id)
+            self._animation_id = None
+
+    def _animate_next_band(self) -> None:
+        """Advance to next band in animation sequence."""
+        if not self._animation_running:
+            return
+
+        n_bands = len(self._emission_wavelengths)
+        if n_bands == 0:
+            self._on_stop_animation()
+            return
+
+        # Get current band and advance
+        current = self._current_band.get()
+        next_band = current + 1
+
+        # Check if we've reached the end
+        if next_band >= n_bands:
+            if self._animation_loop.get():
+                next_band = 0
+            else:
+                self._on_stop_animation()
+                return
+
+        # Update band and display
+        self._current_band.set(next_band)
+        self._update_band_display()
+
+        # Schedule next frame
+        speed = self._animation_speed.get()
+        self._animation_id = self.root.after(speed, self._animate_next_band)
+
     def _update_display(self) -> None:
         """Update the image display with current settings."""
         if self._spectra_data is None or self._current_excitation is None:
@@ -614,40 +836,107 @@ class ViewerApp:
             ex_data = self._spectra_data.get_excitation(self._current_excitation)
             self._current_cube = ex_data.cube
 
-            # Create RGB image
-            method = self._rgb_method.get()
-            percentile = 98 if self._auto_contrast.get() else 100
+            # Store emission wavelengths and update slider range
+            self._emission_wavelengths = list(ex_data.emission_wavelengths)
+            n_bands = len(self._emission_wavelengths)
 
-            self._current_image = create_rgb_image(
-                self._current_cube,
-                method=method,
-                percentile=percentile,
-            )
+            # Update band slider range
+            if n_bands > 0:
+                self._band_slider.config(to=n_bands - 1)
+                self._band_spinbox.config(to=n_bands - 1)
 
-            # Apply manual contrast if not auto
-            if not self._auto_contrast.get():
-                min_val = self._min_val.get() / 100.0
-                max_val = self._max_val.get() / 100.0
-                if max_val > min_val:
-                    self._current_image = np.clip(
-                        (self._current_image - min_val) / (max_val - min_val),
-                        0, 1,
-                    )
+                # Clamp current band to valid range
+                current = self._current_band.get()
+                if current >= n_bands:
+                    self._current_band.set(n_bands - 1)
 
-            # Update display
-            self._ax.clear()
-            self._img_display = self._ax.imshow(
-                self._current_image,
-                aspect="equal",
-                interpolation="nearest",
-            )
-            self._ax.set_title(f"Excitation: {self._current_excitation} nm")
+            # Check display mode
+            display_mode = self._display_mode.get()
+
+            if display_mode == "single" and n_bands > 0:
+                # Single-band mode with colormap
+                band_idx = self._current_band.get()
+                band_data = self._current_cube[:, :, band_idx]
+
+                # Normalize band data
+                percentile = 98 if self._auto_contrast.get() else 100
+                if np.any(band_data > 0):
+                    pval = np.percentile(band_data[band_data > 0], percentile)
+                else:
+                    pval = 1.0
+                if pval == 0:
+                    pval = 1.0
+                band_norm = np.clip(band_data / pval, 0, 1)
+
+                # Apply manual contrast if not auto
+                if not self._auto_contrast.get():
+                    min_val = self._min_val.get() / 100.0
+                    max_val = self._max_val.get() / 100.0
+                    if max_val > min_val:
+                        band_norm = np.clip(
+                            (band_norm - min_val) / (max_val - min_val),
+                            0, 1,
+                        )
+
+                # Get colormap
+                cmap_name = self._colormap.get()
+
+                # Update display with colormap
+                self._ax.clear()
+                self._img_display = self._ax.imshow(
+                    band_norm,
+                    aspect="equal",
+                    interpolation="nearest",
+                    cmap=cmap_name,
+                )
+
+                # Title with band info
+                wavelength = self._emission_wavelengths[band_idx] if band_idx < len(self._emission_wavelengths) else 0
+                self._ax.set_title(
+                    f"Ex: {self._current_excitation} nm | Band {band_idx}: {wavelength:.1f} nm"
+                )
+
+                # Update wavelength label
+                self._wavelength_label.config(text=f"Wavelength: {wavelength:.1f} nm")
+
+                # Store for mouse tracking (use the single band repeated for compatibility)
+                self._current_image = np.stack([band_norm, band_norm, band_norm], axis=2)
+
+            else:
+                # Composite mode - Create RGB image
+                method = self._rgb_method.get()
+                percentile = 98 if self._auto_contrast.get() else 100
+
+                self._current_image = create_rgb_image(
+                    self._current_cube,
+                    method=method,
+                    percentile=percentile,
+                )
+
+                # Apply manual contrast if not auto
+                if not self._auto_contrast.get():
+                    min_val = self._min_val.get() / 100.0
+                    max_val = self._max_val.get() / 100.0
+                    if max_val > min_val:
+                        self._current_image = np.clip(
+                            (self._current_image - min_val) / (max_val - min_val),
+                            0, 1,
+                        )
+
+                # Update display
+                self._ax.clear()
+                self._img_display = self._ax.imshow(
+                    self._current_image,
+                    aspect="equal",
+                    interpolation="nearest",
+                )
+                self._ax.set_title(f"Excitation: {self._current_excitation} nm")
+
             self._ax.set_xticks([])
             self._ax.set_yticks([])
             self._canvas.draw()
 
             # Update band info
-            n_bands = ex_data.n_bands
             self._band_info_label.config(
                 text=f"Ex: {self._current_excitation}nm | {n_bands} bands"
             )
