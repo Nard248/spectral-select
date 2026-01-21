@@ -1,0 +1,1259 @@
+"""Visualization utilities for spectral analysis.
+
+This module provides the Visualizer class for creating publication-quality
+visualizations of wavelength selection analysis results.
+
+Example:
+    from spectral_select import Visualizer, WavelengthResult
+
+    result = WavelengthResult.from_json("analysis_results.json")
+    viz = Visualizer.from_result(result)
+    viz.plot_influence_heatmap()
+    viz.plot_wavelength_scatter()
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
+
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+from .types import ValidationMetrics, WavelengthResult
+
+if TYPE_CHECKING:
+    from .analyzer import Analyzer
+    from .results import ResultsManager
+    from .validation import Validator
+
+
+class Visualizer:
+    """Publication-quality visualizations for wavelength selection analysis.
+
+    Creates and saves visualizations for wavelength selection results including
+    influence heatmaps, wavelength distributions, and validation plots.
+
+    Attributes:
+        output_dir: Directory where figures are saved.
+        dpi: Resolution for saved figures.
+        figsize: Default figure size (width, height).
+
+    Example:
+        # From result
+        viz = Visualizer.from_result(result)
+        path = viz.plot_influence_heatmap()
+        print(f"Saved to: {path}")
+
+        # From analyzer
+        analyzer.fit(data)
+        viz = Visualizer.from_analyzer(analyzer)
+        paths = viz.plot_all()
+    """
+
+    def __init__(
+        self,
+        output_dir: Optional[Union[str, Path]] = None,
+        dpi: int = 300,
+        figsize: Tuple[int, int] = (12, 8),
+        style: str = "seaborn-v0_8-whitegrid",
+    ) -> None:
+        """Initialize visualizer with output settings.
+
+        Args:
+            output_dir: Directory for saving figures. Defaults to ./visualizations.
+            dpi: Resolution for saved figures (300 for publication quality).
+            figsize: Default figure size as (width, height) in inches.
+            style: Matplotlib style to apply (seaborn styles recommended).
+        """
+        # Store private attributes
+        self._output_dir = Path(output_dir) if output_dir else Path.cwd() / "visualizations"
+        self._dpi = dpi
+        self._figsize = figsize
+        self._style = style
+
+        # Optional bound data (set by factory methods)
+        self._result: Optional[WavelengthResult] = None
+        self._analyzer: Optional["Analyzer"] = None
+        self._results_manager: Optional["ResultsManager"] = None
+
+        # Create output directory
+        self._output_dir.mkdir(parents=True, exist_ok=True)
+
+        # Setup matplotlib style
+        self._setup_style()
+
+        # Initialize color palette
+        self._colors = sns.color_palette("husl", 12)
+
+    @property
+    def output_dir(self) -> Path:
+        """Directory where figures are saved."""
+        return self._output_dir
+
+    @property
+    def dpi(self) -> int:
+        """Resolution for saved figures."""
+        return self._dpi
+
+    @property
+    def figsize(self) -> Tuple[int, int]:
+        """Default figure size (width, height)."""
+        return self._figsize
+
+    @property
+    def has_result(self) -> bool:
+        """Whether a result is available (from _result or _analyzer.result)."""
+        if self._result is not None:
+            return True
+        if self._analyzer is not None:
+            return hasattr(self._analyzer, "result") and self._analyzer.result is not None
+        return False
+
+    def _setup_style(self) -> None:
+        """Apply matplotlib style and seaborn settings."""
+        try:
+            plt.style.use(self._style)
+        except OSError:
+            # Fallback to default if style not available
+            plt.style.use("seaborn-v0_8-whitegrid" if "seaborn" in plt.style.available else "default")
+
+        # Set seaborn defaults
+        sns.set_palette("husl")
+        sns.set_context("paper", font_scale=1.2)
+
+    def _save_figure(self, fig: plt.Figure, name: str) -> Path:
+        """Save figure to output directory.
+
+        Args:
+            fig: Matplotlib figure to save.
+            name: Filename (without extension).
+
+        Returns:
+            Path to the saved figure.
+        """
+        path = self._output_dir / f"{name}.png"
+        fig.savefig(path, dpi=self._dpi, bbox_inches="tight", facecolor="white")
+        plt.close(fig)
+        return path
+
+    def _get_color(self, index: int) -> str:
+        """Get color from palette by index (cycles if index > palette size).
+
+        Args:
+            index: Color index.
+
+        Returns:
+            Color as hex string or RGB tuple.
+        """
+        return self._colors[index % len(self._colors)]
+
+    def _create_figure(
+        self,
+        nrows: int = 1,
+        ncols: int = 1,
+        figsize: Optional[Tuple[int, int]] = None,
+    ) -> Tuple[plt.Figure, plt.Axes]:
+        """Create figure with consistent settings.
+
+        Args:
+            nrows: Number of subplot rows.
+            ncols: Number of subplot columns.
+            figsize: Figure size. Defaults to self._figsize.
+
+        Returns:
+            Tuple of (Figure, Axes).
+        """
+        if figsize is None:
+            figsize = self._figsize
+        return plt.subplots(nrows, ncols, figsize=figsize)
+
+    # =========================================================================
+    # Factory Methods
+    # =========================================================================
+
+    @classmethod
+    def from_result(
+        cls,
+        result: WavelengthResult,
+        output_dir: Optional[Union[str, Path]] = None,
+        **kwargs,
+    ) -> "Visualizer":
+        """Create visualizer bound to a specific result.
+
+        Args:
+            result: WavelengthResult to visualize.
+            output_dir: Output directory. Defaults to visualizations/{sample_name}.
+            **kwargs: Additional arguments passed to __init__.
+
+        Returns:
+            Visualizer instance with result bound.
+        """
+        if output_dir is None:
+            output_dir = Path("visualizations") / result.sample_name
+
+        instance = cls(output_dir=output_dir, **kwargs)
+        instance._result = result
+        return instance
+
+    @classmethod
+    def from_results_manager(
+        cls,
+        results_manager: "ResultsManager",
+        **kwargs,
+    ) -> "Visualizer":
+        """Create visualizer using ResultsManager for output paths.
+
+        Args:
+            results_manager: ResultsManager instance providing structured paths.
+            **kwargs: Additional arguments passed to __init__.
+
+        Returns:
+            Visualizer instance with output_dir set to results_manager.viz_dir.
+        """
+        instance = cls(output_dir=results_manager.viz_dir, **kwargs)
+        instance._results_manager = results_manager
+        return instance
+
+    @classmethod
+    def from_analyzer(
+        cls,
+        analyzer: "Analyzer",
+        output_dir: Optional[Union[str, Path]] = None,
+        **kwargs,
+    ) -> "Visualizer":
+        """Create visualizer bound to an analyzer.
+
+        The visualizer will use analyzer.result after fit() is called.
+        If analyzer has a ResultsManager configured, uses results_manager.viz_dir.
+
+        Args:
+            analyzer: Analyzer instance (should have fit() called).
+            output_dir: Output directory. Defaults to results_manager.viz_dir if
+                available, otherwise visualizations/{sample_name}.
+            **kwargs: Additional arguments passed to __init__.
+
+        Returns:
+            Visualizer instance with analyzer bound.
+        """
+        if output_dir is None:
+            # Use ResultsManager viz_dir if analyzer has one configured
+            if analyzer._results_manager is not None:
+                output_dir = analyzer._results_manager.viz_dir
+            else:
+                output_dir = Path("visualizations") / analyzer.config.sample_name
+
+        instance = cls(output_dir=output_dir, **kwargs)
+        instance._analyzer = analyzer
+        return instance
+
+    @classmethod
+    def from_validation(
+        cls,
+        validator: "Validator",
+        cluster_map: np.ndarray,
+        output_dir: Optional[Union[str, Path]] = None,
+        **kwargs,
+    ) -> "Visualizer":
+        """Create visualizer configured for validation plots.
+
+        Sets up the visualizer with validation data for plotting confusion
+        matrices, accuracy heatmaps, and ROI overlays.
+
+        Args:
+            validator: Fitted Validator with computed metrics.
+            cluster_map: 2D cluster label array.
+            output_dir: Directory for saving plots.
+            **kwargs: Additional arguments passed to __init__.
+
+        Returns:
+            Visualizer instance ready for validation plotting.
+
+        Raises:
+            ValueError: If validator is not fitted.
+
+        Example:
+            validator = Validator()
+            validator.fit(cluster_labels, ground_truth)
+            viz = Visualizer.from_validation(validator, cluster_labels)
+            viz.plot_confusion_matrix(validator.metrics.confusion_matrix)
+        """
+        if not validator.is_fitted:
+            raise ValueError(
+                "Validator must be fitted before creating Visualizer. "
+                "Call validator.fit(cluster_labels, ground_truth) first."
+            )
+
+        if output_dir is None:
+            output_dir = Path("visualizations") / "validation"
+
+        instance = cls(output_dir=output_dir, **kwargs)
+
+        # Store validation-specific attributes for use in plotting methods
+        instance._validation_cluster_map = cluster_map
+        instance._validation_ground_truth = validator.ground_truth
+        instance._validation_metrics = validator.metrics
+
+        return instance
+
+    # =========================================================================
+    # Wavelength Analysis Plots (Phase 5 Plan 02)
+    # =========================================================================
+
+    def plot_influence_heatmap(
+        self,
+        influence_matrix: Optional[Dict[float, np.ndarray]] = None,
+    ) -> Path:
+        """Plot heatmap of influence scores across excitation-emission space.
+
+        Creates a 2D heatmap showing influence scores with excitation wavelengths
+        on the y-axis and emission band indices on the x-axis. Uses log scale
+        for better visualization of wide value ranges.
+
+        Args:
+            influence_matrix: Optional pre-computed matrix as {excitation_nm: influence_array}.
+                If not provided and has_result, builds from selected_bands.
+
+        Returns:
+            Path to saved figure.
+
+        Raises:
+            ValueError: If no result or influence_matrix available.
+        """
+        # Get or build influence matrix
+        if influence_matrix is not None:
+            matrix_dict = influence_matrix
+        elif self.has_result:
+            # Build from result's selected bands
+            result = self._result if self._result else self._analyzer.result
+            matrix_dict: Dict[float, np.ndarray] = {}
+
+            # Get unique excitations and their band counts
+            for band in result.selected_bands:
+                ex = band.excitation_nm
+                if ex not in matrix_dict:
+                    # Find max emission band index for this excitation
+                    max_idx = max(
+                        b.emission_band_index
+                        for b in result.selected_bands
+                        if b.excitation_nm == ex
+                    )
+                    matrix_dict[ex] = np.zeros(max_idx + 1)
+
+                matrix_dict[ex][band.emission_band_index] = band.influence_score
+        else:
+            raise ValueError("No result or influence_matrix available for heatmap")
+
+        # Prepare data for heatmap
+        excitations = sorted(matrix_dict.keys())
+        max_bands = max(len(matrix_dict[ex]) for ex in excitations)
+
+        influence_array = np.zeros((len(excitations), max_bands))
+        for i, ex in enumerate(excitations):
+            influences = matrix_dict[ex]
+            influence_array[i, :len(influences)] = influences
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        # Use log scale for better visualization
+        influence_log = np.log10(influence_array + 1e-10)
+
+        heatmap = ax.imshow(influence_log, aspect='auto', cmap='YlOrRd', interpolation='nearest')
+
+        # Customize plot
+        cbar = plt.colorbar(heatmap, ax=ax, shrink=0.8)
+        cbar.set_label('Log10(Influence Score)', fontsize=10)
+
+        ax.set_xlabel('Emission Band Index', fontsize=12)
+        ax.set_ylabel('Excitation Wavelength (nm)', fontsize=12)
+        ax.set_title('Wavelength Influence Heatmap (Log Scale)', fontsize=14, fontweight='bold')
+
+        # Set y-axis labels
+        ax.set_yticks(range(len(excitations)))
+        ax.set_yticklabels([f"{ex:.0f}" for ex in excitations])
+
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+
+        return self._save_figure(fig, "influence_heatmap")
+
+    def plot_wavelength_scatter(self, top_n: int = 50) -> Path:
+        """Plot scatter of selected wavelengths in excitation-emission space.
+
+        Creates a scatter plot where each point represents a selected wavelength
+        combination. Point color indicates influence score, and point size
+        indicates ranking (larger = higher ranked).
+
+        Args:
+            top_n: Number of top bands to plot (default 50 for readability).
+
+        Returns:
+            Path to saved figure.
+
+        Raises:
+            ValueError: If no result is available.
+        """
+        if not self.has_result:
+            raise ValueError("No result available for wavelength scatter plot")
+
+        result = self._result if self._result else self._analyzer.result
+
+        # Extract data for plotting (limit to top_n for readability)
+        top_bands = result.selected_bands[:top_n]
+        ex_values = [band.excitation_nm for band in top_bands]
+        em_values = [band.emission_nm for band in top_bands]
+        influences = [band.influence_score for band in top_bands]
+        ranks = [band.rank for band in top_bands]
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        # Size decreases with rank (higher rank = larger point)
+        sizes = [200 - (rank - 1) * 3 for rank in ranks]
+        sizes = [max(s, 20) for s in sizes]  # Minimum size
+
+        scatter = ax.scatter(
+            ex_values, em_values,
+            c=influences,
+            s=sizes,
+            cmap='plasma',
+            edgecolors='black',
+            linewidth=1,
+            alpha=0.8
+        )
+
+        # Colorbar
+        cbar = plt.colorbar(scatter, ax=ax, shrink=0.8)
+        cbar.set_label('Influence Score', fontsize=10)
+
+        # Labels and title
+        ax.set_xlabel('Excitation Wavelength (nm)', fontsize=12)
+        ax.set_ylabel('Emission Wavelength (nm)', fontsize=12)
+        ax.set_title(
+            'Top Wavelength Combinations\n(Size ~ Ranking, Color ~ Influence)',
+            fontsize=14, fontweight='bold'
+        )
+
+        # Annotate top 20 with rank numbers
+        for i, (ex, em, rank) in enumerate(zip(ex_values[:20], em_values[:20], ranks[:20])):
+            ax.annotate(
+                f'{rank}', (ex, em),
+                xytext=(3, 3), textcoords='offset points',
+                fontsize=8, fontweight='bold',
+                bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.7)
+            )
+
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+
+        return self._save_figure(fig, "wavelength_scatter")
+
+    def plot_excitation_distribution(self) -> Path:
+        """Plot distribution of selected bands across excitation wavelengths.
+
+        Creates a bar chart showing how many bands were selected from each
+        excitation wavelength, with value labels on top of each bar.
+
+        Returns:
+            Path to saved figure.
+
+        Raises:
+            ValueError: If no result is available.
+        """
+        if not self.has_result:
+            raise ValueError("No result available for excitation distribution plot")
+
+        result = self._result if self._result else self._analyzer.result
+
+        # Count selections per excitation
+        excitation_counts: Dict[float, int] = {}
+        for band in result.selected_bands:
+            ex = band.excitation_nm
+            excitation_counts[ex] = excitation_counts.get(ex, 0) + 1
+
+        # Sort by wavelength
+        excitations = sorted(excitation_counts.keys())
+        counts = [excitation_counts[ex] for ex in excitations]
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        bars = ax.bar(
+            range(len(excitations)), counts,
+            color='skyblue', edgecolor='navy',
+            alpha=0.7, linewidth=1.5
+        )
+
+        # Labels and title
+        ax.set_xlabel('Excitation Wavelength (nm)', fontsize=12)
+        ax.set_ylabel('Number of Selected Bands', fontsize=12)
+        ax.set_title(
+            'Distribution of Selected Bands Across Excitation Wavelengths',
+            fontsize=14, fontweight='bold'
+        )
+
+        ax.set_xticks(range(len(excitations)))
+        ax.set_xticklabels([f"{ex:.0f}" for ex in excitations], rotation=45, ha='right')
+
+        # Add value labels on bars
+        for bar, count in zip(bars, counts):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.1,
+                str(count),
+                ha='center', va='bottom', fontweight='bold'
+            )
+
+        ax.grid(True, axis='y', alpha=0.3)
+        fig.tight_layout()
+
+        return self._save_figure(fig, "excitation_distribution")
+
+    def plot_influence_ranking(self) -> Path:
+        """Plot influence scores versus band ranking.
+
+        Creates a line plot showing how influence scores decay with rank.
+        Automatically uses log scale for y-axis if the ratio of max/min
+        scores exceeds 100x.
+
+        Returns:
+            Path to saved figure.
+
+        Raises:
+            ValueError: If no result is available.
+        """
+        if not self.has_result:
+            raise ValueError("No result available for influence ranking plot")
+
+        result = self._result if self._result else self._analyzer.result
+
+        # Extract ranks and influences
+        ranks = [band.rank for band in result.selected_bands]
+        influences = [band.influence_score for band in result.selected_bands]
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        # Create line plot with markers
+        ax.plot(ranks, influences, 'o-', linewidth=2, markersize=6,
+                markerfacecolor='red', markeredgecolor='darkred', alpha=0.7)
+
+        # Customize plot
+        ax.set_xlabel('Band Rank', fontsize=12)
+        ax.set_ylabel('Influence Score', fontsize=12)
+        ax.set_title('Influence Score vs. Band Ranking', fontsize=14, fontweight='bold')
+
+        # Use log scale if range is large
+        if max(influences) / (min(influences) + 1e-10) > 100:
+            ax.set_yscale('log')
+            ax.set_ylabel('Influence Score (Log Scale)', fontsize=12)
+
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+
+        return self._save_figure(fig, "influence_ranking")
+
+    def plot_wavelength_coverage(
+        self,
+        total_bands_per_excitation: Optional[Dict[float, int]] = None,
+    ) -> Path:
+        """Plot coverage of selected wavelengths across spectrum.
+
+        Shows the selected wavelength combinations in excitation-emission space,
+        optionally overlaid on all available wavelength combinations (shown in gray).
+
+        Args:
+            total_bands_per_excitation: Optional dict mapping excitation_nm to total
+                number of emission bands available. If provided, shows all available
+                positions as light gray background.
+
+        Returns:
+            Path to saved figure.
+
+        Raises:
+            ValueError: If no result is available.
+        """
+        if not self.has_result:
+            raise ValueError("No result available for wavelength coverage plot")
+
+        result = self._result if self._result else self._analyzer.result
+
+        # Create figure
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        # Plot all available combinations as light background if provided
+        if total_bands_per_excitation:
+            for ex_nm, n_bands in total_bands_per_excitation.items():
+                em_indices = range(n_bands)
+                ax.scatter(
+                    [ex_nm] * len(em_indices), em_indices,
+                    c='lightgray', s=20, alpha=0.3, marker='s'
+                )
+
+        # Extract selected bands data
+        ex_selected = [band.excitation_nm for band in result.selected_bands]
+        em_selected = [band.emission_band_index for band in result.selected_bands]
+        influences = [band.influence_score for band in result.selected_bands]
+
+        # Plot selected combinations
+        scatter = ax.scatter(
+            ex_selected, em_selected,
+            c=influences, s=100, cmap='viridis',
+            edgecolors='black', linewidth=1
+        )
+
+        cbar = plt.colorbar(scatter, ax=ax, shrink=0.8)
+        cbar.set_label('Influence Score', fontsize=10)
+
+        ax.set_xlabel('Excitation Wavelength (nm)', fontsize=12)
+        ax.set_ylabel('Emission Band Index', fontsize=12)
+        ax.set_title(
+            'Wavelength Space Coverage\n(Gray: Available, Colored: Selected)',
+            fontsize=14, fontweight='bold'
+        )
+
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+
+        return self._save_figure(fig, "wavelength_coverage")
+
+    # =========================================================================
+    # Clustering/Validation Plots (Phase 5 Plan 03)
+    # =========================================================================
+
+    def plot_confusion_matrix(
+        self,
+        cm: np.ndarray,
+        class_names: Optional[List[str]] = None,
+        title: str = "Confusion Matrix",
+    ) -> Path:
+        """Plot confusion matrix with annotations.
+
+        Creates an enhanced confusion matrix visualization with normalized colors
+        and both count and percentage annotations. Uses adaptive text colors
+        (white on dark cells, black on light cells) for readability.
+
+        Args:
+            cm: Confusion matrix as 2D array (rows=true, cols=predicted).
+            class_names: Optional class labels for axes. Defaults to "Class 0", etc.
+            title: Title for the plot.
+
+        Returns:
+            Path to saved figure.
+        """
+        n_classes = cm.shape[0]
+        if class_names is None:
+            class_names = [f"Class {i}" for i in range(n_classes)]
+
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        # Normalize for color mapping (row-wise normalization)
+        row_sums = cm.sum(axis=1, keepdims=True)
+        cm_normalized = np.divide(
+            cm.astype(float),
+            row_sums,
+            out=np.zeros_like(cm, dtype=float),
+            where=row_sums != 0,
+        )
+
+        # Create heatmap with Blues colormap
+        im = ax.imshow(cm_normalized, interpolation="nearest", cmap="Blues", aspect="auto")
+
+        # Add colorbar
+        cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cbar.set_label("Normalized Frequency", rotation=270, labelpad=20)
+
+        # Set ticks and labels
+        ax.set_xticks(np.arange(n_classes))
+        ax.set_yticks(np.arange(n_classes))
+        ax.set_xticklabels(class_names, rotation=45, ha="right")
+        ax.set_yticklabels(class_names)
+
+        # Add text annotations with count and percentage
+        thresh = cm_normalized.max() / 2
+        for i in range(n_classes):
+            for j in range(n_classes):
+                text = f"{cm[i, j]:d}\n({cm_normalized[i, j]:.2%})"
+                color = "white" if cm_normalized[i, j] > thresh else "black"
+                ax.text(j, i, text, ha="center", va="center", color=color, fontsize=9)
+
+        # Labels and title
+        ax.set_xlabel("Predicted Class", fontsize=12, fontweight="bold")
+        ax.set_ylabel("True Class", fontsize=12, fontweight="bold")
+        ax.set_title(title, fontsize=14, fontweight="bold", pad=20)
+
+        # Add grid for readability (minor ticks for grid lines between cells)
+        ax.set_xticks(np.arange(n_classes + 1) - 0.5, minor=True)
+        ax.set_yticks(np.arange(n_classes + 1) - 0.5, minor=True)
+        ax.grid(which="minor", color="gray", linestyle="-", linewidth=0.5)
+
+        fig.tight_layout()
+
+        # Save with sanitized title
+        filename = f"confusion_matrix_{title.lower().replace(' ', '_')}"
+        return self._save_figure(fig, filename)
+
+    def plot_per_class_metrics(
+        self,
+        per_class_metrics: Dict[int, Dict[str, float]],
+        title: str = "Per-Class Performance",
+    ) -> Path:
+        """Plot per-class precision, recall, F1 scores and support.
+
+        Creates a two-panel figure:
+        - Top panel: Grouped bar chart for precision, recall, F1 per class
+        - Bottom panel: Bar chart of support (sample counts) per class
+
+        Args:
+            per_class_metrics: Dict mapping class_id to metrics dict containing:
+                - 'precision': float
+                - 'recall': float
+                - 'f1': float
+                - 'support': int
+                - 'class_name': str (optional)
+
+        Returns:
+            Path to saved figure.
+        """
+        # Prepare data
+        classes = []
+        precision_scores = []
+        recall_scores = []
+        f1_scores = []
+        support_values = []
+
+        for cls_id, metrics in per_class_metrics.items():
+            classes.append(metrics.get("class_name", f"Class {cls_id}"))
+            precision_scores.append(metrics.get("precision", 0))
+            recall_scores.append(metrics.get("recall", 0))
+            f1_scores.append(metrics.get("f1", 0))
+            support_values.append(metrics.get("support", 0))
+
+        x = np.arange(len(classes))
+        width = 0.25
+
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 10))
+
+        # Top panel: Precision, Recall, F1
+        bars1 = ax1.bar(x - width, precision_scores, width, label="Precision", alpha=0.8)
+        bars2 = ax1.bar(x, recall_scores, width, label="Recall", alpha=0.8)
+        bars3 = ax1.bar(x + width, f1_scores, width, label="F1-Score", alpha=0.8)
+
+        # Add value labels on bars
+        for bars in [bars1, bars2, bars3]:
+            for bar in bars:
+                height = bar.get_height()
+                ax1.text(
+                    bar.get_x() + bar.get_width() / 2.0,
+                    height,
+                    f"{height:.3f}",
+                    ha="center",
+                    va="bottom",
+                    fontsize=8,
+                )
+
+        ax1.set_xlabel("Class", fontsize=12, fontweight="bold")
+        ax1.set_ylabel("Score", fontsize=12, fontweight="bold")
+        ax1.set_title(title, fontsize=14, fontweight="bold")
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(classes, rotation=45, ha="right")
+        ax1.legend(loc="upper right")
+        ax1.set_ylim([0, 1.1])
+        ax1.grid(True, alpha=0.3, axis="y")
+
+        # Add horizontal line for average F1
+        avg_f1 = np.mean(f1_scores)
+        ax1.axhline(y=avg_f1, color="red", linestyle="--", alpha=0.5)
+        ax1.text(
+            len(classes) - 0.5, avg_f1 + 0.02, f"Avg F1: {avg_f1:.3f}",
+            fontsize=9, color="red", fontweight="bold"
+        )
+
+        # Bottom panel: Support (sample counts)
+        bars4 = ax2.bar(x, support_values, alpha=0.7, color="teal")
+        ax2.set_xlabel("Class", fontsize=12, fontweight="bold")
+        ax2.set_ylabel("Support (# samples)", fontsize=12, fontweight="bold")
+        ax2.set_title("Class Distribution in Dataset", fontsize=12, fontweight="bold")
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(classes, rotation=45, ha="right")
+        ax2.grid(True, alpha=0.3, axis="y")
+
+        # Add value labels
+        for bar in bars4:
+            height = bar.get_height()
+            ax2.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height,
+                f"{int(height):,}",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+
+        fig.tight_layout()
+
+        return self._save_figure(fig, "per_class_metrics")
+
+    def plot_accuracy_heatmap(
+        self,
+        ground_truth: np.ndarray,
+        predictions: np.ndarray,
+        title: str = "Spatial Accuracy",
+    ) -> Path:
+        """Plot spatial accuracy heatmap comparing predictions to ground truth.
+
+        Creates a spatial map showing correct (green) and incorrect (red)
+        predictions with accuracy statistics in the title.
+
+        Args:
+            ground_truth: Ground truth label map (2D array, -1 for background).
+            predictions: Predicted label map (2D array).
+            title: Title for the plot.
+
+        Returns:
+            Path to saved figure.
+        """
+        from matplotlib.colors import LinearSegmentedColormap
+
+        # Create accuracy map: NaN=background, 0=incorrect, 1=correct
+        accuracy_map = np.zeros_like(ground_truth, dtype=float)
+        background_mask = ground_truth == -1
+        correct_mask = (ground_truth == predictions) & (~background_mask)
+        incorrect_mask = (ground_truth != predictions) & (~background_mask)
+
+        accuracy_map[background_mask] = np.nan
+        accuracy_map[correct_mask] = 1
+        accuracy_map[incorrect_mask] = 0
+
+        fig, ax = plt.subplots(figsize=self._figsize)
+
+        # Custom colormap: red for incorrect (0), green for correct (1)
+        colors = ["red", "green"]
+        cmap = LinearSegmentedColormap.from_list("accuracy", colors, N=2)
+
+        im = ax.imshow(accuracy_map, cmap=cmap, vmin=0, vmax=1, aspect="auto")
+
+        # Add colorbar with labels
+        cbar = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04, ticks=[0.25, 0.75])
+        cbar.ax.set_yticklabels(["Incorrect", "Correct"])
+        cbar.set_label("Prediction", rotation=270, labelpad=20)
+
+        # Calculate and display accuracy statistics
+        n_correct = np.sum(correct_mask)
+        n_incorrect = np.sum(incorrect_mask)
+        n_total = n_correct + n_incorrect
+        accuracy = n_correct / n_total if n_total > 0 else 0
+
+        ax.set_title(
+            f"{title}\nAccuracy: {accuracy:.2%} ({n_correct:,}/{n_total:,} pixels)",
+            fontsize=14,
+            fontweight="bold",
+        )
+        ax.set_xlabel("X Coordinate", fontsize=12)
+        ax.set_ylabel("Y Coordinate", fontsize=12)
+
+        fig.tight_layout()
+
+        return self._save_figure(fig, "accuracy_heatmap")
+
+    def plot_roi_overlay(
+        self,
+        cluster_map: np.ndarray,
+        roi_regions: List[Dict],
+        ground_truth: Optional[np.ndarray] = None,
+        roi_metrics: Optional[Dict[str, Dict]] = None,
+        title: str = "ROI Overlay",
+    ) -> Path:
+        """Plot cluster map with ROI region overlays.
+
+        Creates a 3-panel figure showing:
+        1. Clustering result (colored by class)
+        2. Clustering with ROI rectangle overlays and labels
+        3. ROI accuracy bar chart (if roi_metrics provided)
+
+        Args:
+            cluster_map: Cluster assignment map (2D array, -1 for background).
+            roi_regions: List of ROI dicts with keys:
+                - 'name': str - ROI name
+                - 'coords': (y_start, y_end, x_start, x_end) - bounding box
+                - 'color': '#RRGGBB' - hex color string
+            ground_truth: Optional ground truth for class→color mapping.
+            roi_metrics: Optional dict mapping ROI name to metrics dict containing 'accuracy'.
+            title: Title for the plot.
+
+        Returns:
+            Path to saved figure.
+        """
+        from matplotlib.patches import Rectangle
+
+        fig, axes = plt.subplots(1, 3, figsize=(20, 7))
+
+        # Build class→color mapping from ground truth if provided
+        class_to_color: Dict[int, np.ndarray] = {}
+        if ground_truth is not None:
+            for roi in roi_regions:
+                y_start, y_end, x_start, x_end = roi["coords"]
+                roi_gt = ground_truth[y_start:y_end, x_start:x_end]
+                roi_classes = roi_gt[roi_gt >= 0]
+                if len(roi_classes) > 0:
+                    unique_classes, counts = np.unique(roi_classes, return_counts=True)
+                    dominant_class = unique_classes[np.argmax(counts)]
+                    color_hex = roi["color"].lstrip("#")
+                    color_rgb = np.array(
+                        [int(color_hex[i : i + 2], 16) / 255.0 for i in (0, 2, 4)]
+                    )
+                    class_to_color[dominant_class] = color_rgb
+
+        # Create RGB image using ROI colors
+        rgb_image = np.ones((*cluster_map.shape, 3))  # White background
+
+        unique_clusters = np.unique(cluster_map[cluster_map >= 0])
+        for cluster_id in unique_clusters:
+            if cluster_id in class_to_color:
+                mask = cluster_map == cluster_id
+                rgb_image[mask] = class_to_color[cluster_id]
+            else:
+                # Fallback: gray for unmapped classes
+                mask = cluster_map == cluster_id
+                rgb_image[mask] = [0.5, 0.5, 0.5]
+
+        # Handle background
+        background_mask = cluster_map == -1
+        rgb_image[background_mask] = [1, 1, 1]
+
+        # Panel 1: Clustering result without overlay
+        ax1 = axes[0]
+        ax1.imshow(rgb_image, interpolation="nearest")
+        ax1.set_title("Clustering Result", fontsize=14, fontweight="bold")
+        ax1.axis("off")
+
+        # Panel 2: Clustering result with ROI boxes overlaid
+        ax2 = axes[1]
+        ax2.imshow(rgb_image, interpolation="nearest")
+
+        for roi in roi_regions:
+            roi_name = roi["name"]
+            y_start, y_end, x_start, x_end = roi["coords"]
+            width = x_end - x_start
+            height = y_end - y_start
+
+            # Get ROI accuracy if available
+            roi_acc = "N/A"
+            if roi_metrics and roi_name in roi_metrics:
+                roi_acc = f"{roi_metrics[roi_name]['accuracy']:.1%}"
+
+            # Draw rectangle border
+            rect = Rectangle(
+                (x_start, y_start),
+                width,
+                height,
+                linewidth=3,
+                edgecolor=roi["color"],
+                facecolor="none",
+                linestyle="-",
+            )
+            ax2.add_patch(rect)
+
+            # Add label with accuracy above the ROI
+            label_text = f"{roi_name}\nAcc: {roi_acc}"
+            ax2.text(
+                x_start + width / 2,
+                y_start - 5,
+                label_text,
+                color=roi["color"],
+                fontsize=10,
+                fontweight="bold",
+                ha="center",
+                va="bottom",
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.9),
+            )
+
+        ax2.set_title("ROI Overlay", fontsize=14, fontweight="bold")
+        ax2.axis("off")
+
+        # Panel 3: ROI accuracy bar chart
+        ax3 = axes[2]
+
+        if roi_metrics:
+            roi_names = []
+            accuracies = []
+            colors = []
+
+            for roi in roi_regions:
+                if roi["name"] in roi_metrics:
+                    roi_names.append(roi["name"])
+                    accuracies.append(roi_metrics[roi["name"]]["accuracy"])
+                    colors.append(roi["color"])
+
+            if roi_names:
+                bars = ax3.bar(range(len(roi_names)), accuracies, color=colors, alpha=0.8)
+
+                # Add value labels on bars
+                for bar, acc in zip(bars, accuracies):
+                    height = bar.get_height()
+                    ax3.text(
+                        bar.get_x() + bar.get_width() / 2.0,
+                        height,
+                        f"{acc:.1%}",
+                        ha="center",
+                        va="bottom",
+                        fontsize=11,
+                        fontweight="bold",
+                    )
+
+                ax3.set_xticks(range(len(roi_names)))
+                ax3.set_xticklabels(roi_names, rotation=0)
+                ax3.set_ylabel("Accuracy", fontsize=12, fontweight="bold")
+                ax3.set_ylim([0, 1.1])
+                ax3.set_title("ROI Accuracy Comparison", fontsize=14, fontweight="bold")
+
+                # Add overall accuracy line if available
+                if len(accuracies) > 0:
+                    overall = np.mean(accuracies)
+                    ax3.axhline(
+                        y=overall,
+                        color="red",
+                        linestyle="--",
+                        label=f"Mean: {overall:.2%}",
+                        linewidth=2,
+                    )
+                    ax3.legend(loc="upper right")
+
+                ax3.grid(True, alpha=0.3, axis="y")
+        else:
+            ax3.text(
+                0.5,
+                0.5,
+                "No ROI metrics\navailable",
+                transform=ax3.transAxes,
+                fontsize=14,
+                ha="center",
+                va="center",
+            )
+            ax3.axis("off")
+
+        plt.suptitle(title, fontsize=16, fontweight="bold", y=0.98)
+        fig.tight_layout(rect=[0, 0, 1, 0.96])
+
+        return self._save_figure(fig, "roi_overlay")
+
+    # =========================================================================
+    # Summary Methods
+    # =========================================================================
+
+    def plot_summary_dashboard(self) -> Path:
+        """Create multi-panel summary dashboard of analysis results.
+
+        Creates a 2x3 grid of subplots providing a comprehensive overview:
+        1. Top 10 influence scores (bar chart)
+        2. Excitation distribution (pie chart)
+        3. Influence vs Rank (log scale line)
+        4. Top 30 wavelength pairs (scatter)
+        5. Statistics summary (text box)
+        6. Mini heatmap of top excitations
+
+        Returns:
+            Path to saved figure.
+
+        Raises:
+            ValueError: If no result is available.
+        """
+        if not self.has_result:
+            raise ValueError("No result available for summary dashboard")
+
+        result = self._result if self._result else self._analyzer.result
+        metrics = result.metrics
+
+        # Create figure with subplots
+        fig = plt.figure(figsize=(20, 12))
+
+        # 1. Top 10 influence scores (bar chart)
+        ax1 = plt.subplot(2, 3, 1)
+        top_10 = result.selected_bands[:10]
+        labels = [f"Ex{band.excitation_nm:.0f}/Em{band.emission_nm:.0f}" for band in top_10]
+        influences = [band.influence_score for band in top_10]
+
+        bars = ax1.bar(range(len(labels)), influences, color='coral', alpha=0.7)
+        ax1.set_xlabel('Wavelength Combinations')
+        ax1.set_ylabel('Influence Score')
+        ax1.set_title('Top 10 Influence Scores')
+        ax1.set_xticks(range(len(labels)))
+        ax1.set_xticklabels(labels, rotation=45, ha='right', fontsize=8)
+        ax1.grid(True, alpha=0.3)
+
+        # 2. Excitation distribution (pie chart)
+        ax2 = plt.subplot(2, 3, 2)
+        excitation_counts: Dict[float, int] = {}
+        for band in result.selected_bands:
+            ex = band.excitation_nm
+            excitation_counts[ex] = excitation_counts.get(ex, 0) + 1
+
+        labels_pie = [f"{ex:.0f}nm" for ex in sorted(excitation_counts.keys())]
+        sizes = [excitation_counts[ex] for ex in sorted(excitation_counts.keys())]
+
+        ax2.pie(sizes, labels=labels_pie, autopct='%1.1f%%', startangle=90)
+        ax2.set_title('Distribution Across Excitations')
+
+        # 3. Influence vs Rank (line plot)
+        ax3 = plt.subplot(2, 3, 3)
+        ranks = [band.rank for band in result.selected_bands]
+        influences_all = [band.influence_score for band in result.selected_bands]
+
+        ax3.semilogy(ranks, influences_all, 'o-', linewidth=2, markersize=4)
+        ax3.set_xlabel('Rank')
+        ax3.set_ylabel('Influence Score (Log)')
+        ax3.set_title('Influence Decay by Rank')
+        ax3.grid(True, alpha=0.3)
+
+        # 4. Wavelength scatter (simplified)
+        ax4 = plt.subplot(2, 3, 4)
+        top_30 = result.selected_bands[:30]
+        ex_vals = [band.excitation_nm for band in top_30]
+        em_vals = [band.emission_nm for band in top_30]
+        sizes_scatter = [max(50 - band.rank, 10) for band in top_30]
+
+        ax4.scatter(ex_vals, em_vals, s=sizes_scatter, alpha=0.6, c='purple')
+        ax4.set_xlabel('Excitation (nm)')
+        ax4.set_ylabel('Emission (nm)')
+        ax4.set_title('Top 30 Wavelength Pairs')
+        ax4.grid(True, alpha=0.3)
+
+        # 5. Statistics summary (text)
+        ax5 = plt.subplot(2, 3, 5)
+        ax5.axis('off')
+
+        # Calculate statistics
+        unique_excitations = len(result.excitation_wavelengths)
+        influence_range = metrics.max_influence_score / (metrics.min_influence_score + 1e-10)
+
+        top_3 = result.selected_bands[:3]
+        stats_text = f"""
+ANALYSIS SUMMARY
+{'='*20}
+Total Bands Selected: {metrics.bands_selected}
+Total Available: {metrics.total_bands_available}
+Compression Ratio: {metrics.compression_ratio:.1f}x
+Unique Excitations: {unique_excitations}
+Max Influence: {metrics.max_influence_score:.2e}
+Min Influence: {metrics.min_influence_score:.2e}
+Mean Influence: {metrics.mean_influence_score:.2e}
+Influence Range: {influence_range:.1f}x
+
+Top 3 Combinations:
+1. Ex{top_3[0].excitation_nm:.0f}/Em{top_3[0].emission_nm:.0f}: {top_3[0].influence_score:.3f}
+2. Ex{top_3[1].excitation_nm:.0f}/Em{top_3[1].emission_nm:.0f}: {top_3[1].influence_score:.3f}
+3. Ex{top_3[2].excitation_nm:.0f}/Em{top_3[2].emission_nm:.0f}: {top_3[2].influence_score:.3f}
+        """
+
+        ax5.text(
+            0.1, 0.9, stats_text, transform=ax5.transAxes, fontsize=10,
+            verticalalignment='top', fontfamily='monospace',
+            bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8)
+        )
+
+        # 6. Heatmap (mini version)
+        ax6 = plt.subplot(2, 3, 6)
+
+        # Create mini heatmap of top excitations
+        top_excitations = sorted(set(band.excitation_nm for band in result.selected_bands[:20]))[:8]
+        heatmap_data = []
+
+        for ex in top_excitations:
+            ex_bands = [band for band in result.selected_bands if band.excitation_nm == ex]
+            ex_influences = [band.influence_score for band in ex_bands[:5]]
+            while len(ex_influences) < 5:
+                ex_influences.append(0)
+            heatmap_data.append(ex_influences)
+
+        if heatmap_data:
+            im = ax6.imshow(heatmap_data, cmap='YlOrRd', aspect='auto')
+            ax6.set_xlabel('Top 5 Bands per Excitation')
+            ax6.set_ylabel('Excitation (nm)')
+            ax6.set_title('Influence Mini-Heatmap')
+            ax6.set_yticks(range(len(top_excitations)))
+            ax6.set_yticklabels([f"{ex:.0f}" for ex in top_excitations])
+
+        # Add sample name as figure title
+        fig.suptitle(result.sample_name, fontsize=16, fontweight='bold', y=0.98)
+
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+
+        return self._save_figure(fig, "summary_dashboard")
+
+    def plot_all(self) -> List[Path]:
+        """Generate all available plots.
+
+        Orchestrates all visualization methods, generating plots based on
+        available data. If a result is bound, generates wavelength analysis
+        plots. Handles exceptions gracefully - if one plot fails, continues
+        with others and warns.
+
+        Returns:
+            List of paths to all saved figures.
+        """
+        generated_paths: List[Path] = []
+        errors: List[str] = []
+
+        # Wavelength analysis plots (require result)
+        if self.has_result:
+            plot_methods = [
+                ("influence_heatmap", self.plot_influence_heatmap),
+                ("wavelength_scatter", self.plot_wavelength_scatter),
+                ("excitation_distribution", self.plot_excitation_distribution),
+                ("influence_ranking", self.plot_influence_ranking),
+                ("wavelength_coverage", self.plot_wavelength_coverage),
+                ("summary_dashboard", self.plot_summary_dashboard),
+            ]
+
+            for name, method in plot_methods:
+                try:
+                    path = method()
+                    generated_paths.append(path)
+                except Exception as e:
+                    errors.append(f"{name}: {e}")
+
+        # Print summary
+        print(f"Generated {len(generated_paths)} visualizations in {self._output_dir}")
+        if errors:
+            print(f"Warnings ({len(errors)} plots skipped):")
+            for err in errors:
+                print(f"  - {err}")
+
+        return generated_paths
+
+    def save_all_to_pdf(self, filename: str = "all_visualizations.pdf") -> Path:
+        """Combine all PNG visualizations into a single PDF.
+
+        Collects all PNG files in the output directory and combines them
+        into a single PDF file, useful for paper submissions.
+
+        Args:
+            filename: Output PDF filename.
+
+        Returns:
+            Path to the saved PDF.
+        """
+        from matplotlib.backends.backend_pdf import PdfPages
+
+        pdf_path = self._output_dir / filename
+        png_files = sorted(self._output_dir.glob("*.png"))
+
+        if not png_files:
+            print("No PNG files found to combine into PDF")
+            return pdf_path
+
+        with PdfPages(pdf_path) as pdf:
+            for png_file in png_files:
+                # Read PNG and add as page
+                img = plt.imread(png_file)
+                fig, ax = plt.subplots(figsize=(12, 9))
+                ax.imshow(img)
+                ax.axis("off")
+                ax.set_title(png_file.stem, fontsize=10)
+                pdf.savefig(fig, bbox_inches="tight")
+                plt.close(fig)
+
+        print(f"Saved PDF with {len(png_files)} pages to {pdf_path}")
+        return pdf_path

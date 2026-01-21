@@ -1,0 +1,193 @@
+# Project State
+
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-01-19)
+
+**Core value:** Clean, stable, reproducible wavelength selection analysis that anyone can `from spectral_select import Analyzer` and use immediately.
+**Current focus:** v1.1 Production Ready — Flexible config, organized outputs, data prep tools, comprehensive testing
+
+## Current Position
+
+Phase: 15 of 16 (End-to-End Testing)
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-01-21 — Completed 15-03-PLAN.md
+
+Progress: ███████████████░ 95% (37 of 39 plans)
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 37
+- Average duration: 4.5 min
+- Total execution time: 3.4 hours
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| 1. Package Structure | 2 | 6 min | 3 min |
+| 2. Config System | 2 | 6 min | 3 min |
+| 3. Core Data Types | 2 | 9 min | 4.5 min |
+| 4. Analysis Engine | 4 | 26 min | 6.5 min |
+| 5. Visualization Module | 3 | 16 min | 5.3 min |
+| 6. Ground Truth Validation | 2 | 13 min | 6.5 min |
+| 7. Notebook Migration | 1 | 4 min | 4 min |
+| 8. Testing & Validation | 4 | 16 min | 4.0 min |
+| 9. Flexible Model Config | 2 | 6 min | 3 min |
+| 10. Results Organization | 3 | 13 min | 4.3 min |
+| 11. Excel Export & Reporting | 2 | 8 min | 4 min |
+| 12. Data Pipeline Improvements | 3 | 14 min | 4.7 min |
+| 13. Masking GUI Tool | 3 | 28 min | 9.3 min |
+| 14. Jupyter ROI Widget | 2 | 20 min | 10 min |
+| 15. End-to-End Testing | 3 | 8 min | 2.7 min |
+
+**Recent Trend:**
+- Last 5 plans: 14-02 (12 min), 15-01 (3 min), 15-02 (3 min), 15-03 (2 min)
+- Trend: Phase 15 complete - all import smoke tests passing
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- **01-01:** Removed readme field from pyproject.toml (UTF-16 encoding issue)
+- **01-01:** Used flat layout (spectral_select/ at root) instead of src/ layout
+- **01-02:** Export classes at package root for clean imports
+- **01-02:** Placeholder classes with phase references for future implementation
+- **02-01:** TYPE_CHECKING guard for forward protocol references
+- **02-01:** Protocol-based component interfaces with @runtime_checkable
+- **02-01:** Dual registration pattern (string IDs + direct class/callable)
+- **02-02:** Use yaml.safe_load/safe_dump for security
+- **02-02:** Warn on unknown config keys (forward compatibility)
+- **02-02:** Auto-create parent directories when saving configs
+- **03-01:** Exclude large arrays from SpectraData.to_dict() for lightweight serialization
+- **03-01:** Generate placeholder emission wavelengths when loading existing pkl format
+- **03-01:** Allow empty excitations dict for SpectraData initialization
+- **03-02:** JSON serialization for results (human-readable, portable)
+- **03-02:** Factory method from_bands() for computing metrics from selection list
+- **03-02:** Validate sequential ranks in WavelengthResult.__post_init__
+- **04-01:** Private attributes with public properties for Analyzer encapsulation
+- **04-01:** Device fallback chain: configured → availability check → cpu
+- **04-01:** fit() returns self for sklearn-style method chaining
+- **04-02:** torch.load with map_location for device-agnostic model loading
+- **04-02:** Train with 3000 epochs, lr=0.001 defaults (matching original)
+- **04-02:** Filter patches by >50% mask validity for baseline extraction
+- **04-03:** Three dimension selection methods: variance, activation, pca
+- **04-03:** Three perturbation methods: percentile, standard_deviation, absolute_range
+- **04-03:** Use 1e-10 epsilon for division by zero protection
+- **04-04:** MMR uses cosine similarity on flattened spectral profiles
+- **04-04:** Min-distance constraint applies only within same excitation
+- **04-04:** TIFF layers saved as 16-bit normalized images
+- **05-01:** HUSL palette (12 colors) for perceptually uniform visualization
+- **05-01:** Factory methods auto-generate output_dir from sample_name
+- **05-01:** TYPE_CHECKING import pattern for circular import prevention
+- **05-02:** Log10 + 1e-10 for heatmap values (handles zeros gracefully)
+- **05-02:** Auto log scale in ranking when max/min > 100x
+- **05-02:** Size encoding inversely proportional to rank in scatter plots
+- **05-03:** Row-wise normalization for confusion matrix (per true class)
+- **05-03:** Red/green colormap for accuracy heatmap (intuitive incorrect/correct)
+- **05-03:** 3-panel ROI overlay: clustering result, ROI boxes, accuracy chart
+- **05-03:** Graceful degradation in plot_all: continue if one plot fails
+- **06-01:** Validator.score() returns ARI as primary metric (sklearn convention)
+- **06-01:** Background pixels use -1 convention throughout
+- **06-01:** PNG loader uses 30px tolerance for background, configurable for classes
+- **06-02:** Store flattened ground_truth in Validator.fit() for later retrieval
+- **06-02:** Report format uses Markdown tables for GitHub/Jupyter rendering
+- **06-02:** Visualizer stores validation data in private attributes
+- **08-01:** Function scope for test fixtures (mutable numpy data)
+- **08-01:** Fixed random seed (42) for reproducible synthetic test data
+- **08-01:** Synthetic data: 10x10 spatial, 5 bands, 3 excitations
+- **08-02:** Test class naming: Test{ClassName}{Aspect} (e.g., TestConfigValidation)
+- **08-02:** Extended tests beyond minimums for comprehensive coverage (61 tests vs 21 required)
+- **08-02:** Include both positive and negative test cases for protocol validation
+- **08-03:** Analyzer tests focus on API contract (initialization, error handling, device fallback) since full fit() requires trained model
+- **08-03:** Validator tests use synthetic ground truth and predictions with controlled error rates for predictable ARI values
+- **08-03:** PNG fixture generated dynamically using PIL for load_ground_truth_from_png testing
+- **08-03:** Exceeded test count requirements (37 tests vs 12 required)
+- **08-04:** pytest-cov for coverage measurement (39.74% achieved)
+- **08-04:** GitHub Actions CI workflow for Python 3.11/3.12 matrix testing
+- **08-04:** Codecov integration for coverage tracking (optional upload)
+- **09-01:** Odd-only model_filter_size validation for symmetric padding
+- **09-01:** Optional[int] for training_early_stopping_patience (None=disabled)
+- **09-01:** Cross-field validation: training_chunk_overlap < training_chunk_size
+- **09-02:** Factory method _create_model() for architecture resolution
+- **09-02:** Lazy resolution: 'standard' string resolved at runtime to avoid circular imports
+- **09-02:** Custom architectures receive k1/k3/filter_size (subset of params)
+- **10-01:** Run ID format: YYYYMMDD_HHMMSS for sortable timestamps
+- **10-01:** Lazy torch import in save_model_checkpoint to avoid dependency issues
+- **10-01:** _create_dirs flag to support from_existing_run without creating directories
+- **10-02:** Lazy ResultsManager creation: only instantiate when property accessed
+- **10-02:** Analyzer._results_manager attribute checks first, then creates from config
+- **10-02:** Visualizer.from_analyzer() checks for existing _results_manager before fallback
+- **10-03:** Lazy package version lookup via importlib.metadata with graceful failure
+- **10-03:** Subprocess-based git info with 5-second timeout for safety
+- **10-03:** 25 tests for ResultsManager across 5 test classes (initialization, paths, operations, metadata, save)
+- **11-01:** Use pandas ExcelWriter with openpyxl engine for .xlsx output
+- **11-01:** Two-sheet layout: Wavelengths (flat table) + Metrics (summary)
+- **11-01:** Follow existing to_json() pattern for path handling
+- **11-02:** get_export_path() as semantic alias for get_result_path()
+- **11-02:** DEFAULT_EXPORT_FILENAME constant for consistent xlsx naming
+- **11-02:** 6 tests for Excel export covering file creation, sheets, and directories
+- **12-01:** Wrap HyperspectralDataLoader rather than duplicating code
+- **12-01:** Lazy ImageJ initialization only when actually loading .im3 files
+- **12-01:** DataLoadingError captures original exception as cause for debugging
+- **12-02:** to_pickle() output format matches from_pickle() expectations exactly
+- **12-02:** Error messages include: what happened, what found, what expected, hint
+- **12-02:** Validate paths at initialization time for early failure
+- **12-03:** Skip integration tests requiring ImageJ (CI-friendly)
+- **12-03:** Test from_raw() error paths since success requires ImageJ
+- **12-03:** Roundtrip tests verify cubes, masks, emission_wavelengths, exposure_time, laser_power
+- **13-01:** Use tkinter + matplotlib FigureCanvasTkAgg for GUI (stdlib + existing dep)
+- **13-01:** Lazy SpectraData import in viewer to avoid circular imports
+- **13-01:** Graceful ImageJ failure with info dialog for raw file loading
+- **13-01:** Private attributes with public properties for state encapsulation
+- **13-02:** Cube format (height, width, bands) maintained for SpectraData consistency
+- **13-02:** Animation uses root.after() for non-blocking playback
+- **13-02:** Mouse wheel zoom centers on cursor position for intuitive navigation
+- **13-02:** Module-level compose_false_color() for testability
+- **13-03:** extract_spectrum() returns cube[y, x, :] copy for safe modification
+- **13-03:** compute_image_statistics() handles NaN values gracefully
+- **13-03:** Histogram uses 256 bins with 2%/98% percentile markers
+- **13-03:** Statistics panel supports 'Current View' vs 'All Bands' mode toggle
+- **13-03:** ROI statistics section only shown when mask exists
+- **14-01:** Rectangle selector as default tool (more common use case)
+- **14-01:** Bounds stored as (row_min, row_max, col_min, col_max) matching numpy slice convention
+- **14-01:** get_roi_code() provides copy-pasteable Python code for reproducibility
+- **14-01:** ipywidgets Output context manager for matplotlib figure capture
+- **14-02:** CLASS_COLORS list with 8 predefined colors for multi-class overlay
+- **14-02:** Masks stored per-class in _class_labels dict, combined via get_combined_mask()
+- **14-02:** PNG mask format: 0=background, 1=class_0, 2=class_1, etc. (shifted by 1)
+- **14-02:** to_ground_truth() builds color_mapping from CLASS_COLORS_RGBA constant
+- **14-02:** path_to_mask handles empty/degenerate paths returning all-False mask
+- **15-01:** Smoke tests over full execution: test imports and structure, not model training
+- **15-01:** pytest-xdist for future parallel test execution of slow notebook tests
+- **15-01:** Mark slow tests with @pytest.mark.slow for selective exclusion
+- **15-02:** Extract 10 configs from full_pipeline_integration_test.py into PIPELINE_CONFIGS constant
+- **15-02:** Test config validity and Analyzer instantiation without full training
+- **15-02:** Mask belongs at SpectraData level, not ExcitationData
+- **15-03:** Consolidated dependency tests with import tests for efficiency
+- **15-03:** Graceful pytest.skip for tkinter/ipywidgets in CI environments
+- **15-03:** 34 tests exceeds 20+ requirement (3 package, 9 module, 5 GUI, 5 circular, 10 deps, 3 optional)
+
+### Deferred Issues
+
+None yet.
+
+### Blockers/Concerns
+
+None yet.
+
+## Session Continuity
+
+Last session: 2026-01-21
+Stopped at: Completed 15-03-PLAN.md (Phase 15 complete)
+Resume file: None
+
+### Roadmap Evolution
+
+- v1.0 Library Refactor shipped: 8 phases, 20 plans (2026-01-20)
+- v1.1 Production Ready created: 8 phases (Phase 9-16), flexible config + tools + testing
