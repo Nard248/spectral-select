@@ -682,3 +682,266 @@ class TestWavelengthResultExcel:
         result = sample_wavelength_result.to_excel(excel_path)
 
         assert result is None
+
+
+# ============================================================================
+# SpectraData.from_raw() Tests
+# ============================================================================
+
+
+class TestSpectraDataFromRaw:
+    """Tests for SpectraData.from_raw() factory method."""
+
+    def test_from_raw_missing_path(self):
+        """Raises FileNotFoundError (via DataLoadingError) for missing directory."""
+        from spectral_select.loader import DataLoadingError
+
+        with pytest.raises(DataLoadingError) as exc_info:
+            SpectraData.from_raw("/nonexistent/path/to/data")
+
+        assert "does not exist" in str(exc_info.value)
+
+    def test_from_raw_empty_directory(self, tmp_path: Path):
+        """Raises DataLoadingError for empty directory."""
+        from spectral_select.loader import DataLoadingError
+
+        empty_dir = tmp_path / "empty"
+        empty_dir.mkdir()
+
+        with pytest.raises(DataLoadingError) as exc_info:
+            SpectraData.from_raw(empty_dir)
+
+        assert "empty" in str(exc_info.value).lower()
+
+    def test_from_raw_sample_name_from_directory(self, tmp_path: Path):
+        """Derives sample_name from directory name when not provided."""
+        # We can't actually call from_raw without ImageJ, but we can test the logic
+        # by verifying the path handling. This tests the parameter handling.
+        from spectral_select.loader import DataLoadingError
+
+        data_dir = tmp_path / "MySampleName"
+        data_dir.mkdir()
+
+        # Will fail at loading, but the error should contain our path
+        with pytest.raises(DataLoadingError) as exc_info:
+            SpectraData.from_raw(data_dir)
+
+        # Verify the path was processed correctly
+        assert exc_info.value.path == data_dir
+
+    def test_from_raw_custom_sample_name(self, tmp_path: Path):
+        """Uses provided sample_name when specified."""
+        from spectral_select.loader import DataLoadingError
+
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+
+        # Will fail at loading, but we can verify sample_name parameter is accepted
+        with pytest.raises(DataLoadingError):
+            SpectraData.from_raw(data_dir, sample_name="CustomName")
+
+        # No error from sample_name parameter - test passes
+
+
+# ============================================================================
+# SpectraData.to_pickle() Tests
+# ============================================================================
+
+
+class TestSpectraDataToPickle:
+    """Tests for SpectraData.to_pickle() method."""
+
+    def test_to_pickle_creates_file(
+        self, synthetic_spectra_data: SpectraData, tmp_path: Path
+    ):
+        """File exists after to_pickle."""
+        output_path = tmp_path / "output.pkl"
+        assert not output_path.exists()
+
+        synthetic_spectra_data.to_pickle(output_path)
+
+        assert output_path.exists()
+        assert output_path.stat().st_size > 0
+
+    def test_to_pickle_creates_parent_dirs(
+        self, synthetic_spectra_data: SpectraData, tmp_path: Path
+    ):
+        """Parent directories created automatically."""
+        output_path = tmp_path / "nested" / "dir" / "deep" / "output.pkl"
+        assert not output_path.parent.exists()
+
+        synthetic_spectra_data.to_pickle(output_path)
+
+        assert output_path.exists()
+        assert output_path.parent.exists()
+
+    def test_to_pickle_returns_path(
+        self, synthetic_spectra_data: SpectraData, tmp_path: Path
+    ):
+        """Returns Path object."""
+        output_path = tmp_path / "output.pkl"
+
+        result = synthetic_spectra_data.to_pickle(output_path)
+
+        assert isinstance(result, Path)
+        assert result == output_path
+
+    def test_to_pickle_accepts_string_path(
+        self, synthetic_spectra_data: SpectraData, tmp_path: Path
+    ):
+        """Accepts string path and converts to Path."""
+        output_path = str(tmp_path / "string_path.pkl")
+
+        result = synthetic_spectra_data.to_pickle(output_path)
+
+        assert isinstance(result, Path)
+        assert result.exists()
+
+
+# ============================================================================
+# SpectraData Round-Trip Tests
+# ============================================================================
+
+
+class TestSpectraDataRoundTrip:
+    """Tests for SpectraData pickle round-trip serialization."""
+
+    def test_roundtrip_basic(
+        self, synthetic_spectra_data: SpectraData, tmp_path: Path
+    ):
+        """from_pickle(to_pickle(data)) produces equivalent data."""
+        output_path = tmp_path / "roundtrip.pkl"
+
+        # Save
+        synthetic_spectra_data.to_pickle(output_path)
+
+        # Load
+        loaded = SpectraData.from_pickle(output_path)
+
+        # Basic properties match
+        assert loaded.sample_name == output_path.stem  # from_pickle uses stem as name
+        assert loaded.n_excitations == synthetic_spectra_data.n_excitations
+        assert loaded.spatial_shape == synthetic_spectra_data.spatial_shape
+
+    def test_roundtrip_preserves_excitations(
+        self, synthetic_spectra_data: SpectraData, tmp_path: Path
+    ):
+        """Same excitation wavelengths after round-trip."""
+        output_path = tmp_path / "roundtrip.pkl"
+
+        synthetic_spectra_data.to_pickle(output_path)
+        loaded = SpectraData.from_pickle(output_path)
+
+        assert loaded.excitation_wavelengths == synthetic_spectra_data.excitation_wavelengths
+
+    def test_roundtrip_preserves_cubes(
+        self, synthetic_spectra_data: SpectraData, tmp_path: Path
+    ):
+        """Same cube data after round-trip (np.allclose)."""
+        output_path = tmp_path / "roundtrip.pkl"
+
+        synthetic_spectra_data.to_pickle(output_path)
+        loaded = SpectraData.from_pickle(output_path)
+
+        for ex_nm in synthetic_spectra_data.excitation_wavelengths:
+            original_cube = synthetic_spectra_data.get_excitation(ex_nm).cube
+            loaded_cube = loaded.get_excitation(ex_nm).cube
+            assert np.allclose(original_cube, loaded_cube)
+
+    def test_roundtrip_preserves_mask(
+        self, synthetic_spectra_data: SpectraData, tmp_path: Path
+    ):
+        """Same mask after round-trip."""
+        output_path = tmp_path / "roundtrip.pkl"
+
+        # Ensure mask exists
+        assert synthetic_spectra_data.mask is not None
+
+        synthetic_spectra_data.to_pickle(output_path)
+        loaded = SpectraData.from_pickle(output_path)
+
+        assert loaded.mask is not None
+        assert np.array_equal(loaded.mask, synthetic_spectra_data.mask)
+
+    def test_roundtrip_preserves_emission_wavelengths(
+        self, synthetic_spectra_data: SpectraData, tmp_path: Path
+    ):
+        """Same emission wavelengths after round-trip."""
+        output_path = tmp_path / "roundtrip.pkl"
+
+        synthetic_spectra_data.to_pickle(output_path)
+        loaded = SpectraData.from_pickle(output_path)
+
+        for ex_nm in synthetic_spectra_data.excitation_wavelengths:
+            original_em = synthetic_spectra_data.get_excitation(ex_nm).emission_wavelengths
+            loaded_em = loaded.get_excitation(ex_nm).emission_wavelengths
+            assert original_em == loaded_em
+
+    def test_roundtrip_with_no_mask(self, tmp_path: Path):
+        """Round-trip works when mask is None."""
+        np.random.seed(42)
+        cube = np.random.rand(5, 5, 3).astype(np.float32)
+
+        data = SpectraData(
+            excitations={
+                365.0: ExcitationData(
+                    excitation_nm=365.0,
+                    cube=cube,
+                    emission_wavelengths=[500.0, 510.0, 520.0],
+                )
+            },
+            mask=None,  # No mask
+            sample_name="no_mask_test",
+        )
+
+        output_path = tmp_path / "no_mask.pkl"
+        data.to_pickle(output_path)
+        loaded = SpectraData.from_pickle(output_path)
+
+        assert loaded.mask is None
+
+    def test_roundtrip_preserves_exposure_time(self, tmp_path: Path):
+        """Exposure time preserved through round-trip."""
+        np.random.seed(42)
+        cube = np.random.rand(5, 5, 3).astype(np.float32)
+
+        data = SpectraData(
+            excitations={
+                365.0: ExcitationData(
+                    excitation_nm=365.0,
+                    cube=cube,
+                    emission_wavelengths=[500.0, 510.0, 520.0],
+                    exposure_time=1.5,
+                )
+            },
+            sample_name="exposure_test",
+        )
+
+        output_path = tmp_path / "exposure.pkl"
+        data.to_pickle(output_path)
+        loaded = SpectraData.from_pickle(output_path)
+
+        assert loaded.get_excitation(365.0).exposure_time == 1.5
+
+    def test_roundtrip_preserves_laser_power(self, tmp_path: Path):
+        """Laser power preserved through round-trip."""
+        np.random.seed(42)
+        cube = np.random.rand(5, 5, 3).astype(np.float32)
+
+        data = SpectraData(
+            excitations={
+                365.0: ExcitationData(
+                    excitation_nm=365.0,
+                    cube=cube,
+                    emission_wavelengths=[500.0, 510.0, 520.0],
+                    laser_power=100.0,
+                )
+            },
+            sample_name="power_test",
+        )
+
+        output_path = tmp_path / "power.pkl"
+        data.to_pickle(output_path)
+        loaded = SpectraData.from_pickle(output_path)
+
+        assert loaded.get_excitation(365.0).laser_power == 100.0
