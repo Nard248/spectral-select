@@ -761,3 +761,202 @@ class ROIWidget:
             print("No ROI selection made yet.")
         else:
             print(code)
+
+    # =========================================================================
+    # GroundTruth export and file I/O
+    # =========================================================================
+
+    def to_ground_truth(self) -> "GroundTruth":
+        """Export ROI labels as GroundTruth for validation.
+
+        Creates a GroundTruth instance from the current ROI selections,
+        suitable for use with Validator.fit() for clustering evaluation.
+
+        Returns:
+            GroundTruth instance with labels array where:
+            - -1 = background (no ROI selected)
+            - 0, 1, 2... = class labels
+
+        Raises:
+            ValueError: If no ROIs have been drawn.
+
+        Example:
+            widget.add_class("Lichen")
+            widget.add_class("Bark")
+            # ... draw ROIs ...
+            gt = widget.to_ground_truth()
+            validator.fit(predictions, gt)
+        """
+        # Import here to avoid circular imports
+        from .types import GroundTruth
+
+        # Check if any ROIs exist
+        has_roi = any(
+            mask is not None and mask.any()
+            for mask in self._class_labels.values()
+        )
+        if not has_roi:
+            raise ValueError(
+                "No ROIs have been drawn. Draw some regions before exporting."
+            )
+
+        # Build labels array
+        labels = self.get_combined_mask()
+
+        # Build color mapping from CLASS_COLORS_RGBA
+        color_mapping: Dict[int, Tuple[int, int, int, int]] = {
+            -1: (0, 0, 0, 0)  # Background transparent
+        }
+        for class_id in range(len(self._class_names)):
+            color_name = self.CLASS_COLORS[class_id % len(self.CLASS_COLORS)]
+            color_mapping[class_id] = self.CLASS_COLORS_RGBA[color_name]
+
+        return GroundTruth(
+            labels=labels,
+            color_mapping=color_mapping,
+            class_names=self._class_names.copy(),
+        )
+
+    @classmethod
+    def from_spectra_data(
+        cls,
+        data: "SpectraData",
+        excitation: Optional[float] = None,
+        figsize: Tuple[float, float] = (8, 6),
+        tool: str = "rectangle",
+    ) -> "ROIWidget":
+        """Create ROI widget from SpectraData.
+
+        Convenience factory that handles excitation selection and provides
+        a cleaner interface for common usage patterns.
+
+        Args:
+            data: SpectraData object containing hyperspectral cube.
+            excitation: Excitation wavelength to display. If None, uses first.
+            figsize: Figure size as (width, height) in inches.
+            tool: Selection tool - "rectangle" (default) or "lasso".
+
+        Returns:
+            New ROIWidget instance.
+
+        Raises:
+            ValueError: If excitation is not in data.excitation_wavelengths.
+
+        Example:
+            data = SpectraData.from_pickle("sample.pkl")
+            widget = ROIWidget.from_spectra_data(data, excitation=365.0)
+            widget.display()
+        """
+        # Validate excitation if provided
+        if excitation is not None:
+            if excitation not in data.excitation_wavelengths:
+                raise ValueError(
+                    f"Excitation {excitation}nm not found. "
+                    f"Available: {data.excitation_wavelengths}"
+                )
+
+        return cls(data, excitation, figsize, tool)
+
+    def save_mask(self, path: Path) -> None:
+        """Save the combined class mask to a PNG file.
+
+        Encodes class IDs as pixel intensity values:
+        - 0 = background (class -1)
+        - 1 = class 0
+        - 2 = class 1
+        - etc.
+
+        Args:
+            path: Output PNG file path.
+
+        Example:
+            widget.save_mask(Path("masks/sample_roi.png"))
+        """
+        try:
+            from PIL import Image
+        except ImportError:
+            raise ImportError(
+                "PIL/Pillow is required for save_mask(). "
+                "Install with: pip install Pillow"
+            )
+
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Get combined mask and shift values so -1 becomes 0
+        combined = self.get_combined_mask()
+        # Shift: -1 -> 0, 0 -> 1, 1 -> 2, etc.
+        mask_shifted = (combined + 1).astype(np.uint8)
+
+        # Save as grayscale PNG
+        img = Image.fromarray(mask_shifted, mode="L")
+        img.save(path)
+
+    def load_mask(self, path: Path) -> None:
+        """Load a class mask from a PNG file.
+
+        Reads pixel intensity values and reconstructs class labels:
+        - 0 = background (becomes class -1, no mask)
+        - 1 = class 0
+        - 2 = class 1
+        - etc.
+
+        This clears any existing ROI selections.
+
+        Args:
+            path: Input PNG file path.
+
+        Raises:
+            FileNotFoundError: If the file doesn't exist.
+            ValueError: If the mask dimensions don't match the data.
+
+        Example:
+            widget.load_mask(Path("masks/sample_roi.png"))
+        """
+        try:
+            from PIL import Image
+        except ImportError:
+            raise ImportError(
+                "PIL/Pillow is required for load_mask(). "
+                "Install with: pip install Pillow"
+            )
+
+        path = Path(path)
+        if not path.exists():
+            raise FileNotFoundError(f"Mask file not found: {path}")
+
+        # Load grayscale PNG
+        img = Image.open(path).convert("L")
+        mask_shifted = np.array(img, dtype=np.int32)
+
+        # Validate dimensions
+        if mask_shifted.shape != self._spatial_shape:
+            raise ValueError(
+                f"Mask shape {mask_shifted.shape} doesn't match "
+                f"data shape {self._spatial_shape}"
+            )
+
+        # Clear existing ROIs
+        self._class_labels.clear()
+
+        # Shift back: 0 -> -1 (background), 1 -> 0, 2 -> 1, etc.
+        labels = mask_shifted - 1
+
+        # Populate _class_labels from unique values
+        unique_classes = np.unique(labels)
+        for class_id in unique_classes:
+            if class_id >= 0:  # Skip background (-1)
+                self._class_labels[int(class_id)] = (labels == class_id)
+
+                # Ensure class names exist for loaded classes
+                while len(self._class_names) <= class_id:
+                    self._class_names.append(f"Class {len(self._class_names)}")
+
+        # Update dropdown if it exists
+        if self._class_dropdown is not None:
+            self._class_dropdown.options = [
+                (n, i) for i, n in enumerate(self._class_names)
+            ]
+
+        # Update overlay
+        self._update_overlay()
