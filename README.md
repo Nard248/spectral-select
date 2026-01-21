@@ -18,7 +18,7 @@ This approach enables dimensionality reduction while preserving the most discrim
 ### From source (development)
 
 ```bash
-git clone https://github.com/narekmeloyan/spectral-select.git
+git clone https://github.com/Nard248/4D-Hyperspectral-Unsupervised-Clustering.git
 cd spectral-select
 pip install -e ".[dev]"
 ```
@@ -557,11 +557,6 @@ pytest --cov=spectral_select --cov-report=html
 # Specific test file
 pytest tests/test_config.py -v
 ```
-
-## License
-
-MIT License - see LICENSE file for details.
-
 ## Citation
 
 If you use this library in your research, please cite:
