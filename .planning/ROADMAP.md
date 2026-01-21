@@ -116,14 +116,16 @@ Plans:
 - [x] 14-01: ROIWidget core with ipympl and LassoSelector ✓
 - [x] 14-02: Multi-class ROI labeling and GroundTruth export ✓
 
-### Phase 15: End-to-End Testing
+### Phase 15: End-to-End Testing (In Progress)
 **Goal**: Test all notebooks with reduced epochs, test data loading scripts, verify full pipeline runability
 **Depends on**: Phase 14
 **Research**: Unlikely (pytest patterns)
-**Plans**: TBD
+**Plans**: 3
 
 Plans:
-- [ ] 15-01: TBD
+- [x] 15-01: Notebook test infrastructure ✓
+- [ ] 15-02: TBD
+- [ ] 15-03: TBD
 
 ### Phase 16: Coverage & Quality
 **Goal**: Increase test coverage to 80%+, add integration tests for full workflow, property-based tests
@@ -246,5 +248,5 @@ Phases execute in numeric order: 1 → 2 → ... → 8 → 9 → 10 → ... → 
 | 12. Data Pipeline Improvements | v1.1 | 3/3 | Complete | 2026-01-21 |
 | 13. Masking GUI Tool | v1.1 | 3/3 | Complete | 2026-01-21 |
 | 14. Jupyter ROI Widget | v1.1 | 2/2 | Complete | 2026-01-21 |
-| 15. End-to-End Testing | v1.1 | 0/? | Not started | - |
+| 15. End-to-End Testing | v1.1 | 1/3 | In progress | - |
 | 16. Coverage & Quality | v1.1 | 0/? | Not started | - |
