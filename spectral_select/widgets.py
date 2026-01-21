@@ -129,6 +129,7 @@ def path_to_mask(
 
     Returns:
         Boolean 2D array where True indicates points inside the path.
+        Returns all-False mask if path_vertices is empty or has < 3 points.
 
     Example:
         vertices = [(10, 20), (50, 20), (50, 80), (10, 80)]
@@ -136,6 +137,10 @@ def path_to_mask(
         print(mask.sum())  # Number of selected pixels
     """
     height, width = shape
+
+    # Handle empty or degenerate paths
+    if not path_vertices or len(path_vertices) < 3:
+        return np.zeros((height, width), dtype=bool)
 
     # Create grid of pixel coordinates
     y_coords, x_coords = np.mgrid[0:height, 0:width]
