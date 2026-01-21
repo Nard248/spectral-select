@@ -306,6 +306,11 @@ class ViewerApp:
         self._fc_b_band = tk.IntVar(value=0)
         self._fc_preset = tk.StringVar(value="Default (20/50/80%)")
 
+        # Zoom state
+        self._zoom_level = 1.0  # 1.0 = 100%
+        self._zoom_factor = 1.2  # Zoom step multiplier
+        self._image_shape: Optional[Tuple[int, int]] = None  # (height, width)
+
         # Build the UI
         self._create_widgets()
         self._bind_events()
@@ -681,6 +686,18 @@ class ViewerApp:
         self._nav_toolbar = NavigationToolbar2Tk(self._canvas, toolbar_frame)
         self._nav_toolbar.update()
 
+        # Zoom controls
+        zoom_frame = ttk.Frame(self._canvas_frame)
+        zoom_frame.pack(fill=tk.X, pady=2)
+
+        ttk.Button(zoom_frame, text="+", width=3, command=self._zoom_in).pack(side=tk.LEFT, padx=2)
+        ttk.Button(zoom_frame, text="-", width=3, command=self._zoom_out).pack(side=tk.LEFT, padx=2)
+        ttk.Button(zoom_frame, text="Fit", command=self._zoom_fit).pack(side=tk.LEFT, padx=2)
+        ttk.Button(zoom_frame, text="1:1", command=self._zoom_actual).pack(side=tk.LEFT, padx=2)
+
+        self._zoom_label = ttk.Label(zoom_frame, text="100%")
+        self._zoom_label.pack(side=tk.LEFT, padx=10)
+
         # Initial message
         self._ax.text(
             0.5, 0.5,
@@ -701,21 +718,28 @@ class ViewerApp:
         info_frame = ttk.Frame(self._canvas_frame)
         info_frame.pack(fill=tk.X, pady=2)
 
-        # Position label
-        ttk.Label(info_frame, text="Position:").pack(side=tk.LEFT, padx=5)
-        self._position_label = ttk.Label(info_frame, text="---, ---")
-        self._position_label.pack(side=tk.LEFT, padx=5)
+        # Pixel position label
+        ttk.Label(info_frame, text="Pixel:").pack(side=tk.LEFT, padx=5)
+        self._position_label = ttk.Label(info_frame, text="(---, ---)")
+        self._position_label.pack(side=tk.LEFT, padx=2)
 
         # Separator
-        ttk.Separator(info_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        ttk.Separator(info_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
+
+        # Band info (when in single-band mode)
+        self._pixel_band_label = ttk.Label(info_frame, text="")
+        self._pixel_band_label.pack(side=tk.LEFT, padx=2)
+
+        # Separator
+        ttk.Separator(info_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
 
         # Value label
-        ttk.Label(info_frame, text="Value:").pack(side=tk.LEFT, padx=5)
+        ttk.Label(info_frame, text="Value:").pack(side=tk.LEFT, padx=2)
         self._value_label = ttk.Label(info_frame, text="---")
-        self._value_label.pack(side=tk.LEFT, padx=5)
+        self._value_label.pack(side=tk.LEFT, padx=2)
 
         # Separator
-        ttk.Separator(info_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=10)
+        ttk.Separator(info_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, fill=tk.Y, padx=5)
 
         # Excitation/band info
         self._band_info_label = ttk.Label(info_frame, text="")
@@ -727,10 +751,16 @@ class ViewerApp:
         self.root.bind("<Control-o>", lambda e: self._on_open())
         self.root.bind("<r>", lambda e: self._reset_view())
         self.root.bind("<Escape>", lambda e: self._on_cancel())
+        self.root.bind("<plus>", lambda e: self._zoom_in())
+        self.root.bind("<equal>", lambda e: self._zoom_in())  # = and + same key
+        self.root.bind("<minus>", lambda e: self._zoom_out())
+        self.root.bind("<0>", lambda e: self._zoom_fit())
+        self.root.bind("<1>", lambda e: self._zoom_actual())
 
         # Canvas mouse events (if canvas exists)
         if hasattr(self, "_canvas"):
             self._canvas.mpl_connect("motion_notify_event", self._on_mouse_move)
+            self._canvas.mpl_connect("scroll_event", self._on_mouse_scroll)
 
     def _toggle_controls(self, enabled: bool = True) -> None:
         """Enable or disable controls based on data loading state."""
@@ -1262,7 +1292,8 @@ class ViewerApp:
     def _on_mouse_move(self, event: Any) -> None:
         """Handle mouse movement over the canvas."""
         if event.inaxes != self._ax or self._current_cube is None:
-            self._position_label.config(text="---, ---")
+            self._position_label.config(text="(---, ---)")
+            self._pixel_band_label.config(text="")
             self._value_label.config(text="---")
             return
 
@@ -1275,27 +1306,155 @@ class ViewerApp:
 
         if 0 <= x_int < width and 0 <= y_int < height:
             # Update position
-            self._position_label.config(text=f"X: {x_int}, Y: {y_int}")
+            self._position_label.config(text=f"({x_int}, {y_int})")
 
-            # Get mean pixel value across bands
-            pixel_vals = self._current_cube[y_int, x_int, :]
-            mean_val = np.mean(pixel_vals)
+            # Get value based on display mode
+            display_mode = self._display_mode.get()
+
+            if display_mode == "single":
+                # Single-band mode: show current band value
+                band_idx = self._current_band.get()
+                pixel_val = self._current_cube[y_int, x_int, band_idx]
+
+                # Show band info
+                if band_idx < len(self._emission_wavelengths):
+                    wavelength = self._emission_wavelengths[band_idx]
+                    self._pixel_band_label.config(text=f"Band {band_idx}: {wavelength:.0f}nm")
+                else:
+                    self._pixel_band_label.config(text=f"Band {band_idx}")
+            else:
+                # Composite mode: show mean value across bands
+                pixel_vals = self._current_cube[y_int, x_int, :]
+                pixel_val = np.mean(pixel_vals)
+                self._pixel_band_label.config(text="Mean")
 
             # Format value (scientific notation for small values)
-            if abs(mean_val) < 0.001 and mean_val != 0:
-                val_str = f"{mean_val:.2e}"
+            if abs(pixel_val) < 0.001 and pixel_val != 0:
+                val_str = f"{pixel_val:.2e}"
             else:
-                val_str = f"{mean_val:.4f}"
+                val_str = f"{pixel_val:.4f}"
 
             self._value_label.config(text=val_str)
         else:
-            self._position_label.config(text="Outside image")
+            self._position_label.config(text="Outside")
+            self._pixel_band_label.config(text="")
             self._value_label.config(text="---")
+
+    def _on_mouse_scroll(self, event: Any) -> None:
+        """Handle mouse wheel scrolling for zoom."""
+        if event.inaxes != self._ax:
+            return
+
+        # Get the current axis limits
+        xlim = self._ax.get_xlim()
+        ylim = self._ax.get_ylim()
+
+        # Get cursor position in data coordinates
+        xdata = event.xdata
+        ydata = event.ydata
+
+        if xdata is None or ydata is None:
+            return
+
+        # Calculate zoom factor based on scroll direction
+        if event.button == "up":
+            scale = 1.0 / self._zoom_factor  # Zoom in
+            self._zoom_level *= self._zoom_factor
+        elif event.button == "down":
+            scale = self._zoom_factor  # Zoom out
+            self._zoom_level /= self._zoom_factor
+        else:
+            return
+
+        # Calculate new limits centered on cursor
+        new_width = (xlim[1] - xlim[0]) * scale
+        new_height = (ylim[0] - ylim[1]) * scale  # ylim is inverted for images
+
+        # Maintain cursor position as zoom center
+        relx = (xdata - xlim[0]) / (xlim[1] - xlim[0])
+        rely = (ydata - ylim[1]) / (ylim[0] - ylim[1])
+
+        new_xlim = [xdata - new_width * relx, xdata + new_width * (1 - relx)]
+        new_ylim = [ydata + new_height * (1 - rely), ydata - new_height * rely]
+
+        self._ax.set_xlim(new_xlim)
+        self._ax.set_ylim(new_ylim)
+        self._canvas.draw_idle()
+
+        # Update zoom label
+        self._update_zoom_label()
+
+    def _zoom_in(self) -> None:
+        """Zoom in by one step, centered on image."""
+        self._zoom_by_factor(1.0 / self._zoom_factor)
+
+    def _zoom_out(self) -> None:
+        """Zoom out by one step, centered on image."""
+        self._zoom_by_factor(self._zoom_factor)
+
+    def _zoom_by_factor(self, scale: float) -> None:
+        """Zoom by a given scale factor, centered on the current view."""
+        if not hasattr(self, "_ax"):
+            return
+
+        xlim = self._ax.get_xlim()
+        ylim = self._ax.get_ylim()
+
+        # Calculate center of current view
+        xcenter = (xlim[0] + xlim[1]) / 2
+        ycenter = (ylim[0] + ylim[1]) / 2
+
+        # Calculate new dimensions
+        new_width = (xlim[1] - xlim[0]) * scale
+        new_height = (ylim[0] - ylim[1]) * scale
+
+        # Update zoom level
+        self._zoom_level /= scale
+
+        # Set new limits
+        self._ax.set_xlim([xcenter - new_width / 2, xcenter + new_width / 2])
+        self._ax.set_ylim([ycenter + new_height / 2, ycenter - new_height / 2])
+        self._canvas.draw_idle()
+
+        self._update_zoom_label()
+
+    def _zoom_fit(self) -> None:
+        """Fit image to window (reset zoom)."""
+        if hasattr(self, "_nav_toolbar"):
+            self._nav_toolbar.home()
+        self._zoom_level = 1.0
+        self._update_zoom_label()
+
+    def _zoom_actual(self) -> None:
+        """Zoom to 1:1 (actual pixels)."""
+        if self._current_cube is None:
+            return
+
+        height, width = self._current_cube.shape[0], self._current_cube.shape[1]
+
+        # Set axes limits to actual image size
+        self._ax.set_xlim([-0.5, width - 0.5])
+        self._ax.set_ylim([height - 0.5, -0.5])
+        self._canvas.draw_idle()
+
+        # Calculate effective zoom level
+        # This is approximate - depends on figure size and DPI
+        fig_width, fig_height = self._figure.get_size_inches()
+        dpi = self._figure.dpi
+        display_width = fig_width * dpi * 0.9  # Account for margins
+        display_height = fig_height * dpi * 0.9
+
+        self._zoom_level = 1.0
+        self._update_zoom_label()
+
+    def _update_zoom_label(self) -> None:
+        """Update the zoom level display."""
+        percentage = int(self._zoom_level * 100)
+        self._zoom_label.config(text=f"{percentage}%")
 
     def _reset_view(self) -> None:
         """Reset the view to fit the image."""
-        if hasattr(self, "_nav_toolbar"):
-            self._nav_toolbar.home()
+        self._zoom_fit()
 
     def _on_cancel(self) -> None:
         """Handle Escape key - cancel current operation."""
