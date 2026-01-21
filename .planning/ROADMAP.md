@@ -124,7 +124,7 @@ Plans:
 
 Plans:
 - [x] 15-01: Notebook test infrastructure ✓
-- [ ] 15-02: TBD
+- [x] 15-02: Pipeline integration tests ✓
 - [ ] 15-03: TBD
 
 ### Phase 16: Coverage & Quality
@@ -248,5 +248,5 @@ Phases execute in numeric order: 1 → 2 → ... → 8 → 9 → 10 → ... → 
 | 12. Data Pipeline Improvements | v1.1 | 3/3 | Complete | 2026-01-21 |
 | 13. Masking GUI Tool | v1.1 | 3/3 | Complete | 2026-01-21 |
 | 14. Jupyter ROI Widget | v1.1 | 2/2 | Complete | 2026-01-21 |
-| 15. End-to-End Testing | v1.1 | 1/3 | In progress | - |
+| 15. End-to-End Testing | v1.1 | 2/3 | In progress | - |
 | 16. Coverage & Quality | v1.1 | 0/? | Not started | - |
