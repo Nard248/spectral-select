@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-19)
 ## Current Position
 
 Phase: 12 of 16 (Data Pipeline Improvements)
-Plan: 2 of 3 in current phase
-Status: In progress
-Last activity: 2026-01-20 — Completed 12-02-PLAN.md
+Plan: 3 of 3 in current phase
+Status: Phase complete
+Last activity: 2026-01-21 — Completed 12-03-PLAN.md
 
-Progress: ████████████░░░░ 74% (29 of 39 potential plans)
+Progress: █████████████░░░ 77% (30 of 39 potential plans)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 29
+- Total plans completed: 30
 - Average duration: 4.4 min
-- Total execution time: 2.5 hours
+- Total execution time: 2.6 hours
 
 **By Phase:**
 
@@ -38,11 +38,11 @@ Progress: ████████████░░░░ 74% (29 of 39 potenti
 | 9. Flexible Model Config | 2 | 6 min | 3 min |
 | 10. Results Organization | 3 | 13 min | 4.3 min |
 | 11. Excel Export & Reporting | 2 | 8 min | 4 min |
-| 12. Data Pipeline Improvements | 2 | 9 min | 4.5 min |
+| 12. Data Pipeline Improvements | 3 | 14 min | 4.7 min |
 
 **Recent Trend:**
-- Last 5 plans: 11-01 (3 min), 11-02 (5 min), 12-01 (4 min), 12-02 (5 min)
-- Trend: Phase 12 complete with to_pickle() and improved error handling
+- Last 5 plans: 11-02 (5 min), 12-01 (4 min), 12-02 (5 min), 12-03 (5 min)
+- Trend: Phase 12 complete with comprehensive data pipeline tests
 
 ## Accumulated Context
 
@@ -135,6 +135,9 @@ Recent decisions affecting current work:
 - **12-02:** to_pickle() output format matches from_pickle() expectations exactly
 - **12-02:** Error messages include: what happened, what found, what expected, hint
 - **12-02:** Validate paths at initialization time for early failure
+- **12-03:** Skip integration tests requiring ImageJ (CI-friendly)
+- **12-03:** Test from_raw() error paths since success requires ImageJ
+- **12-03:** Roundtrip tests verify cubes, masks, emission_wavelengths, exposure_time, laser_power
 
 ### Deferred Issues
 
@@ -146,8 +149,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-01-20
-Stopped at: Completed 12-02-PLAN.md (Phase 12 complete)
+Last session: 2026-01-21
+Stopped at: Completed 12-03-PLAN.md (Phase 12 complete)
 Resume file: None
 
 ### Roadmap Evolution

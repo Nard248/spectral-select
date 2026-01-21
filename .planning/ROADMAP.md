@@ -28,7 +28,7 @@ None
 - [x] **Phase 9: Flexible Model Config** - Parameterize autoencoder, support custom models
 - [x] **Phase 10: Results Organization** - Structured results directories, checkpoint naming
 - [x] **Phase 11: Excel Export & Reporting** - Wavelength pairs export, consistent reporting
-- [ ] **Phase 12: Data Pipeline Improvements** - Streamline raw→pkl workflow
+- [x] **Phase 12: Data Pipeline Improvements** - Streamline raw→pkl workflow
 - [ ] **Phase 13: Masking GUI Tool** - Standalone mask creation app
 - [ ] **Phase 14: Jupyter ROI Widget** - ipywidgets-based ROI selection
 - [ ] **Phase 15: End-to-End Testing** - Test notebooks and scripts runability
@@ -79,17 +79,17 @@ Plans:
 - [x] 11-01: WavelengthResult.to_excel() method ✓
 - [x] 11-02: ResultsManager integration and Excel tests ✓
 
-### Phase 12: Data Pipeline Improvements
+### Phase 12: Data Pipeline Improvements ✓
 **Goal**: Streamline raw→pkl workflow, better error handling, consistent file naming conventions
 **Depends on**: Phase 9
 **Research**: Unlikely (internal refactoring)
 **Plans**: 3
-**Status**: In progress
+**Completed**: 2026-01-21
 
 Plans:
 - [x] 12-01: DataLoader wrapper and SpectraData.from_raw() ✓
 - [x] 12-02: SpectraData.to_pickle() and error handling improvements ✓
-- [ ] 12-03: Data pipeline tests
+- [x] 12-03: Data pipeline tests ✓
 
 ### Phase 13: Masking GUI Tool
 **Goal**: Standalone tkinter/Qt app for mask creation with drawing tools (polygon, brush, flood fill)
@@ -238,7 +238,7 @@ Phases execute in numeric order: 1 → 2 → ... → 8 → 9 → 10 → ... → 
 | 9. Flexible Model Config | v1.1 | 2/2 | Complete | 2026-01-20 |
 | 10. Results Organization | v1.1 | 3/3 | Complete | 2026-01-20 |
 | 11. Excel Export & Reporting | v1.1 | 2/2 | Complete | 2026-01-20 |
-| 12. Data Pipeline Improvements | v1.1 | 2/3 | In progress | - |
+| 12. Data Pipeline Improvements | v1.1 | 3/3 | Complete | 2026-01-21 |
 | 13. Masking GUI Tool | v1.1 | 0/? | Not started | - |
 | 14. Jupyter ROI Widget | v1.1 | 0/? | Not started | - |
 | 15. End-to-End Testing | v1.1 | 0/? | Not started | - |
