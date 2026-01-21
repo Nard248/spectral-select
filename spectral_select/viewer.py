@@ -313,6 +313,110 @@ def extract_multi_excitation_spectrum(
     return result
 
 
+def compute_image_statistics(
+    image: np.ndarray, mask: Optional[np.ndarray] = None
+) -> Dict[str, float]:
+    """Compute statistics for image, optionally within mask.
+
+    Calculates min, max, mean, median, standard deviation, and non-zero
+    count for a 2D image array.
+
+    Args:
+        image: 2D numpy array (grayscale image or single band).
+        mask: Optional binary mask where True/1 indicates valid pixels.
+
+    Returns:
+        Dictionary with statistics: min, max, mean, median, std, count, nonzero_count.
+
+    Example:
+        stats = compute_image_statistics(img)
+        print(f"Mean: {stats['mean']:.4f}, Std: {stats['std']:.4f}")
+    """
+    # Flatten and apply mask if provided
+    if mask is not None:
+        mask_bool = mask.astype(bool)
+        valid_data = image[mask_bool]
+    else:
+        valid_data = image.ravel()
+
+    # Handle empty data
+    if valid_data.size == 0:
+        return {
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0,
+            "median": 0.0,
+            "std": 0.0,
+            "count": 0,
+            "nonzero_count": 0,
+        }
+
+    # Handle NaN values
+    valid_data = valid_data[~np.isnan(valid_data)]
+
+    if valid_data.size == 0:
+        return {
+            "min": 0.0,
+            "max": 0.0,
+            "mean": 0.0,
+            "median": 0.0,
+            "std": 0.0,
+            "count": 0,
+            "nonzero_count": 0,
+        }
+
+    return {
+        "min": float(np.min(valid_data)),
+        "max": float(np.max(valid_data)),
+        "mean": float(np.mean(valid_data)),
+        "median": float(np.median(valid_data)),
+        "std": float(np.std(valid_data)),
+        "count": int(valid_data.size),
+        "nonzero_count": int(np.count_nonzero(valid_data)),
+    }
+
+
+def compute_histogram(
+    image: np.ndarray, bins: int = 256, mask: Optional[np.ndarray] = None
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Compute histogram values and bin edges.
+
+    Calculates the histogram of pixel values for a 2D image,
+    optionally restricted to a masked region.
+
+    Args:
+        image: 2D numpy array (grayscale image or single band).
+        bins: Number of histogram bins (default 256).
+        mask: Optional binary mask where True/1 indicates valid pixels.
+
+    Returns:
+        Tuple of (counts, bin_edges) where counts has length bins
+        and bin_edges has length bins+1.
+
+    Example:
+        counts, edges = compute_histogram(img, bins=256)
+        plt.bar(edges[:-1], counts, width=np.diff(edges))
+    """
+    # Flatten and apply mask if provided
+    if mask is not None:
+        mask_bool = mask.astype(bool)
+        valid_data = image[mask_bool]
+    else:
+        valid_data = image.ravel()
+
+    # Handle NaN values
+    valid_data = valid_data[~np.isnan(valid_data)]
+
+    # Handle empty data
+    if valid_data.size == 0:
+        return np.zeros(bins), np.linspace(0, 1, bins + 1)
+
+    # Compute histogram
+    counts, bin_edges = np.histogram(valid_data, bins=bins)
+
+    return counts, bin_edges
+
+
 class ViewerApp:
     """Interactive viewer for multi-excitation hyperspectral data.
 
@@ -384,6 +488,12 @@ class ViewerApp:
         self._spectrum_auto_scale = tk.BooleanVar(value=True)
         self._spectrum_traces: List[Tuple[int, int, np.ndarray]] = []  # [(x, y, spectrum), ...]
         self._clicked_pixel: Optional[Tuple[int, int]] = None  # Most recent click
+
+        # Histogram/statistics panel state
+        self._histogram_log_scale = tk.BooleanVar(value=False)
+        self._stats_mode = tk.StringVar(value="current")  # "current" or "all_bands"
+        self._cached_stats: Optional[Dict[str, float]] = None
+        self._cached_stats_image_id: Optional[int] = None  # Track which image stats are for
 
         # Build the UI
         self._create_widgets()
@@ -460,6 +570,8 @@ class ViewerApp:
 
         # Build right panel sections
         self._create_spectrum_panel()
+        self._create_histogram_panel()
+        self._create_statistics_panel()
 
     def _create_data_section(self) -> None:
         """Create the Data control section."""
@@ -1008,6 +1120,260 @@ class ViewerApp:
         self._update_spectrum_plot()
 
         logger.debug(f"Spectrum extracted at ({x_int}, {y_int})")
+
+    def _create_histogram_panel(self) -> None:
+        """Create the histogram panel for intensity distribution visualization."""
+        try:
+            from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+            from matplotlib.figure import Figure
+        except ImportError:
+            logger.error("matplotlib not available - histogram panel creation failed")
+            return
+
+        # Create histogram frame in the right panel
+        self._histogram_frame = ttk.LabelFrame(self._right_panel, text="Histogram")
+        self._histogram_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Controls at top
+        controls_frame = ttk.Frame(self._histogram_frame)
+        controls_frame.pack(fill=tk.X, padx=5, pady=2)
+
+        # Log scale checkbox
+        ttk.Checkbutton(
+            controls_frame,
+            text="Log Scale",
+            variable=self._histogram_log_scale,
+            command=self._update_histogram,
+        ).pack(side=tk.LEFT, padx=2)
+
+        # Create matplotlib figure for histogram
+        self._histogram_figure = Figure(figsize=(4, 1.5), dpi=100)
+        self._histogram_ax = self._histogram_figure.add_subplot(111)
+        self._histogram_figure.subplots_adjust(left=0.15, right=0.95, top=0.9, bottom=0.25)
+
+        # Create canvas
+        self._histogram_canvas = FigureCanvasTkAgg(
+            self._histogram_figure, master=self._histogram_frame
+        )
+        self._histogram_canvas_widget = self._histogram_canvas.get_tk_widget()
+        self._histogram_canvas_widget.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+
+        # Initial empty state
+        self._histogram_ax.text(
+            0.5, 0.5,
+            "Load data to view histogram",
+            ha="center", va="center",
+            transform=self._histogram_ax.transAxes,
+            fontsize=9,
+            color="gray",
+        )
+        self._histogram_ax.set_xticks([])
+        self._histogram_ax.set_yticks([])
+        self._histogram_canvas.draw()
+
+    def _create_statistics_panel(self) -> None:
+        """Create the statistics panel for image statistics display."""
+        # Create statistics frame in the right panel
+        self._stats_frame = ttk.LabelFrame(self._right_panel, text="Statistics")
+        self._stats_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        # Mode selection
+        mode_frame = ttk.Frame(self._stats_frame)
+        mode_frame.pack(fill=tk.X, padx=5, pady=2)
+
+        ttk.Radiobutton(
+            mode_frame,
+            text="Current View",
+            variable=self._stats_mode,
+            value="current",
+            command=self._update_statistics,
+        ).pack(side=tk.LEFT, padx=2)
+
+        ttk.Radiobutton(
+            mode_frame,
+            text="All Bands",
+            variable=self._stats_mode,
+            value="all_bands",
+            command=self._update_statistics,
+        ).pack(side=tk.LEFT, padx=2)
+
+        # Statistics labels (using grid for alignment)
+        stats_grid = ttk.Frame(self._stats_frame)
+        stats_grid.pack(fill=tk.X, padx=5, pady=5)
+
+        # Column 1: Labels
+        stat_names = ["Min:", "Max:", "Mean:", "Median:", "Std:", "Count:", "Non-zero:"]
+        self._stat_labels: Dict[str, ttk.Label] = {}
+
+        for i, name in enumerate(stat_names):
+            ttk.Label(stats_grid, text=name, width=10).grid(row=i, column=0, sticky=tk.W, padx=2, pady=1)
+            label = ttk.Label(stats_grid, text="---", width=12)
+            label.grid(row=i, column=1, sticky=tk.W, padx=2, pady=1)
+            # Map stat key to label
+            key = name.replace(":", "").lower().replace("-", "_")
+            if key == "non_zero":
+                key = "nonzero_count"
+            self._stat_labels[key] = label
+
+        # ROI section (shows only when mask exists)
+        self._roi_stats_frame = ttk.LabelFrame(self._stats_frame, text="ROI Statistics")
+        # Don't pack initially - only show when mask exists
+
+        # ROI statistics labels
+        roi_grid = ttk.Frame(self._roi_stats_frame)
+        roi_grid.pack(fill=tk.X, padx=5, pady=5)
+
+        self._roi_stat_labels: Dict[str, ttk.Label] = {}
+        for i, name in enumerate(stat_names):
+            ttk.Label(roi_grid, text=name, width=10).grid(row=i, column=0, sticky=tk.W, padx=2, pady=1)
+            label = ttk.Label(roi_grid, text="---", width=12)
+            label.grid(row=i, column=1, sticky=tk.W, padx=2, pady=1)
+            key = name.replace(":", "").lower().replace("-", "_")
+            if key == "non_zero":
+                key = "nonzero_count"
+            self._roi_stat_labels[key] = label
+
+    def _update_histogram(self) -> None:
+        """Update the histogram display with current image data."""
+        if not hasattr(self, "_histogram_ax"):
+            return
+
+        self._histogram_ax.clear()
+
+        if self._current_cube is None:
+            self._histogram_ax.text(
+                0.5, 0.5,
+                "Load data to view histogram",
+                ha="center", va="center",
+                transform=self._histogram_ax.transAxes,
+                fontsize=9,
+                color="gray",
+            )
+            self._histogram_ax.set_xticks([])
+            self._histogram_ax.set_yticks([])
+            self._histogram_canvas.draw()
+            return
+
+        # Get current display image data
+        display_mode = self._display_mode.get()
+        if display_mode == "single":
+            band_idx = self._current_band.get()
+            image_data = self._current_cube[:, :, band_idx]
+        else:
+            # Composite mode - use mean projection
+            image_data = np.mean(self._current_cube, axis=2)
+
+        # Compute histogram
+        counts, bin_edges = compute_histogram(image_data, bins=256)
+
+        # Plot histogram
+        bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+        self._histogram_ax.bar(
+            bin_centers,
+            counts,
+            width=np.diff(bin_edges),
+            color="#1f77b4",
+            alpha=0.7,
+            edgecolor="none",
+        )
+
+        # Add percentile markers (2% and 98%)
+        valid_data = image_data[~np.isnan(image_data)].ravel()
+        if valid_data.size > 0:
+            p2 = np.percentile(valid_data, 2)
+            p98 = np.percentile(valid_data, 98)
+            ymax = counts.max() if counts.max() > 0 else 1
+            self._histogram_ax.axvline(p2, color="red", linestyle="--", alpha=0.7, linewidth=1)
+            self._histogram_ax.axvline(p98, color="red", linestyle="--", alpha=0.7, linewidth=1)
+            self._histogram_ax.text(p2, ymax * 0.9, "2%", fontsize=7, color="red", ha="center")
+            self._histogram_ax.text(p98, ymax * 0.9, "98%", fontsize=7, color="red", ha="center")
+
+        # Apply log scale if enabled
+        if self._histogram_log_scale.get():
+            self._histogram_ax.set_yscale("log")
+        else:
+            self._histogram_ax.set_yscale("linear")
+
+        # Configure axes
+        self._histogram_ax.set_xlabel("Intensity", fontsize=8)
+        self._histogram_ax.set_ylabel("Count", fontsize=8)
+        self._histogram_ax.tick_params(axis="both", labelsize=7)
+        self._histogram_ax.grid(True, alpha=0.3)
+
+        self._histogram_figure.tight_layout()
+        self._histogram_canvas.draw()
+
+    def _update_statistics(self) -> None:
+        """Update the statistics display with current image data."""
+        if not hasattr(self, "_stat_labels"):
+            return
+
+        if self._current_cube is None:
+            # Reset all labels
+            for label in self._stat_labels.values():
+                label.config(text="---")
+            return
+
+        # Determine what to compute statistics on
+        mode = self._stats_mode.get()
+
+        if mode == "all_bands":
+            # Compute stats across entire cube
+            stats = compute_image_statistics(self._current_cube.ravel().reshape(-1, 1)[:, 0])
+        else:
+            # Current view only
+            display_mode = self._display_mode.get()
+            if display_mode == "single":
+                band_idx = self._current_band.get()
+                image_data = self._current_cube[:, :, band_idx]
+            else:
+                # Composite mode - use mean projection
+                image_data = np.mean(self._current_cube, axis=2)
+
+            stats = compute_image_statistics(image_data)
+
+        # Update labels
+        self._stat_labels["min"].config(text=f"{stats['min']:.4g}")
+        self._stat_labels["max"].config(text=f"{stats['max']:.4g}")
+        self._stat_labels["mean"].config(text=f"{stats['mean']:.4g}")
+        self._stat_labels["median"].config(text=f"{stats['median']:.4g}")
+        self._stat_labels["std"].config(text=f"{stats['std']:.4g}")
+        self._stat_labels["count"].config(text=f"{stats['count']:,}")
+        self._stat_labels["nonzero_count"].config(text=f"{stats['nonzero_count']:,}")
+
+        # Update ROI statistics if mask exists
+        if self._spectra_data is not None and self._spectra_data.mask is not None:
+            self._roi_stats_frame.pack(fill=tk.X, padx=5, pady=5)
+
+            # Get mask
+            mask = self._spectra_data.mask
+
+            if mode == "all_bands":
+                # Stats within mask across all bands - compute per-band then average
+                roi_stats = compute_image_statistics(
+                    self._current_cube.mean(axis=2), mask=mask
+                )
+            else:
+                display_mode = self._display_mode.get()
+                if display_mode == "single":
+                    band_idx = self._current_band.get()
+                    image_data = self._current_cube[:, :, band_idx]
+                else:
+                    image_data = np.mean(self._current_cube, axis=2)
+
+                roi_stats = compute_image_statistics(image_data, mask=mask)
+
+            # Update ROI labels
+            self._roi_stat_labels["min"].config(text=f"{roi_stats['min']:.4g}")
+            self._roi_stat_labels["max"].config(text=f"{roi_stats['max']:.4g}")
+            self._roi_stat_labels["mean"].config(text=f"{roi_stats['mean']:.4g}")
+            self._roi_stat_labels["median"].config(text=f"{roi_stats['median']:.4g}")
+            self._roi_stat_labels["std"].config(text=f"{roi_stats['std']:.4g}")
+            self._roi_stat_labels["count"].config(text=f"{roi_stats['count']:,}")
+            self._roi_stat_labels["nonzero_count"].config(text=f"{roi_stats['nonzero_count']:,}")
+        else:
+            # Hide ROI stats if no mask
+            self._roi_stats_frame.pack_forget()
 
     def _create_canvas(self) -> None:
         """Create the matplotlib canvas for image display."""
@@ -1638,6 +2004,10 @@ class ViewerApp:
             self._band_info_label.config(
                 text=f"Ex: {self._current_excitation}nm | {n_bands} bands"
             )
+
+            # Update histogram and statistics panels
+            self._update_histogram()
+            self._update_statistics()
 
         except Exception as e:
             logger.error(f"Display update failed: {e}")
