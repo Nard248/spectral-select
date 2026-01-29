@@ -161,7 +161,7 @@ class Config:
     model_dropout_rate: float = 0.5  # Dropout probability during training
 
     # Training parameters
-    training_epochs: int = 3000  # Number of training epochs for autoencoder
+    training_epochs: int = 30  # Number of training epochs for autoencoder
     training_lr: float = 0.001  # Learning rate for optimizer
     training_chunk_size: int = 64  # Spatial chunk size for training
     training_chunk_overlap: int = 8  # Overlap between adjacent chunks
@@ -346,7 +346,7 @@ class Config:
             )
 
     def _convert_paths(self) -> None:
-        """Convert string paths to Path objects if needed."""
+        """Convert string paths to Path objects and auto-resolve defaults."""
         if self.data_path is not None and not isinstance(self.data_path, Path):
             object.__setattr__(self, "data_path", Path(self.data_path))
         if self.mask_path is not None and not isinstance(self.mask_path, Path):
@@ -355,6 +355,12 @@ class Config:
             object.__setattr__(self, "model_path", Path(self.model_path))
         if self.output_dir is not None and not isinstance(self.output_dir, Path):
             object.__setattr__(self, "output_dir", Path(self.output_dir))
+
+        # Auto-resolve model_path based on sample_name if not provided
+        # This enables automatic model caching without explicit path specification
+        if self.model_path is None and self.sample_name:
+            default_model_path = Path("model_output") / self.sample_name / "model.pth"
+            object.__setattr__(self, "model_path", default_model_path)
 
     def resolve_classifier(self) -> Any:
         """Resolve classifier to actual implementation.
