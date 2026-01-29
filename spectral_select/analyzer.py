@@ -731,11 +731,13 @@ class Analyzer:
 
         from scripts.models.training import train_with_masking
 
-        # Determine output directory for training
-        if self._config.output_dir is not None:
+        # Determine output directory for training - use same directory as model_path
+        if self._config.model_path is not None:
+            train_output_dir = self._config.model_path.parent
+        elif self._config.output_dir is not None:
             train_output_dir = self._config.output_dir / "model_training"
         else:
-            train_output_dir = Path("model_output")
+            train_output_dir = Path("model_output") / self._config.sample_name
 
         # Get mask from dataset
         mask = self._dataset.processed_mask
@@ -812,10 +814,57 @@ class Analyzer:
             if len(patch_coords) >= n_baseline_patches:
                 break
 
+        # If no valid patches found with current patch_size, try smaller sizes
+        if not patch_coords and mask is not None:
+            for smaller_patch_size in [16, 8, 4]:
+                smaller_stride = smaller_patch_size // 2
+                for y in range(0, height - smaller_patch_size + 1, smaller_stride):
+                    for x in range(0, width - smaller_patch_size + 1, smaller_stride):
+                        patch_mask = mask[y : y + smaller_patch_size, x : x + smaller_patch_size]
+                        valid_ratio = np.sum(patch_mask) / (smaller_patch_size * smaller_patch_size)
+                        if valid_ratio > 0.5:
+                            patch_coords.append((y, x))
+                            if len(patch_coords) >= n_baseline_patches:
+                                break
+                    if len(patch_coords) >= n_baseline_patches:
+                        break
+
+                if patch_coords:
+                    patch_size = smaller_patch_size
+                    stride = smaller_stride
+                    logger.info(f"Using smaller patch size {patch_size} due to mask coverage")
+                    break
+
+        # Final fallback: use any pixel location within mask
+        if not patch_coords and mask is not None:
+            # Get coordinates of valid mask pixels
+            valid_y, valid_x = np.where(mask)
+            if len(valid_y) > 0:
+                # Use smallest possible patch (1x1) centered on valid pixels
+                # But we need at least patch_size, so pad around valid region
+                min_y, max_y = valid_y.min(), valid_y.max()
+                min_x, max_x = valid_x.min(), valid_x.max()
+
+                # Find a patch_size that fits within the mask region
+                mask_height = max_y - min_y + 1
+                mask_width = max_x - min_x + 1
+                usable_size = min(mask_height, mask_width, patch_size)
+
+                if usable_size >= 2:
+                    patch_size = usable_size
+                    stride = max(1, usable_size // 2)
+                    # Center the patch on the mask region
+                    center_y = (min_y + max_y) // 2
+                    center_x = (min_x + max_x) // 2
+                    start_y = max(0, min(center_y - patch_size // 2, height - patch_size))
+                    start_x = max(0, min(center_x - patch_size // 2, width - patch_size))
+                    patch_coords.append((start_y, start_x))
+                    logger.info(f"Using single patch of size {patch_size} centered on mask region")
+
         if not patch_coords:
             raise ValueError(
-                f"No valid patches found with size {patch_size} and stride {stride}. "
-                "Check mask coverage or reduce patch_size."
+                f"No valid patches found. Mask may be too small or empty. "
+                f"Mask has {np.sum(mask) if mask is not None else 0} valid pixels."
             )
 
         # Store patch coordinates for reproducibility
