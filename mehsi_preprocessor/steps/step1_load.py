@@ -175,7 +175,7 @@ class _LoaderThread(QThread):
         # ----------------------------------------------------------
         self.progress.emit("Initializing loader (ImageJ may take a moment)...")
 
-        from scripts.data_processing.hyperspectral_loader import (
+        from mehsi_preprocessor.io.hyperspectral_loader import (
             HyperspectralDataLoader,
         )
 

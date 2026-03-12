@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-NOTEBOOKS_DIR = Path(__file__).parent.parent / "notebooks" / "examples"
+NOTEBOOKS_DIR = Path(__file__).parent.parent / "examples"
 
 
 @pytest.mark.notebook

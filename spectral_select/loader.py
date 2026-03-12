@@ -157,7 +157,7 @@ class DataLoader:
         """
         if self._loader is None:
             try:
-                from scripts.data_processing.hyperspectral_loader import (
+                from mehsi_preprocessor.io.hyperspectral_loader import (
                     HyperspectralDataLoader,
                 )
 
@@ -168,12 +168,11 @@ class DataLoader:
                     use_fiji=self.imagej_available,
                     verbose=self.verbose,
                 )
-            except ImportError as e:
+            except ImportError:
                 raise DataLoadingError(
-                    "Failed to import HyperspectralDataLoader. "
-                    "Ensure scripts.data_processing is in PYTHONPATH.",
+                    "Raw .im3 file loading requires mehsi_preprocessor.\n"
+                    "For preprocessed data, use: SpectraData.from_raw_dict() or SpectraData constructor",
                     path=self.data_path,
-                    cause=e,
                 )
             except Exception as e:
                 raise DataLoadingError(

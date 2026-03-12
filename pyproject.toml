@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "spectral-select"
 version = "0.1.0"
-description = "Clean, stable, reproducible wavelength selection analysis for 4D hyperspectral imaging"
+description = "Autoencoder-based wavelength selection for 4D hyperspectral imaging"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
@@ -19,7 +19,7 @@ keywords = [
     "autoencoder"
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
@@ -42,6 +42,7 @@ dependencies = [
     "h5py>=3.0",
     "tqdm>=4.60",
     "kneed>=0.8",
+    "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
@@ -52,6 +53,9 @@ dev = [
     "nbval>=0.11",
     "jupyterlab>=4.0",
 ]
+gui = [
+    "PyQt6>=6.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/narekmeloyan/spectral-select"
@@ -59,4 +63,4 @@ Repository = "https://github.com/narekmeloyan/spectral-select"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["spectral_select*"]
+include = ["spectral_select*", "mehsi_preprocessor*"]
