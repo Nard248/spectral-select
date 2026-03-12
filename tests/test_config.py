@@ -27,7 +27,8 @@ class TestConfigDefaults:
         assert config.sample_name == "sample"
         assert config.data_path is None
         assert config.mask_path is None
-        assert config.model_path is None
+        # model_path is auto-resolved from sample_name when not explicitly set
+        assert config.model_path == Path("model_output") / "sample" / "model.pth"
         assert config.output_dir is None
 
         # Analysis parameters defaults

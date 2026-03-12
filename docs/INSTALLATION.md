@@ -182,24 +182,19 @@ After installation, your directory should look like this:
 
 ```
 spectral-select/
-├── spectral_select/     # Main Python package
-│   ├── __init__.py
+├── spectral_select/     # Core library
+│   ├── models/          # Autoencoder, dataset, training
 │   ├── analyzer.py      # Main analysis engine
 │   ├── config.py        # Configuration class
 │   ├── types.py         # Data types
 │   ├── validation.py    # Validation tools
 │   └── visualizer.py    # Visualization utilities
-├── scripts/             # Helper scripts
-│   ├── data_processing/ # Data loading utilities
-│   └── models/          # Neural network models
-├── notebooks/           # Example Jupyter notebooks
-│   └── examples/        # Tutorial notebooks
+├── mehsi_preprocessor/  # Optional preprocessing GUI
+│   └── io/              # Raw data loading
+├── experiments/         # Paper reproduction scripts
+├── examples/            # Tutorial notebooks
 ├── tests/               # Test suite
 ├── docs/                # Documentation
-├── Data/                # Your data goes here
-│   ├── Raw/             # Raw .im3 files
-│   └── processed/       # Processed data files
-├── results/             # Analysis results
 ├── pyproject.toml       # Package configuration
 └── README.md            # Main readme
 ```
