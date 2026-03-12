@@ -127,8 +127,8 @@ class HyperspectralDataLoader:
                     # Fallback loading method 
                     cube = self._load_im3_directly(str(cube_path))
 
-                # Determine emission wavelength range
-                em_start = 420.0 if excitation <= 400.0 else excitation + 20.0
+                # Determine emission wavelength range (snap to 10nm grid)
+                em_start = 420.0 if excitation <= 400.0 else int((excitation + 20.0) // 10) * 10
                 em_end = 720
                 step = 10
                 num_bands = cube.shape[2] if len(cube.shape) >= 3 else 1

@@ -1,0 +1,101 @@
+\documentclass[journal]{IEEEtran}
+
+% ============================================================================
+% PACKAGES
+% ============================================================================
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{siunitx}
+\usepackage{balance}
+
+% TikZ libraries for diagrams
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc, patterns}
+\pgfplotsset{compat=1.18}
+
+% Hyperref configuration
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=blue,
+    pdftitle={Deep Learning Framework for Wavelength Selection in ME-HSI},
+    pdfauthor={Narek Meloyan},
+}
+
+% Custom commands
+\newcommand{\lambdaex}{\lambda_{\text{ex}}}
+\newcommand{\lambdaem}{\lambda_{\text{em}}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\vect}[1]{\mathbf{#1}}
+\newcommand{\mat}[1]{\mathbf{#1}}
+
+% ============================================================================
+% DOCUMENT
+% ============================================================================
+\begin{document}
+
+\title{Deep Learning for Dimensionality Reduction in Multi-Excitation Hyperspectral Imaging}
+
+\author{\IEEEauthorblockN{Narek Meloyan\textsuperscript{1,2}, Narine Sarvazyan\textsuperscript{1,2,3}}
+
+\IEEEauthorblockA{\textsuperscript{1}American University of Armenia, Yerevan, Armenia
+\textsuperscript{2}George Washington University, Washington, DC, USA 
+\textsuperscript{3}L.A. Orbeli Institute of Physiology NAS RA, Yerevan, Armenia}\\
+\IEEEauthorblockA{Email: narek\_meloyan@edu.aua.am, phynas@gmail.com}}
+
+\maketitle
+
+% ============================================================================
+% ABSTRACT
+% ============================================================================
+\input{sections/abstract}
+
+% ============================================================================
+% KEYWORDS
+% ============================================================================
+\begin{IEEEkeywords}
+Wavelength selection, convolutional autoencoder, perturbation analysis, spectral band selection, fluorescence imaging
+\end{IEEEkeywords}
+
+% ============================================================================
+% MAIN CONTENT
+% ============================================================================
+\input{sections/introduction}
+% \input{sections/related_work}
+\input{sections/methodology}
+\input{sections/experimental_setup}
+\input{sections/results}
+\input{sections/discussion}
+\input{sections/conclusion}
+
+% ============================================================================
+% ACKNOWLEDGMENT
+% ============================================================================
+\section*{Acknowledgment}
+Financial support of the European Union (ERA Chair NAS-SAR award, grant 101087403) is gratefully acknowledged. The authors thank Dr. Arsen Gasparyan from the Takhtajyan Institute of Botany, National Academy of Sciences of Armenia, for providing lichen samples, Narek Chillingaryan from the L.A. Orbeli Institute of Physiology for his assistance with sample preparation and data acquisition, and Aleksandr Hayrapetyan from Yerevan State University for his assistance with model selection and benchmarking. Aram Butavyan, Grigor Bezirganyan, and Fernando Villarruel are gratefully acknowledged for the critical reading of the final version of the manuscript.
+
+
+% ============================================================================
+% REFERENCES
+% ============================================================================
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+% ============================================================================
+% BIOGRAPHY
+% ============================================================================
+
+
+\end{document}

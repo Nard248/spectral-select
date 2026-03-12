@@ -7,6 +7,7 @@ from typing import Dict, Optional
 
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import (
+    QComboBox,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -14,6 +15,7 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QProgressDialog,
     QPushButton,
+    QRadioButton,
     QVBoxLayout,
     QWidget,
 )
@@ -294,7 +296,7 @@ class _LoaderThread(QThread):
                 cube = cube[:, :, np.newaxis]
 
             n_bands = cube.shape[2]
-            em_start = 420.0 if ex_nm <= 400.0 else ex_nm + 20.0
+            em_start = 420.0 if ex_nm <= 400.0 else int((ex_nm + 20.0) // 10) * 10
             wavelengths = [em_start + i * 10 for i in range(n_bands)]
 
             excitations[ex_nm] = ExcitationData(
@@ -364,7 +366,10 @@ class _LoaderThread(QThread):
 # ------------------------------------------------------------------
 
 class Step1Load(AbstractStepWidget):
-    """Pick a folder of .im3 files and browse the loaded hyperspectral data."""
+    """Pick a folder of .im3 files OR import a processed PKL file."""
+
+    # Signal emitted when PKL import completes and we should jump to start_step
+    pkl_imported = pyqtSignal(int)  # start_step
 
     @property
     def step_index(self) -> int:
@@ -383,15 +388,68 @@ class Step1Load(AbstractStepWidget):
     def _build_ui(self) -> None:
         layout = QVBoxLayout(self)
 
-        # --- Folder selection ---
-        grp = QGroupBox("Data Folder")
-        g = QHBoxLayout(grp)
+        # --- Mode selection with radio buttons ---
+        mode_grp = QGroupBox("Loading Mode")
+        mode_layout = QVBoxLayout(mode_grp)
+
+        self._radio_raw = QRadioButton("Load Raw .im3 Folder")
+        self._radio_raw.setChecked(True)
+        self._radio_raw.toggled.connect(self._on_mode_changed)
+        self._radio_pkl = QRadioButton("Import Processed PKL")
+        mode_layout.addWidget(self._radio_raw)
+        mode_layout.addWidget(self._radio_pkl)
+        layout.addWidget(mode_grp)
+
+        # --- Raw mode panel ---
+        self._raw_panel = QWidget()
+        raw_layout = QVBoxLayout(self._raw_panel)
+        raw_layout.setContentsMargins(0, 0, 0, 0)
+
+        folder_grp = QGroupBox("Data Folder")
+        g = QHBoxLayout(folder_grp)
         self._lbl_folder = QLabel("No folder selected")
         self._btn_browse = QPushButton("Browse...")
-        self._btn_browse.clicked.connect(self._browse)
+        self._btn_browse.clicked.connect(self._browse_folder)
         g.addWidget(self._lbl_folder, 1)
         g.addWidget(self._btn_browse)
-        layout.addWidget(grp)
+        raw_layout.addWidget(folder_grp)
+        layout.addWidget(self._raw_panel)
+
+        # --- PKL mode panel ---
+        self._pkl_panel = QWidget()
+        pkl_layout = QVBoxLayout(self._pkl_panel)
+        pkl_layout.setContentsMargins(0, 0, 0, 0)
+
+        pkl_file_grp = QGroupBox("PKL File")
+        pf = QHBoxLayout(pkl_file_grp)
+        self._lbl_pkl = QLabel("No file selected")
+        self._btn_pkl_browse = QPushButton("Browse...")
+        self._btn_pkl_browse.clicked.connect(self._browse_pkl)
+        pf.addWidget(self._lbl_pkl, 1)
+        pf.addWidget(self._btn_pkl_browse)
+        pkl_layout.addWidget(pkl_file_grp)
+
+        # Start step dropdown
+        step_grp = QGroupBox("Start From Step")
+        sf = QHBoxLayout(step_grp)
+        self._combo_start_step = QComboBox()
+        self._combo_start_step.addItem("Step 3: Normalization (treat PKL as raw)", 3)
+        self._combo_start_step.addItem("Step 4: Spatial Crop (already normalized)", 4)
+        self._combo_start_step.addItem("Step 5: Spectral Crop (already cropped)", 5)
+        self._combo_start_step.addItem("Step 6: Draw Masks (fully preprocessed)", 6)
+        self._combo_start_step.addItem("Step 7: ROI Regions (only add ROIs)", 7)
+        self._combo_start_step.setCurrentIndex(3)  # Default to Step 6
+        sf.addWidget(QLabel("Treat imported data as:"))
+        sf.addWidget(self._combo_start_step, 1)
+        pkl_layout.addWidget(step_grp)
+
+        self._btn_import_pkl = QPushButton("Import PKL")
+        self._btn_import_pkl.clicked.connect(self._import_pkl)
+        self._btn_import_pkl.setEnabled(False)
+        pkl_layout.addWidget(self._btn_import_pkl)
+
+        layout.addWidget(self._pkl_panel)
+        self._pkl_panel.hide()  # Initially hidden
 
         # --- Info ---
         self._lbl_info = QLabel("")
@@ -407,10 +465,22 @@ class Step1Load(AbstractStepWidget):
         layout.addWidget(self._canvas, 1)
 
     # ------------------------------------------------------------------
-    # Actions
+    # Mode switching
     # ------------------------------------------------------------------
 
-    def _browse(self) -> None:
+    def _on_mode_changed(self, checked: bool) -> None:
+        if self._radio_raw.isChecked():
+            self._raw_panel.show()
+            self._pkl_panel.hide()
+        else:
+            self._raw_panel.hide()
+            self._pkl_panel.show()
+
+    # ------------------------------------------------------------------
+    # Raw .im3 loading
+    # ------------------------------------------------------------------
+
+    def _browse_folder(self) -> None:
         folder = QFileDialog.getExistingDirectory(self, "Select .im3 data folder")
         if not folder:
             return
@@ -423,7 +493,7 @@ class Step1Load(AbstractStepWidget):
         self._lbl_info.setText("Loading... please wait.")
 
         self._progress_dlg = QProgressDialog(
-            "Initializing...", None, 0, 0, self  # No cancel button
+            "Initializing...", None, 0, 0, self
         )
         self._progress_dlg.setWindowTitle("Loading Data")
         self._progress_dlg.setMinimumDuration(0)
@@ -451,15 +521,20 @@ class Step1Load(AbstractStepWidget):
             return
 
         spectra, summary = result
+        self.state.load_mode = "raw"
+        self.state.start_step = 1
         self.state.raw_spectra = spectra
         self.state.data_folder = Path(self._lbl_folder.text())
         self.state.invalidate_from(STEP_LOAD)
 
-        # Store parsed metadata in state for Step 2 to display
+        # Store parsed metadata
         self.state.exposure_times = summary.get("exposure_times", {})
         self.state.laser_powers = summary.get("laser_powers", {})
 
-        # Build info text
+        self._show_spectra_info(spectra, summary)
+
+    def _show_spectra_info(self, spectra, summary=None) -> None:
+        """Display info about loaded spectra."""
         ex_list = spectra.excitation_wavelengths
         h, w = spectra.spatial_shape
         n_ex = spectra.n_excitations
@@ -471,33 +546,91 @@ class Step1Load(AbstractStepWidget):
         )
         lines.append(bands_info)
 
-        # Metadata summary
-        if summary.get("exposure_file"):
-            lines.append(
-                f"\nExposure file: {Path(summary['exposure_file']).name} "
-                f"({summary['patched_exposure']}/{n_ex} matched)"
-            )
-        else:
-            lines.append("\nNo metadata.xlsx found")
+        if summary:
+            if summary.get("exposure_file"):
+                lines.append(
+                    f"\nExposure file: {Path(summary['exposure_file']).name} "
+                    f"({summary['patched_exposure']}/{n_ex} matched)"
+                )
+            else:
+                lines.append("\nNo metadata.xlsx found")
 
-        if summary.get("power_file"):
-            lines.append(
-                f"Power file: {Path(summary['power_file']).name} "
-                f"({summary['patched_power']}/{n_ex} matched)"
-            )
-        else:
-            lines.append("No average_power.xlsx found")
+            if summary.get("power_file"):
+                lines.append(
+                    f"Power file: {Path(summary['power_file']).name} "
+                    f"({summary['patched_power']}/{n_ex} matched)"
+                )
+            else:
+                lines.append("No average_power.xlsx found")
 
-        for w_msg in summary.get("warnings", []):
-            lines.append(f"Warning: {w_msg}")
+            for w_msg in summary.get("warnings", []):
+                lines.append(f"Warning: {w_msg}")
 
         self._lbl_info.setText("\n".join(lines))
         self._navigator.set_spectra(spectra)
 
+    # ------------------------------------------------------------------
+    # PKL import
+    # ------------------------------------------------------------------
+
+    def _browse_pkl(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select PKL File", "", "PKL Files (*.pkl);;All Files (*)"
+        )
+        if not path:
+            return
+        self._lbl_pkl.setText(path)
+        self._btn_import_pkl.setEnabled(True)
+
+    def _import_pkl(self) -> None:
+        pkl_path = Path(self._lbl_pkl.text())
+        if not pkl_path.exists():
+            QMessageBox.warning(self, "File Not Found", f"File does not exist: {pkl_path}")
+            return
+
+        start_step = self._combo_start_step.currentData()
+        self._lbl_info.setText("Importing PKL...")
+
+        try:
+            from spectral_select.types import SpectraData
+            spectra = SpectraData.from_pickle(pkl_path)
+        except Exception as e:
+            self._lbl_info.setText(f"Import failed: {e}")
+            QMessageBox.critical(self, "Import Error", str(e))
+            return
+
+        # Store in state
+        self.state.pkl_path = pkl_path
+        self.state.set_imported_spectra(spectra, start_step)
+
+        # Show info
+        h, w = spectra.spatial_shape
+        n_ex = spectra.n_excitations
+        step_names = {3: "Normalization", 4: "Spatial Crop", 5: "Spectral Crop",
+                      6: "Draw Masks", 7: "ROI Regions"}
+        lines = [
+            f"Imported from: {pkl_path.name}",
+            f"Excitations: {n_ex} | Spatial: {h} x {w}",
+            f"",
+            f"Starting from: Step {start_step} ({step_names.get(start_step, '')})",
+            f"Steps 1-{start_step - 1} are locked.",
+        ]
+        self._lbl_info.setText("\n".join(lines))
+        self._navigator.set_spectra(spectra)
+
+        # Emit signal for main window to navigate
+        self.pkl_imported.emit(start_step)
+
+        QMessageBox.information(
+            self, "Import Complete",
+            f"PKL imported. Proceeding to Step {start_step}.\n"
+            f"Steps 1-{start_step - 1} are locked."
+        )
+
     def _on_band_changed(self, excitation: float, band_idx: int) -> None:
         from spectral_select.widgets import create_display_image
 
-        spectra = self.state.raw_spectra
+        spectra = self.state.current_spectra
         if spectra is None:
             return
         cube = spectra.get_excitation(excitation).cube
@@ -510,5 +643,6 @@ class Step1Load(AbstractStepWidget):
     # ------------------------------------------------------------------
 
     def on_enter(self) -> None:
-        if self.state.raw_spectra is not None:
-            self._navigator.set_spectra(self.state.raw_spectra)
+        spectra = self.state.current_spectra
+        if spectra is not None:
+            self._navigator.set_spectra(spectra)

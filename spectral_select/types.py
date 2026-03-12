@@ -44,6 +44,35 @@ import pandas as pd
 SpectraArray: TypeAlias = "np.ndarray"
 
 
+# ---------------------------------------------------------------------------
+# Cross-platform pickle loading helper
+# ---------------------------------------------------------------------------
+
+def _cross_platform_pickle_load(file):
+    """Load pickle file with cross-platform Path support.
+    
+    Handles the case where a pickle file created on Windows contains
+    WindowsPath objects that can't be instantiated on macOS/Linux.
+    """
+    import io
+    import pathlib
+    
+    class CrossPlatformUnpickler(pickle.Unpickler):
+        def find_class(self, module, name):
+            # Redirect WindowsPath to PosixPath on non-Windows systems
+            if module == "pathlib" and name == "WindowsPath":
+                return pathlib.PurePosixPath
+            # Redirect PosixPath to WindowsPath on Windows (for completeness)
+            if module == "pathlib" and name == "PosixPath":
+                import platform
+                if platform.system() == "Windows":
+                    return pathlib.PureWindowsPath
+                return pathlib.PosixPath
+            return super().find_class(module, name)
+    
+    return CrossPlatformUnpickler(file).load()
+
+
 @dataclass
 class LoadingOptions:
     """Configuration options for loading and preprocessing hyperspectral data.
@@ -393,8 +422,10 @@ class SpectraData:
                 UserWarning,
             )
 
+        # Use custom unpickler to handle cross-platform Path objects
+        # (WindowsPath created on Windows can't be loaded on macOS/Linux)
         with open(path, "rb") as f:
-            pkl_data = pickle.load(f)
+            pkl_data = _cross_platform_pickle_load(f)
 
         # Handle existing pickle format: {'data': {ex_nm: cube}, 'excitation_wavelengths': [...]}
         if isinstance(pkl_data, dict):

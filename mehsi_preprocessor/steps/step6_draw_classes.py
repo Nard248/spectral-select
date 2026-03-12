@@ -1,11 +1,14 @@
-"""Step 6: Draw class masks using a brush / eraser tool."""
+"""Step 6: Draw class masks using a brush / eraser tool with auto-fill support."""
 
 from __future__ import annotations
 
+import numpy as np
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QColorDialog,
+    QComboBox,
     QGroupBox,
     QHBoxLayout,
     QLabel,
@@ -43,6 +46,7 @@ class Step6DrawClasses(AbstractStepWidget):
     def __init__(self, state: PipelineState, parent: QWidget | None = None) -> None:
         super().__init__(state, parent)
         self._next_id = 1
+        self._edge_mask: np.ndarray | None = None
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -78,8 +82,12 @@ class Step6DrawClasses(AbstractStepWidget):
         self._radio_brush.setChecked(True)
         self._radio_brush.toggled.connect(self._tool_changed)
         self._radio_eraser = QRadioButton("Eraser")
+        self._radio_eraser.toggled.connect(self._tool_changed)
+        self._radio_fill = QRadioButton("Auto-Fill (click to fill)")
+        self._radio_fill.toggled.connect(self._tool_changed)
         tl.addWidget(self._radio_brush)
         tl.addWidget(self._radio_eraser)
+        tl.addWidget(self._radio_fill)
 
         # Brush radius
         rad_row = QHBoxLayout()
@@ -92,6 +100,48 @@ class Step6DrawClasses(AbstractStepWidget):
         tl.addLayout(rad_row)
 
         left.addWidget(tool_grp)
+
+        # Edge detection controls
+        edge_grp = QGroupBox("Edge Detection (for Auto-Fill)")
+        el = QVBoxLayout(edge_grp)
+
+        # Algorithm selection
+        algo_row = QHBoxLayout()
+        algo_row.addWidget(QLabel("Algorithm:"))
+        self._combo_algorithm = QComboBox()
+        self._combo_algorithm.addItem("Canny", "canny")
+        self._combo_algorithm.addItem("Sobel", "sobel")
+        algo_row.addWidget(self._combo_algorithm)
+        el.addLayout(algo_row)
+
+        # Threshold slider
+        thresh_row = QHBoxLayout()
+        thresh_row.addWidget(QLabel("Threshold:"))
+        self._slider_threshold = QSlider(Qt.Orientation.Horizontal)
+        self._slider_threshold.setRange(1, 100)
+        self._slider_threshold.setValue(30)
+        self._slider_threshold.valueChanged.connect(self._on_threshold_changed)
+        self._lbl_threshold = QLabel("30")
+        thresh_row.addWidget(self._slider_threshold)
+        thresh_row.addWidget(self._lbl_threshold)
+        el.addLayout(thresh_row)
+
+        # Preview toggle
+        self._chk_preview = QCheckBox("Preview edges")
+        self._chk_preview.toggled.connect(self._on_preview_toggled)
+        el.addWidget(self._chk_preview)
+
+        # Compute button
+        self._btn_compute_edges = QPushButton("Compute Edges")
+        self._btn_compute_edges.clicked.connect(self._compute_edges)
+        el.addWidget(self._btn_compute_edges)
+
+        # Status label
+        self._lbl_edge_status = QLabel("Edges not computed")
+        self._lbl_edge_status.setStyleSheet("color: gray; font-style: italic;")
+        el.addWidget(self._lbl_edge_status)
+
+        left.addWidget(edge_grp)
         left.addStretch()
 
         layout.addLayout(left)
@@ -99,6 +149,7 @@ class Step6DrawClasses(AbstractStepWidget):
         # --- Right panel: brush canvas ---
         self._canvas = BrushCanvas(self)
         self._canvas.mask_updated.connect(self._on_mask_updated)
+        self._canvas.click_for_fill.connect(self._on_fill_click)
         layout.addWidget(self._canvas, 1)
 
     # ------------------------------------------------------------------
@@ -154,10 +205,165 @@ class Step6DrawClasses(AbstractStepWidget):
     # ------------------------------------------------------------------
 
     def _tool_changed(self, checked: bool) -> None:
-        self._canvas.set_erase_mode(not self._radio_brush.isChecked())
+        if self._radio_brush.isChecked():
+            self._canvas.set_erase_mode(False)
+            self._canvas.set_fill_mode(False)
+        elif self._radio_eraser.isChecked():
+            self._canvas.set_erase_mode(True)
+            self._canvas.set_fill_mode(False)
+        elif self._radio_fill.isChecked():
+            self._canvas.set_erase_mode(False)
+            self._canvas.set_fill_mode(True)
 
     def _radius_changed(self, val: int) -> None:
         self._canvas.set_brush_radius(val)
+
+    # ------------------------------------------------------------------
+    # Edge detection
+    # ------------------------------------------------------------------
+
+    def _on_threshold_changed(self, val: int) -> None:
+        self._lbl_threshold.setText(str(val))
+
+    def _on_preview_toggled(self, checked: bool) -> None:
+        if checked and self._edge_mask is not None:
+            self._canvas.show_edge_preview(self._edge_mask)
+        else:
+            self._canvas.show_edge_preview(None)
+
+    def _compute_edges(self) -> None:
+        """Compute edge detection on the base image."""
+        img = self._canvas.base_image
+        if img is None:
+            QMessageBox.warning(self, "No Image", "Load data first.")
+            return
+
+        algorithm = self._combo_algorithm.currentData()
+        threshold = self._slider_threshold.value()
+
+        try:
+            self._edge_mask = self._detect_edges(img, algorithm, threshold)
+            self._canvas.set_edge_mask(self._edge_mask)
+
+            n_edge_pixels = np.sum(self._edge_mask > 0)
+            self._lbl_edge_status.setText(f"Edges computed ({n_edge_pixels:,} edge pixels)")
+            self._lbl_edge_status.setStyleSheet("color: green;")
+
+            if self._chk_preview.isChecked():
+                self._canvas.show_edge_preview(self._edge_mask)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Edge Detection Error", str(e))
+            self._lbl_edge_status.setText(f"Error: {e}")
+            self._lbl_edge_status.setStyleSheet("color: red;")
+
+    def _detect_edges(self, img: np.ndarray, algorithm: str, threshold: int) -> np.ndarray:
+        """Run edge detection algorithm on the image.
+
+        Returns a binary edge mask.
+        """
+        from scipy import ndimage
+
+        # Ensure grayscale
+        if img.ndim == 3:
+            gray = np.mean(img, axis=2)
+        else:
+            gray = img.copy()
+
+        # Normalize to 0-255 range
+        gray = gray.astype(np.float64)
+        if gray.max() > gray.min():
+            gray = (gray - gray.min()) / (gray.max() - gray.min()) * 255
+        gray = gray.astype(np.uint8)
+
+        if algorithm == "canny":
+            return self._canny_edge(gray, threshold)
+        elif algorithm == "sobel":
+            return self._sobel_edge(gray, threshold)
+        else:
+            raise ValueError(f"Unknown algorithm: {algorithm}")
+
+    def _canny_edge(self, gray: np.ndarray, threshold: int) -> np.ndarray:
+        """Canny edge detection using scipy."""
+        from scipy import ndimage
+
+        # Gaussian blur first
+        blurred = ndimage.gaussian_filter(gray.astype(np.float64), sigma=1.5)
+
+        # Sobel gradients
+        gx = ndimage.sobel(blurred, axis=1)
+        gy = ndimage.sobel(blurred, axis=0)
+
+        # Gradient magnitude
+        magnitude = np.sqrt(gx**2 + gy**2)
+
+        # Normalize magnitude
+        if magnitude.max() > 0:
+            magnitude = magnitude / magnitude.max() * 255
+
+        # Threshold (scaled: 1-100 -> 5-200)
+        thresh_val = 5 + (threshold / 100) * 195
+        edges = magnitude > thresh_val
+
+        # Optional: thin edges using morphological operations
+        from scipy.ndimage import binary_erosion
+        struct = np.ones((3, 3))
+        # Light erosion to thin thick edges
+        if np.sum(edges) > 1000:
+            edges = binary_erosion(edges, structure=struct, iterations=1)
+            # Restore with original to keep connectivity
+            edges = magnitude > thresh_val * 0.8
+
+        return edges.astype(np.uint8)
+
+    def _sobel_edge(self, gray: np.ndarray, threshold: int) -> np.ndarray:
+        """Sobel edge detection."""
+        from scipy import ndimage
+
+        # Sobel gradients
+        gx = ndimage.sobel(gray.astype(np.float64), axis=1)
+        gy = ndimage.sobel(gray.astype(np.float64), axis=0)
+
+        # Gradient magnitude
+        magnitude = np.sqrt(gx**2 + gy**2)
+
+        # Normalize
+        if magnitude.max() > 0:
+            magnitude = magnitude / magnitude.max() * 255
+
+        # Threshold (scaled: 1-100 -> 5-150)
+        thresh_val = 5 + (threshold / 100) * 145
+
+        return (magnitude > thresh_val).astype(np.uint8)
+
+    # ------------------------------------------------------------------
+    # Auto-fill
+    # ------------------------------------------------------------------
+
+    def _on_fill_click(self, row: int, col: int) -> None:
+        """Handle click in fill mode."""
+        if self._edge_mask is None:
+            QMessageBox.warning(
+                self, "No Edges",
+                "Compute edges first using the 'Compute Edges' button."
+            )
+            return
+
+        if not self.state.class_definitions:
+            QMessageBox.warning(
+                self, "No Class",
+                "Add a class first before filling."
+            )
+            return
+
+        # Perform the fill
+        filled = self._canvas.fill_region(row, col)
+        if not filled:
+            # Might have clicked on an edge
+            QMessageBox.information(
+                self, "Cannot Fill",
+                "Clicked on an edge or outside bounds. Try clicking inside a region."
+            )
 
     # ------------------------------------------------------------------
     # Mask sync
@@ -192,3 +398,8 @@ class Step6DrawClasses(AbstractStepWidget):
 
         self._canvas.set_class_defs(self.state.class_definitions)
         self._refresh_class_list()
+
+        # Reset edge state
+        self._edge_mask = None
+        self._lbl_edge_status.setText("Edges not computed")
+        self._lbl_edge_status.setStyleSheet("color: gray; font-style: italic;")

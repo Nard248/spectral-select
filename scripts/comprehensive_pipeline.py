@@ -110,6 +110,7 @@ class ExperimentConfig:
     n_important_dimensions: int = 15
     normalization_method: str = 'variance'
     min_distance_nm: float = 15.0
+    training_epochs: int = 30  # Number of autoencoder training epochs
 
 
 @dataclass
@@ -152,7 +153,9 @@ def generate_configurations(
     n_bands_list: List[int] = None,
     diversity_methods: List[str] = None,
     lambda_values: List[float] = None,
-    include_no_diversity: bool = True
+    include_no_diversity: bool = True,
+    training_epochs: int = 30,
+    n_important_dimensions: int = 15
 ) -> List[ExperimentConfig]:
     """Generate experiment configurations."""
     if n_bands_list is None:
@@ -174,7 +177,9 @@ def generate_configurations(
                 n_bands_to_select=n_bands,
                 use_diversity_constraint=False,
                 diversity_method='none',
-                lambda_diversity=0.0
+                lambda_diversity=0.0,
+                training_epochs=training_epochs,
+                n_important_dimensions=n_important_dimensions
             ))
 
         # With diversity constraints
@@ -185,7 +190,9 @@ def generate_configurations(
                     n_bands_to_select=n_bands,
                     use_diversity_constraint=True,
                     diversity_method=method,
-                    lambda_diversity=lambda_val
+                    lambda_diversity=lambda_val,
+                    training_epochs=training_epochs,
+                    n_important_dimensions=n_important_dimensions
                 ))
 
     return configs
@@ -577,6 +584,7 @@ def run_wavelength_selection(
         n_important_dimensions=config.n_important_dimensions,
         normalization_method=config.normalization_method,
         min_distance_nm=config.min_distance_nm,
+        training_epochs=config.training_epochs,
         save_visualizations=False,
         save_tiff_layers=False,
         n_baseline_patches=10
@@ -1039,6 +1047,8 @@ Examples:
     parser.add_argument('--lambda-values', type=str, default='0.3,0.5', help='Comma-separated lambda values')
     parser.add_argument('--no-diversity-configs', action='store_true', help='Include no-diversity configs')
     parser.add_argument('--export-concat-data', action='store_true', help='Export concatenated spectral data')
+    parser.add_argument('--epochs', type=int, default=30, help='Number of autoencoder training epochs')
+    parser.add_argument('--n-important-dimensions', type=int, default=15, help='Number of important latent dimensions')
 
     args = parser.parse_args()
 
@@ -1149,7 +1159,9 @@ Examples:
         n_bands_list=n_bands_list,
         diversity_methods=diversity_methods,
         lambda_values=lambda_values,
-        include_no_diversity=not args.no_diversity_configs
+        include_no_diversity=not args.no_diversity_configs,
+        training_epochs=args.epochs,
+        n_important_dimensions=args.n_important_dimensions
     )
 
     if args.max_configs:

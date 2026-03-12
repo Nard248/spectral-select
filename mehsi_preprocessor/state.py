@@ -85,9 +85,17 @@ class PipelineState:
 
     Modifying step *N* via :meth:`invalidate_from` clears every attribute
     owned by steps *N+1* through 8.
+
+    When loading from PKL, ``start_step`` indicates which step to begin at.
+    Steps before ``start_step`` are locked and cannot be modified.
     """
 
     def __init__(self) -> None:
+        # Loading mode configuration
+        self.load_mode: str = "raw"  # "raw" or "pkl"
+        self.start_step: int = 1     # 1 for raw, 3-7 for pkl import
+        self.pkl_path: Optional[Path] = None  # PKL file path (pkl mode only)
+
         # Step 1 – Load
         self.raw_spectra: Optional[Any] = None  # SpectraData
         self.data_folder: Optional[Path] = None
@@ -113,15 +121,21 @@ class PipelineState:
         # Step 7 – ROI regions
         self.roi_regions: List[ROIRegion] = []
 
+        # PKL import: holds imported data at the appropriate stage
+        self._imported_spectra: Optional[Any] = None  # Set when loading PKL
+
     # ------------------------------------------------------------------
     # Convenience properties
     # ------------------------------------------------------------------
 
     @property
     def current_spectra(self) -> Optional[Any]:
-        """Return the most-processed SpectraData available."""
+        """Return the most-processed SpectraData available.
+
+        Priority: filtered > cropped > normalized > raw > imported.
+        """
         for attr in ("filtered_spectra", "cropped_spectra",
-                     "normalized_spectra", "raw_spectra"):
+                     "normalized_spectra", "raw_spectra", "_imported_spectra"):
             val = getattr(self, attr)
             if val is not None:
                 return val
@@ -134,6 +148,33 @@ class PipelineState:
         if spec is not None:
             return spec.spatial_shape
         return None
+
+    def is_step_locked(self, step: int) -> bool:
+        """Return True if *step* is locked (before start_step)."""
+        return step < self.start_step
+
+    def set_imported_spectra(self, spectra: Any, start_step: int) -> None:
+        """Store imported PKL data at the appropriate state attribute.
+
+        Based on start_step, the imported data is placed at the correct
+        point in the pipeline:
+        - start_step=3: treated as raw_spectra
+        - start_step=4: treated as normalized_spectra
+        - start_step=5: treated as cropped_spectra
+        - start_step=6 or 7: treated as filtered_spectra
+        """
+        self.load_mode = "pkl"
+        self.start_step = start_step
+        self._imported_spectra = spectra
+
+        if start_step == 3:
+            self.raw_spectra = spectra
+        elif start_step == 4:
+            self.normalized_spectra = spectra
+        elif start_step == 5:
+            self.cropped_spectra = spectra
+        elif start_step >= 6:
+            self.filtered_spectra = spectra
 
     # ------------------------------------------------------------------
     # Invalidation

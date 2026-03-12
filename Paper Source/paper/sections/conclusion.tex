@@ -1,0 +1,19 @@
+% ============================================================================
+% VII. CONCLUSION (REVISED)
+% ============================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+We have presented a deep learning framework for wavelength selection in multi-excitation hyperspectral imaging, addressing the challenge of identifying informative spectral layers in 4D fluorescence datasets where spatial, emission, and excitation dimensions jointly encode discriminative information.
+Our approach combines three components: a 3D CAE with parallel excitation branches for unsupervised representation learning, perturbation-based attribution for tracing latent dimension importance to individual excitation-emission wavelength pairs, and Maximum Marginal Relevance selection for balancing informativeness with spectral diversity.
+
+Evaluated on the lichen fluorescence dataset across 3,072 configurations, the framework demonstrated that CEA perturbation-based selected wavelengths can \emph{exceed} baseline classification performance while reducing the data size, achieving 95.2\% accuracy with 80 bands versus the 88.2\% baseline with all 192 bands, and maintaining above-baseline accuracy down to 9 bands (95.3\% data reduction).
+Robustness analysis confirmed genuine selection intelligence (outperforming the 10,000 random combinations with $12\sigma$ separation). Object-level analysis has shown that challenging specimens benefit most, with performance variance reduced by 54\%.
+The 9-band optimal configuration selected one wavelength per excitation source, providing directly actionable sensor design guidelines.
+
+To our knowledge, this work represents the first application of latent space perturbation analysis for wavelength selection in hyperspectral imaging, and the first deep learning framework specifically designed for 4D multi-excitation data.
+The approach is entirely unsupervised, requiring no class labels for wavelength selection, and produces ordered rankings that can be thresholded at any desired reduction level.
+The framework's modular design, separating representation learning, attribution, and selection, enables component substitution for adaptation to diverse spectroscopic applications.
+
+As multi-excitation imaging systems become more prevalent across biomedical, agricultural, and environmental applications, principled approaches to spectral information extraction---like the framework presented here---will be essential for translating data richness into practical applications.
+The demonstrated ability to improve classification accuracy while reducing the data size opens new possibilities for real-time analysis, compact sensor design, and efficient data transmission in spectral imaging applications.

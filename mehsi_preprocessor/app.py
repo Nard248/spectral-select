@@ -26,7 +26,10 @@ from mehsi_preprocessor.steps.base import AbstractStepWidget
 
 
 class PreprocessorWindow(QMainWindow):
-    """Wizard-style window with a sidebar step list and a stacked content area."""
+    """Wizard-style window with a sidebar step list and a stacked content area.
+
+    Supports step locking when PKL is imported to skip earlier steps.
+    """
 
     def __init__(self) -> None:
         super().__init__()
@@ -116,7 +119,39 @@ class PreprocessorWindow(QMainWindow):
             item = QListWidgetItem(f"{widget.step_index}. {widget.title}")
             self._sidebar.addItem(item)
 
+        # Connect PKL import signal from Step1
+        step1 = self._steps[0]
+        if hasattr(step1, "pkl_imported"):
+            step1.pkl_imported.connect(self._on_pkl_imported)
+
         self._update_nav_buttons()
+
+    # ------------------------------------------------------------------
+    # PKL import handling
+    # ------------------------------------------------------------------
+
+    def _on_pkl_imported(self, start_step: int) -> None:
+        """Handle PKL import completion – update sidebar and navigate."""
+        self._update_sidebar_for_locked_steps()
+        # Navigate to the start step (0-indexed)
+        target_index = start_step - 1
+        self._sidebar.setCurrentRow(target_index)
+
+    def _update_sidebar_for_locked_steps(self) -> None:
+        """Update sidebar items to show locked steps with visual indicator."""
+        for i in range(self._sidebar.count()):
+            item = self._sidebar.item(i)
+            step_num = i + 1  # 1-indexed
+            widget = self._steps[i]
+
+            if self._state.is_step_locked(step_num):
+                # Locked step: gray out and add lock indicator
+                item.setText(f"🔒 {step_num}. {widget.title}")
+                item.setForeground(QColor(128, 128, 128))
+            else:
+                # Unlocked step: restore normal appearance
+                item.setText(f"{step_num}. {widget.title}")
+                item.setForeground(QColor(0, 0, 0))
 
     # ------------------------------------------------------------------
     # Navigation
@@ -126,6 +161,21 @@ class PreprocessorWindow(QMainWindow):
         if index == self._current_index:
             return
         if not (0 <= index < len(self._steps)):
+            return
+
+        # Check if target step is locked
+        target_step = index + 1  # 1-indexed
+        if self._state.is_step_locked(target_step):
+            QMessageBox.information(
+                self,
+                "Step Locked",
+                f"Step {target_step} is locked because data was imported from PKL.\n"
+                f"This step was skipped during import."
+            )
+            # Restore sidebar selection
+            self._sidebar.blockSignals(True)
+            self._sidebar.setCurrentRow(self._current_index)
+            self._sidebar.blockSignals(False)
             return
 
         # Leave current step
@@ -146,7 +196,12 @@ class PreprocessorWindow(QMainWindow):
         self._navigate_to(row)
 
     def _go_prev(self) -> None:
-        self._sidebar.setCurrentRow(max(self._current_index - 1, 0))
+        # Find previous unlocked step
+        target = self._current_index - 1
+        while target >= 0 and self._state.is_step_locked(target + 1):
+            target -= 1
+        if target >= 0:
+            self._sidebar.setCurrentRow(target)
 
     def _go_next(self) -> None:
         self._sidebar.setCurrentRow(
@@ -154,7 +209,13 @@ class PreprocessorWindow(QMainWindow):
         )
 
     def _update_nav_buttons(self) -> None:
-        self._btn_prev.setEnabled(self._current_index > 0)
+        # Previous: enabled if there's an unlocked step before current
+        prev_enabled = False
+        for i in range(self._current_index - 1, -1, -1):
+            if not self._state.is_step_locked(i + 1):
+                prev_enabled = True
+                break
+        self._btn_prev.setEnabled(prev_enabled)
         self._btn_next.setEnabled(self._current_index < len(self._steps) - 1)
 
 
