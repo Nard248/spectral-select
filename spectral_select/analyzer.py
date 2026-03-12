@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import json
 import logging
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
@@ -577,13 +576,7 @@ class Analyzer:
             f"mask {'present' if data.mask is not None else 'absent'}"
         )
 
-        # TODO: Phase 8 cleanup - remove sys.path manipulation
-        # The scripts.models package should be properly installed
-        project_root = Path(__file__).parent.parent
-        if str(project_root) not in sys.path:
-            sys.path.insert(0, str(project_root))
-
-        from scripts.models import MaskedHyperspectralDataset
+        from spectral_select.models.dataset import MaskedHyperspectralDataset
 
         # Convert SpectraData to format expected by MaskedHyperspectralDataset
         # Expected format: {'data': {ex_str: {'cube': array, 'wavelengths': list}},
@@ -639,12 +632,7 @@ class Analyzer:
         # Handle built-in string identifiers
         if isinstance(architecture, str):
             if architecture == "standard":
-                # TODO: Phase 8 cleanup - remove sys.path manipulation
-                project_root = Path(__file__).parent.parent
-                if str(project_root) not in sys.path:
-                    sys.path.insert(0, str(project_root))
-
-                from scripts.models import HyperspectralCAEWithMasking
+                from spectral_select.models.autoencoder import HyperspectralCAEWithMasking
 
                 logger.info("Using built-in 'standard' autoencoder architecture")
                 return HyperspectralCAEWithMasking(
@@ -716,7 +704,7 @@ class Analyzer:
     def _train_new_model(self) -> None:
         """Train a new autoencoder model from scratch.
 
-        Uses the training parameters from scripts.models.training with
+        Uses the training parameters from spectral_select.models.training with
         reasonable defaults for wavelength selection analysis.
         """
         logger.warning(
@@ -724,12 +712,7 @@ class Analyzer:
             "This may take several minutes..."
         )
 
-        # TODO: Phase 8 cleanup - remove sys.path manipulation
-        project_root = Path(__file__).parent.parent
-        if str(project_root) not in sys.path:
-            sys.path.insert(0, str(project_root))
-
-        from scripts.models.training import train_with_masking
+        from spectral_select.models.training import train_with_masking
 
         # Determine output directory for training - use same directory as model_path
         if self._config.model_path is not None:
