@@ -2,6 +2,8 @@
 
 Autoencoder-based wavelength selection for 4D hyperspectral imaging via latent space perturbation analysis.
 
+Data is available at [Zenodo] https://zenodo.org/records/18640119 DOI - https://doi.org/10.5281/zenodo.18640119
+
 <!-- Paper link: TODO -->
 
 ## Overview
