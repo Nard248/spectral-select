@@ -83,9 +83,10 @@ class ParameterSpace:
         )                                # Total: 64 values
     )
 
-    # Dimension selection - ALL methods
+    # Dimension selection - PCA only (best from paper)
+    # TODO: uncomment for full sweep: default_factory=lambda: ["variance", "pca"]
     dimension_selection_method: Union[str, List[str]] = field(
-        default_factory=lambda: ["variance", "pca"]
+        default_factory=lambda: ["pca", 'variance']
     )
 
     # Important dimensions
@@ -114,13 +115,14 @@ class ParameterSpace:
     min_distance_nm: Union[float, List[float]] = 15.0
 
     # Training (only used if retraining)
-    training_epochs: int = 30
+    training_epochs: int = 60
 
 
-# Two perturbation magnitude variants
+# Perturbation magnitude variants - medium only (best from paper)
+# TODO: uncomment for full sweep: "high": [50, 60, 70],
 PERTURBATION_MAGNITUDE_VARIANTS = {
-    "medium": [30, 40, 50],      # Current medium intensity
-    "high": [50, 60, 70],        # Higher intensity perturbations
+    # "medium": [30, 40, 50],
+    "high": [50, 60, 70]
 }
 
 
