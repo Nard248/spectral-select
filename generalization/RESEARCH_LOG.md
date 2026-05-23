@@ -101,7 +101,29 @@ Weakness: AE loses at K=3 (0.439 vs var 0.502). Hypothesis: max_per_group normal
 ~one-channel-per-group at tiny K, a poor spread when one IMU (chest) carries most signal.
 TODO P5: try `none`/global normalization at low K.
 
-### Next (running): full LOSO
-`experiments/general_pamap2_loso.py` — all 8 subjects, AE vs variance vs random at K=5/7/10,
-mean+/-std, to confirm the mid-K advantage is not a subject-5 artifact. Then P3: Concrete
-Autoencoder + mRMR baselines, better downstream features (learned embedding vs mean+std).
+### Full LOSO result (8 subjects, mean +/- std, KNN-5 macro-F1) — SOBERING
+| K | AE-perturb | variance | random |
+|---|---|---|---|
+| 5 | 0.537 +/- 0.09 | 0.526 +/- 0.14 | 0.556 +/- 0.08 |
+| 7 | 0.627 +/- 0.07 | 0.541 +/- 0.16 | 0.622 +/- 0.07 |
+| 10 | 0.679 +/- 0.08 | 0.593 +/- 0.17 | 0.667 +/- 0.08 |
+
+**Verdict: mixed.**
+- AE-perturb **robustly beats variance** at all K (+0.09 at K=7/10) AND is far more **stable**
+  (std ~0.07 vs variance ~0.15). "Better and more stable than variance" is real.
+- AE-perturb **ties random** under full LOSO (below it at K=5; +0.005/+0.012 at K=7/10, within
+  noise). The subject-5 single-fold win was partly a favorable fold.
+
+**Interpretation:** PAMAP2 is redundant -> random-K is a strong baseline (Drop Data lesson
+again). Tying random is only damning if the *named* baselines also tie random here. Likely
+bottlenecks: (1) crude mean+std downstream feature discards temporal dynamics; (2) PAMAP2 too
+easy -> Opportunity (100+ channels) is the real discriminating test.
+
+### Decisions / next (P3)
+1. **Diagnostic first:** run Concrete Autoencoder + mRMR on PAMAP2. If they too tie random,
+   PAMAP2 is not discriminative and Opportunity becomes the headline dataset.
+2. Test a **learned-embedding / 1D-CNN downstream** vs mean+std before any conclusions.
+3. Prioritize **Opportunity** (P4) — the high-redundancy dataset where selection should bite.
+4. Keep the **variance-beating + stability** result regardless; it is a legitimate secondary
+   contribution.
+Do NOT headline "beats random on PAMAP2" — it does not, under honest LOSO.

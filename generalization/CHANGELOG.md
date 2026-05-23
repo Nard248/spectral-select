@@ -41,7 +41,11 @@ K=3 (normalization hypothesis logged). Ceiling (all 27) = 0.828. See RESEARCH_LO
 K=5/7/10, mean+/-std; one greedy-MMR selection per fold, evaluate K prefixes).
 **Why:** Confirm the mid-K advantage is robust, not a subject-5 artifact, before building
 the heavy P3 baselines.
-**Result:** (pending — record here.)
+**Result:** Mixed. AE-perturb robustly beats variance (+0.09 at K=7/10) and is much more
+stable across subjects (std ~0.07 vs ~0.15), but TIES random under full LOSO (the subject-5
+win was a favorable fold). Likely causes: crude mean+std feature + PAMAP2 redundancy. Next:
+diagnostic Concrete-AE/mRMR on PAMAP2, learned downstream features, prioritize Opportunity.
+See RESEARCH_LOG 2026-05-23. Do not headline "beats random on PAMAP2".
 
 ## 2026-05-23 [Workspace]
 **Action:** Created `generalization/` workspace (MASTER_PLAN, RESEARCH_LOG, CHANGELOG,

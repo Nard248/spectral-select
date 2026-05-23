@@ -1,0 +1,10 @@
+PAMAP2 full LOSO (subjects 1-8) | KNN-5 macro-F1 | mean +/- std across folds
+K=5	ae	0.5368 +/- 0.0903
+K=5	var	0.5255 +/- 0.1412
+K=5	rand	0.5555 +/- 0.0783
+K=7	ae	0.6274 +/- 0.0728
+K=7	var	0.5414 +/- 0.1607
+K=7	rand	0.6216 +/- 0.0738
+K=10	ae	0.6788 +/- 0.0810
+K=10	var	0.5930 +/- 0.1666
+K=10	rand	0.6671 +/- 0.0821
