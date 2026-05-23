@@ -20,7 +20,7 @@ K = np.array([5, 7, 10])
 # full-LOSO macro-F1 (mean, std). AE from general_pamap2_loso.py; MI/var/rand from
 # general_pamap2_baseline_diag.py (both KNN-5, LOSO subjects 1-8).
 SERIES = {
-    "AE-perturb (ours, label-free)": ([0.5368, 0.6274, 0.6788], [0.090, 0.073, 0.081], "#c0392b", "o"),
+    "Proposed method (label-free)": ([0.5368, 0.6274, 0.6788], [0.090, 0.073, 0.081], "#c0392b", "o"),
     "Mutual-info (SUPERVISED)":      ([0.5374, 0.6055, 0.6844], [0.090, 0.069, 0.109], "#2c7fb8", "s"),
     "Variance (unsupervised)":       ([0.5103, 0.5397, 0.5914], [0.142, 0.162, 0.174], "#f39c12", "^"),
     "Random-K":                      ([0.5539, 0.5935, 0.6492], [0.075, 0.076, 0.078], "#7f8c8d", "D"),
@@ -48,7 +48,7 @@ def fig_stability():
     ae_std = [0.090, 0.073, 0.081]
     var_std = [0.142, 0.162, 0.174]
     x = np.arange(3); w = 0.36
-    ax.bar(x - w/2, ae_std, w, color="#c0392b", label="AE-perturb (ours)")
+    ax.bar(x - w/2, ae_std, w, color="#c0392b", label="Proposed method")
     ax.bar(x + w/2, var_std, w, color="#f39c12", label="Variance")
     ax.set_xticks(x); ax.set_xticklabels(labels)
     ax.set_ylabel("Std of macro-F1 across subjects\n(lower = more stable)")
@@ -86,16 +86,16 @@ def fig_method():
     _arrow(ax, 3.7, 2.9, 4.5, 2.2); _arrow(ax, 3.7, 1.0, 4.5, 1.7)
     _arrow(ax, 5.6, 1.95, 6.1, 1.95); _arrow(ax, 7.6, 1.95, 8.1, 1.95)
     _arrow(ax, 9.8, 1.95, 10.3, 1.95)
-    ax.text(6, 0.15, "Engine (perturbation → influence → MMR) is identical across domains; "
+    ax.text(6, 0.08, "Engine (perturbation → influence → MMR) is identical across domains; "
             "only the encoder/decoder changes with the data's axis.",
-            ha="center", fontsize=8.5, color="#555", style="italic")
+            ha="center", fontsize=12, color="#555", style="italic")
     fig.tight_layout(); fig.savefig(OUT / "fig_method.png", dpi=150); plt.close(fig)
 
 
 def fig_crossdomain():
     fig, ax = plt.subplots(figsize=(8.5, 2.8)); ax.axis("off")
     rows = [
-        ["concept", "Wearable sensors (HAR)", "Biomedical imaging (HSI)"],
+        ["concept", "Wearable sensors", "Biomedical imaging"],
         ["group", "body-worn IMU (hand/chest/ankle)", "excitation wavelength"],
         ["channel", "IMU axis (acc/gyro/mag x,y,z)", "emission band"],
         ["regular axis", "1D time", "2D space (H×W)"],
@@ -119,27 +119,29 @@ def fig_crossdomain():
 
 
 def fig_biomed():
-    """Biomedical HSI verification: aggressive channel reduction maintains/improves accuracy.
-    Numbers are existing verified results (Lichens, Collagen) — see CODASSCA table / revision."""
+    """Biomedical verification: drastic channel reduction maintains/improves accuracy.
+    Band counts are placed ON the columns (all vs selected). Numbers are existing
+    verified results (Lichens, Collagen sponges)."""
     fig, ax = plt.subplots(figsize=(7.0, 4.3))
-    groups = ["Lichens\n(192 bands)", "Collagen\n(158 bands)"]
-    full = [88.2, 79.8]
-    sel = [95.2, 85.6]           # Lichens@80 bands, Collagen@30 bands
-    red = ["-58%", "-81%"]
-    x = np.arange(2); w = 0.34
+    groups = ["Lichens", "Collagen sponges"]
+    full = [88.2, 79.8]; full_bands = [192, 158]   # all channels
+    sel = [89.4, 85.6];  sel_bands = [9, 30]        # selected subset
+    x = np.arange(2); w = 0.36
     ax.bar(x - w/2, full, w, color="#95a5a6", label="All channels")
-    ax.bar(x + w/2, sel, w, color="#c0392b", label="Selected subset (ours)")
+    ax.bar(x + w/2, sel, w, color="#c0392b", label="Selected subset")
     for i in range(2):
         ax.text(x[i] - w/2, full[i] + 0.6, f"{full[i]:.1f}%", ha="center", fontsize=9)
         ax.text(x[i] + w/2, sel[i] + 0.6, f"{sel[i]:.1f}%", ha="center", fontsize=9, color="#c0392b")
-        ax.text(x[i] + w/2, sel[i] - 6, red[i], ha="center", fontsize=9, color="white", weight="bold")
-    ax.set_xticks(x); ax.set_xticklabels(groups)
+        # band counts ON the columns (mid-bar, clear of the legend)
+        ax.text(x[i] - w/2, 72, f"{full_bands[i]}\nbands", ha="center", va="center",
+                fontsize=11, color="white", weight="bold")
+        ax.text(x[i] + w/2, 72, f"{sel_bands[i]}\nbands", ha="center", va="center",
+                fontsize=11, color="white", weight="bold")
+    ax.set_xticks(x); ax.set_xticklabels(groups, fontsize=11)
     ax.set_ylabel("Classification accuracy (%)"); ax.set_ylim(60, 100)
-    ax.set_title("Biomedical HSI: fewer channels, same-or-better accuracy")
-    ax.legend(loc="lower right"); ax.grid(alpha=0.3, axis="y")
-    fig.text(0.01, 0.005, "Lichens also reaches 89.4% using only 9 of 192 bands (-95%).",
-             fontsize=7.5, color="#555")
-    fig.tight_layout(rect=[0, 0.03, 1, 1]); fig.savefig(OUT / "fig_biomed.png", dpi=150); plt.close(fig)
+    ax.set_title("Biomedical imaging: drastic reduction, same-or-better accuracy", fontsize=11)
+    ax.legend(loc="upper left", fontsize=9, framealpha=0.9); ax.grid(alpha=0.3, axis="y")
+    fig.tight_layout(); fig.savefig(OUT / "fig_biomed.png", dpi=150); plt.close(fig)
 
 
 def fig_har_selection():
