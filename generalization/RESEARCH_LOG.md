@@ -151,3 +151,18 @@ weakness. Crucially, **our label-free AE-perturb matches/beats supervised MI** (
 4. Also test learned/1D-CNN downstream features (may de-saturate PAMAP2).
 5. Concrete Autoencoder comparison still required (P3) but lower priority than getting a
    *discriminating* dataset (Opportunity) in place first.
+
+### Rich-feature confirmation (RandomForest, mean/std/min/max/mad, full LOSO)
+`experiments/general_pamap2_richfeat_diag.py`. Ceiling(27)=0.796.
+
+| K | MI (SUPERVISED) | variance | random |
+|---|---|---|---|
+| 5 | 0.650 | 0.597 | 0.660 |
+| 7 | 0.694 | 0.644 | 0.681 |
+| 10 | 0.737 | 0.637 | 0.730 |
+
+**Even richer features + RF: supervised MI STILL ties random.** PAMAP2's channel redundancy is
+intrinsic, not a feature artifact. CONCLUSION: do not chase a PAMAP2 headline; keep current
+honest result (label-free method ~ supervised, > variance, more stable). Abstract should NOT
+center PAMAP2 specifics. Opportunity remains the future discriminating test (deferred — too
+complex to explain for a short abstract per user steer).

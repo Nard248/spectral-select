@@ -1,0 +1,10 @@
+PAMAP2 LOSO rich-feature (mean/std/min/max/mad) + RandomForest | macro-F1 | ceiling(27)=0.7965+/-0.0915
+K=5	mi  	0.6501 +/- 0.0934
+K=5	var 	0.5969 +/- 0.1600
+K=5	rand	0.6598 +/- 0.0742
+K=7	mi  	0.6941 +/- 0.0742
+K=7	var 	0.6443 +/- 0.1641
+K=7	rand	0.6814 +/- 0.0987
+K=10	mi  	0.7367 +/- 0.0841
+K=10	var 	0.6367 +/- 0.1223
+K=10	rand	0.7297 +/- 0.0954
