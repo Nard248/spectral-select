@@ -31,7 +31,17 @@ redesigned to isolate redundancy as the deciding factor.
 (monster-monash/PAMAP2, 1.6 GB, (38856,52,100)). Ran `experiments/general_pamap2_slice.py`.
 **Files:** `Data/Raw/PAMAP2_MONSTER/` (gitignored — large), `experiments/general_pamap2_slice.py`
 **Why:** First real cross-domain validation; P2 go/no-go gate.
-**Result:** (pending run completion — record here.)
+**Result:** Engine transfers to HAR. P2 GATE PASSED — AE-perturb beats variance baseline in
+mid-K regime (K=7: 0.696 vs 0.574; K=10: 0.743 vs 0.659) and beats random; variance < random
+at K=7 (over-picks redundant channels), illustrating the dependency-aware advantage. Loses at
+K=3 (normalization hypothesis logged). Ceiling (all 27) = 0.828. See RESEARCH_LOG 2026-05-23.
+
+## 2026-05-23 [P2 -> P3 · Full LOSO robustness]
+**Action:** Launched `experiments/general_pamap2_loso.py` (8 subjects, AE/variance/random at
+K=5/7/10, mean+/-std; one greedy-MMR selection per fold, evaluate K prefixes).
+**Why:** Confirm the mid-K advantage is robust, not a subject-5 artifact, before building
+the heavy P3 baselines.
+**Result:** (pending — record here.)
 
 ## 2026-05-23 [Workspace]
 **Action:** Created `generalization/` workspace (MASTER_PLAN, RESEARCH_LOG, CHANGELOG,

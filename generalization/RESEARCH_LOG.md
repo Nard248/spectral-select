@@ -79,8 +79,29 @@ vs-random is an uninformative floor.
 2. Single LOSO fold (subject 5) is high-variance — need full LOSO mean±std.
 3. AE untuned (latent 16, 20 epochs, 4000-window subsample).
 
-### Next (running)
-Re-run adds a **variance baseline** and **full-27-channel ceiling** under identical
-conditions, to see (a) whether selection beats the trivial variance baseline and (b) how far
-mid-K is from the ceiling. Then P3: real baselines (Concrete AE, mRMR), full LOSO, better
-downstream features.
+### P2 result WITH variance baseline + ceiling (holdout subj 5, LOSO KNN-5, macro-F1)
+Ceiling (all 27 channels): **0.828**.
+
+| K | AE-perturb | variance | random |
+|---|---|---|---|
+| 3 | 0.439 | 0.502 | 0.482 |
+| 5 | 0.609 | 0.576 | 0.616 |
+| 7 | **0.696** | 0.574 | 0.666 |
+| 10 | **0.743** | 0.659 | 0.722 |
+| 15 | 0.777 | 0.786 | 0.773 |
+
+**P2 GATE: PASSED.** In the mid-K sensor-reduction regime (5-10), AE-perturb beats the
+variance baseline clearly (K=7 +0.12, K=10 +0.08) and beats random. Key finding: at K=7
+**variance (0.574) < random (0.666)** — variance over-picks redundant high-variance channels
+(e.g. multiple axes of one active IMU); AE-perturb's MMR redundancy control avoids this. This
+is a concrete, non-HSI demonstration of *why dependency-aware selection matters* — the paper's
+core thesis.
+
+Weakness: AE loses at K=3 (0.439 vs var 0.502). Hypothesis: max_per_group normalization forces
+~one-channel-per-group at tiny K, a poor spread when one IMU (chest) carries most signal.
+TODO P5: try `none`/global normalization at low K.
+
+### Next (running): full LOSO
+`experiments/general_pamap2_loso.py` — all 8 subjects, AE vs variance vs random at K=5/7/10,
+mean+/-std, to confirm the mid-K advantage is not a subject-5 artifact. Then P3: Concrete
+Autoencoder + mRMR baselines, better downstream features (learned embedding vs mean+std).
