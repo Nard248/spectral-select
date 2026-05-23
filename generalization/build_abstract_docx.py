@@ -125,23 +125,21 @@ def table_block(doc, caption, rows, col_w=None, fullwidth=True):
 
 
 ABSTRACT = (
-    "Modern sensors emit many overlapping channels arranged in coupled groups. Selecting a "
-    "small, interpretable subset of the original channels—without labels—lowers cost and aids "
-    "interpretation, yet existing methods trade off: unsupervised filters (variance, PCA) "
-    "ignore inter-channel dependency, while dependency-aware selectors (mRMR, JMI) require "
-    "labels. We present an unsupervised, dependency-aware, and discrete selector. A "
-    "group-structured autoencoder learns a joint representation of the channels; perturbing its "
-    "latent factors measures each channel's reconstruction sensitivity (relevance); and a "
-    "relevance-redundancy rule chooses a diverse subset of the real channels. We verify the "
-    "same method in two very different domains, changing only the encoder. On a wearable-sensor "
-    "human-activity-recognition benchmark (three inertial units, 27 channels, leave-one-subject-"
-    "out), retaining ten channels (a 63% reduction) preserves macro-F1 to within 0.04 of the "
-    "full set and matches a supervised mutual-information selector, while being substantially "
-    "more stable across subjects than variance selection. On biomedical hyperspectral imaging, "
-    "the same method reduces channels by 58-95% while maintaining or improving classification "
-    "accuracy (e.g., 192 to 80 bands raises accuracy from 88.2% to 95.2%; 158 to 30 bands from "
-    "79.8% to 85.6%). A single label-free principle thus delivers strong, interpretable channel "
-    "reduction across modalities."
+    "We present a method that picks a small, useful set of sensor channels without using any "
+    "labels. A group-structured autoencoder first learns a shared representation of all the "
+    "channels. We then perturb its latent factors and watch how each channel's reconstruction "
+    "responds. A channel that responds strongly is one the model relies on, so this gives a "
+    "label-free measure of relevance. A relevance and redundancy rule turns these scores into an "
+    "ordered shortlist of the real channels, avoiding picks that merely repeat information "
+    "already kept. The same method applies to very different sensors, and only the front-end "
+    "encoder changes between them. On a wearable-sensor activity benchmark with three inertial "
+    "units, keeping ten of twenty-seven channels holds accuracy to within 0.04 macro-F1 of the "
+    "full set. It also equals a supervised selector that does use labels, and it is far more "
+    "stable across people than variance ranking. On biomedical hyperspectral imaging the same "
+    "method removes 58 to 95 percent of channels while holding or improving accuracy. Accuracy "
+    "rises from 88.2 to 95.2 percent on lichen tissue and from 79.8 to 85.6 percent on collagen. "
+    "One simple, label-free idea therefore reduces channels well across markedly different "
+    "sensing modalities."
 )
 
 REFS = [
@@ -196,8 +194,9 @@ def build():
     # I. Introduction
     section_heading(doc, "I", "Introduction")
     body_para(doc,
-        "Complex sensors emit many channels that overlap heavily and arrive in natural groups—"
-        "the three axes of one inertial unit, or the emission bands measured under one excitation. "
+        "Complex sensors emit many channels that overlap heavily and arrive in natural groups, "
+        "such as the three axes of one inertial unit or the emission bands measured under one "
+        "excitation. "
         "For cost, power, transmission, and interpretability, one often wants to keep only a "
         "handful of the actual channels, not a learned mixture of them. The challenge is to decide "
         "which channels to keep without labels.")
@@ -215,11 +214,12 @@ def build():
     section_heading(doc, "II", "Method")
     body_para(doc,
         "The method has three simple stages (Fig. 1). (1) A group-structured autoencoder is "
-        "trained by reconstruction only—no labels. Each channel group has its own small encoder; "
-        "the per-group features are averaged into one shared latent representation, which is then "
-        "decoded back to every group. (2) We probe what the model learned: nudging one latent "
-        "factor and measuring how much each channel's reconstruction changes gives that channel's "
-        "relevance—channels the model depends on react strongly. (3) A relevance-redundancy rule "
+        "trained by reconstruction only, with no labels. Each channel group has its own small "
+        "encoder, and the per-group features are averaged into one shared latent representation, "
+        "which is then decoded back to every group. (2) We probe what the model learned. Nudging "
+        "one latent factor and measuring how much each channel's reconstruction changes gives that "
+        "channel's relevance, and channels the model depends on react strongly. (3) A "
+        "relevance-redundancy rule "
         "(maximal marginal relevance) then picks channels one at a time, preferring those that are "
         "informative yet not already represented by a previously chosen channel. The output is an "
         "ordered, interpretable list of real channels that can be cut to any target size.")
@@ -250,8 +250,9 @@ def build():
         "group and a 1-D temporal-convolution encoder; (ii) run the selection engine to obtain an "
         "ordered channel list; and (iii) verify the chosen subset by training a k-nearest-neighbour "
         "classifier on those channels and measuring macro-F1 on the held-out subject. All numbers "
-        "are leave-one-subject-out (LOSO) means—the rigorous protocol in which the test subject is "
-        "never seen during training. We compare against a supervised mutual-information selector, "
+        "use leave-one-subject-out (LOSO) cross-validation, the rigorous protocol in which the "
+        "test subject is never seen during training. We compare against a supervised "
+        "mutual-information selector, "
         "an unsupervised variance baseline, and random selection.")
     column_figure(doc, FIGS / "fig_acc_vs_k.png",
         "Fig. 3.  Macro-F1 versus number of retained channels (LOSO). The label-free method (red) "
@@ -260,8 +261,8 @@ def build():
         "Results (Table I). Reducing from 27 to 10 channels (a 63% reduction) keeps macro-F1 within "
         "0.04 of the full set, and the label-free method matches the supervised selector at every "
         "budget while clearly beating variance. It also selects far more consistently across "
-        "subjects (Fig. 4): variance swings widely from person to person, whereas our method does "
-        "not—important when a single sensor set must be fixed before deployment. For full "
+        "subjects (Fig. 4). Variance swings widely from person to person, whereas our method does "
+        "not, which matters when a single sensor set must be fixed before deployment. For full "
         "transparency, on this particular benchmark no selector, including the supervised one, "
         "surpasses random selection, because the 27 channels are highly redundant and almost any "
         "moderate subset approaches the full-set ceiling; the informative comparisons here are "
@@ -282,8 +283,9 @@ def build():
         "imaging, where a group is an excitation wavelength, a channel is an emission band, and the "
         "regular axis is the 2-D image plane (a spatial-convolution encoder is substituted). On a "
         "lichen-tissue dataset (192 bands, four classes) the method reaches 95.2% classification "
-        "accuracy using 80 of 192 bands—above the 88.2% obtained with all bands—and still achieves "
-        "89.4% using only nine bands (a 95% reduction). On a collagen dataset (158 bands, three "
+        "accuracy using 80 of 192 bands, above the 88.2% obtained with all bands, and still "
+        "achieves 89.4% using only nine bands (a 95% reduction). On a collagen dataset (158 bands, "
+        "three "
         "classes), 30 bands raise accuracy from 79.8% to 85.6% (Table II, Fig. 5). In this "
         "high-redundancy imaging regime, intelligent selection clearly separates from trivial "
         "baselines, complementing the wearable-sensor result.")

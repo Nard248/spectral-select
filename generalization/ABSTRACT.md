@@ -8,24 +8,22 @@ de-branded framing in `CODASSCA2026_Submission/`; can feed that submission direc
 
 ---
 
-## Abstract (~220 words) — verified against the .docx generator
+## Abstract — verified against the .docx generator (natural phrasing, no em-dashes, distinct from intro)
 
-Modern sensors emit many overlapping channels arranged in coupled groups. Selecting a small,
-interpretable subset of the original channels — without labels — lowers cost and aids
-interpretation, yet existing methods trade off: unsupervised filters (variance, PCA) ignore
-inter-channel dependency, while dependency-aware selectors (mRMR, JMI) require labels. We present
-an unsupervised, dependency-aware, and discrete selector. A group-structured autoencoder learns a
-joint representation of the channels; perturbing its latent factors measures each channel's
-reconstruction sensitivity (relevance); and a relevance–redundancy rule chooses a diverse subset
-of the real channels. We verify the same method in two very different domains, changing only the
-encoder. On a wearable-sensor human-activity-recognition benchmark (three inertial units, 27
-channels, leave-one-subject-out), retaining ten channels (a 63% reduction) preserves macro-F1 to
-within 0.04 of the full set and matches a supervised mutual-information selector, while being
-substantially more stable across subjects than variance selection. On biomedical hyperspectral
-imaging, the same method reduces channels by 58–95% while maintaining or improving classification
-accuracy (e.g., 192→80 bands raises accuracy from 88.2% to 95.2%; 158→30 bands from 79.8% to
-85.6%). A single label-free principle thus delivers strong, interpretable channel reduction across
-modalities.
+We present a method that picks a small, useful set of sensor channels without using any labels.
+A group-structured autoencoder first learns a shared representation of all the channels. We then
+perturb its latent factors and watch how each channel's reconstruction responds. A channel that
+responds strongly is one the model relies on, so this gives a label-free measure of relevance. A
+relevance and redundancy rule turns these scores into an ordered shortlist of the real channels,
+avoiding picks that merely repeat information already kept. The same method applies to very
+different sensors, and only the front-end encoder changes between them. On a wearable-sensor
+activity benchmark with three inertial units, keeping ten of twenty-seven channels holds accuracy
+to within 0.04 macro-F1 of the full set. It also equals a supervised selector that does use
+labels, and it is far more stable across people than variance ranking. On biomedical hyperspectral
+imaging the same method removes 58 to 95 percent of channels while holding or improving accuracy.
+Accuracy rises from 88.2 to 95.2 percent on lichen tissue and from 79.8 to 85.6 percent on
+collagen. One simple, label-free idea therefore reduces channels well across markedly different
+sensing modalities.
 
 **Framing note:** the two domains are presented as *parallel verifications* of one general
 method — biomedical HSI is a second verification domain, **not** prior work. Biomedical numbers
