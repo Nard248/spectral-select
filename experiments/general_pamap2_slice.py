@@ -42,6 +42,18 @@ def flatten_features(ds, indices, selected=None):
     return np.stack(feats, axis=1)
 
 
+def variance_select(sel_data, K):
+    """Unsupervised variance baseline: rank channels by variance of the
+    flattened (window x time) signal on the selection subsample, take top-K."""
+    scored = []
+    for g, t in sel_data.items():
+        arr = t.numpy()  # (n, time, ch)
+        for c in range(arr.shape[-1]):
+            scored.append(((g, c), float(np.var(arr[:, :, c]))))
+    scored.sort(key=lambda x: x[1], reverse=True)
+    return set(k for k, _ in scored[:K])
+
+
 def knn_loso(ds, selected, holdout):
     tr, te = ds.loso_split(holdout)
     Xtr = flatten_features(ds, tr, selected)
@@ -74,6 +86,10 @@ def main():
     print(f"AE train loss {hist[0]:.4f} -> {hist[-1]:.4f}")
     model = model.to("cpu")
 
+    flat = [(g, c) for g in ds.groups for c in range(ds.channels_per_group[g])]
+    ceil_acc, ceil_f1 = knn_loso(ds, set(flat), HOLDOUT_SUBJECT)
+    print(f"CEILING (all {len(flat)} ch): acc={ceil_acc:.3f} F1={ceil_f1:.3f}")
+
     rows = []
     for K in [3, 5, 7, 10, 15]:
         cfg = SelectionConfig(
@@ -83,24 +99,27 @@ def main():
         )
         res = run_selection(model, sel_data, cfg)
         acc, f1 = knn_loso(ds, set(res.selected), HOLDOUT_SUBJECT)
+        var_f1 = knn_loso(ds, variance_select(sel_data, K), HOLDOUT_SUBJECT)[1]
         # random-K control (mean over 5 seeds)
-        flat = [(g, c) for g in ds.groups for c in range(ds.channels_per_group[g])]
         racc = []
         for s in range(5):
             r = np.random.default_rng(s)
             rsel = set(flat[i] for i in r.choice(len(flat), K, replace=False))
             racc.append(knn_loso(ds, rsel, HOLDOUT_SUBJECT)[1])  # macro-F1
         rmean = float(np.mean(racc))
-        rows.append((K, acc, f1, rmean, res.selected))
-        print(f"K={K:2d}  AE-perturb: acc={acc:.3f} F1={f1:.3f} | random F1={rmean:.3f} | "
-              f"picks={res.selected}")
+        rows.append((K, acc, f1, var_f1, rmean, res.selected))
+        print(f"K={K:2d}  AE-perturb: acc={acc:.3f} F1={f1:.3f} | "
+              f"variance F1={var_f1:.3f} | random F1={rmean:.3f} | picks={res.selected}")
 
     out_dir = Path("generalization/reports"); out_dir.mkdir(parents=True, exist_ok=True)
     out = out_dir / "pamap2_slice.txt"
     out.write_text(
         f"PAMAP2 MONSTER slice | holdout subject {HOLDOUT_SUBJECT} | LOSO KNN-5\n"
-        + "\n".join(f"K={k}\tacc={a:.4f}\tmacroF1={f:.4f}\trandom_macroF1={rm:.4f}\t{s}"
-                    for k, a, f, rm, s in rows)
+        f"CEILING all {len(flat)} channels: acc={ceil_acc:.4f} macroF1={ceil_f1:.4f}\n"
+        + "\n".join(
+            f"K={k}\tae_acc={a:.4f}\tae_macroF1={f:.4f}\tvar_macroF1={v:.4f}\t"
+            f"random_macroF1={rm:.4f}\t{s}"
+            for k, a, f, v, rm, s in rows)
     )
     print(f"wrote {out}")
 

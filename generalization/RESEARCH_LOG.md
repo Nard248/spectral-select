@@ -57,5 +57,30 @@ MONSTER PAMAP2 downloaded (ungated HF mirror, UCI was unreachable): (38856, 52, 
 float64, 8-9 subjects, 12 classes. Vertical-slice script runs unsupervised AE -> selection
 -> LOSO KNN acc-vs-K + random control on held-out subject 5.
 
-### Next
-Record slice numbers here when the run completes; decide P2 gate (beats random?).
+### P2 first-run result (holdout subject 5, LOSO KNN-5, macro-F1)
+AE converged (loss 573 -> 14.7). 27 channels (3 IMU x 9), 12 classes.
+
+| K | AE-perturb F1 | random-K F1 | verdict |
+|---|---|---|---|
+| 3 | 0.439 | 0.482 | loses |
+| 5 | 0.609 | 0.616 | tie |
+| 7 | 0.696 | 0.666 | wins +0.03 |
+| 10 | 0.743 | 0.722 | wins +0.02 |
+| 15 | 0.777 | 0.773 | tie (saturating) |
+
+Picks are interpretable (chest IMU dominates — most activity-discriminative location;
+hand-6 = a gyro axis, ankle-8 = a mag axis at low K). **Pass with an asterisk:** the engine
+transfers and runs on real HAR, AE-perturb modestly beats random at mid-K but loses at K=3.
+Same pattern as Drop Data — simple selection is hard to beat on "easy" datasets, and
+vs-random is an uninformative floor.
+
+### Confounders to control before reading into this
+1. Crude downstream feature (per-channel mean+std over time) may mask selection quality.
+2. Single LOSO fold (subject 5) is high-variance — need full LOSO mean±std.
+3. AE untuned (latent 16, 20 epochs, 4000-window subsample).
+
+### Next (running)
+Re-run adds a **variance baseline** and **full-27-channel ceiling** under identical
+conditions, to see (a) whether selection beats the trivial variance baseline and (b) how far
+mid-K is from the ceiling. Then P3: real baselines (Concrete AE, mRMR), full LOSO, better
+downstream features.
