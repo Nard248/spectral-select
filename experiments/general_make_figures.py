@@ -95,11 +95,11 @@ def fig_method():
 def fig_crossdomain():
     fig, ax = plt.subplots(figsize=(8.5, 2.8)); ax.axis("off")
     rows = [
-        ["concept", "ME-HSI (origin)", "HAR sensors (this work)"],
-        ["group", "excitation wavelength", "body-worn IMU (hand/chest/ankle)"],
-        ["channel", "emission band", "IMU axis (acc/gyro/mag x,y,z)"],
-        ["regular axis", "2D space (H×W)", "1D time"],
-        ["encoder", "Conv3D", "Conv1D"],
+        ["concept", "Wearable sensors (HAR)", "Biomedical imaging (HSI)"],
+        ["group", "body-worn IMU (hand/chest/ankle)", "excitation wavelength"],
+        ["channel", "IMU axis (acc/gyro/mag x,y,z)", "emission band"],
+        ["regular axis", "1D time", "2D space (H×W)"],
+        ["encoder", "Conv1D", "Conv2D / Conv3D"],
         ["selection engine", "identical", "identical"],
     ]
     n = len(rows); colw = [0.22, 0.36, 0.42]
@@ -114,12 +114,36 @@ def fig_crossdomain():
                     fontsize=9, color=tc, weight="bold" if i == 0 else "normal")
             x += colw[j]
     ax.set_xlim(0, 1); ax.set_ylim(0, 1)
-    ax.set_title("Same method, two modalities — only the encoder changes", fontsize=11)
+    ax.set_title("One method, two verification domains — only the encoder changes", fontsize=11)
     fig.tight_layout(); fig.savefig(OUT / "fig_crossdomain.png", dpi=150); plt.close(fig)
 
 
+def fig_biomed():
+    """Biomedical HSI verification: aggressive channel reduction maintains/improves accuracy.
+    Numbers are existing verified results (Lichens, Collagen) — see CODASSCA table / revision."""
+    fig, ax = plt.subplots(figsize=(7.0, 4.3))
+    groups = ["Lichens\n(192 bands)", "Collagen\n(158 bands)"]
+    full = [88.2, 79.8]
+    sel = [95.2, 85.6]           # Lichens@80 bands, Collagen@30 bands
+    red = ["-58%", "-81%"]
+    x = np.arange(2); w = 0.34
+    ax.bar(x - w/2, full, w, color="#95a5a6", label="All channels")
+    ax.bar(x + w/2, sel, w, color="#c0392b", label="Selected subset (ours)")
+    for i in range(2):
+        ax.text(x[i] - w/2, full[i] + 0.6, f"{full[i]:.1f}%", ha="center", fontsize=9)
+        ax.text(x[i] + w/2, sel[i] + 0.6, f"{sel[i]:.1f}%", ha="center", fontsize=9, color="#c0392b")
+        ax.text(x[i] + w/2, sel[i] - 6, red[i], ha="center", fontsize=9, color="white", weight="bold")
+    ax.set_xticks(x); ax.set_xticklabels(groups)
+    ax.set_ylabel("Classification accuracy (%)"); ax.set_ylim(60, 100)
+    ax.set_title("Biomedical HSI: fewer channels, same-or-better accuracy")
+    ax.legend(loc="lower right"); ax.grid(alpha=0.3, axis="y")
+    fig.text(0.01, 0.005, "Lichens also reaches 89.4% using only 9 of 192 bands (-95%).",
+             fontsize=7.5, color="#555")
+    fig.tight_layout(rect=[0, 0.03, 1, 1]); fig.savefig(OUT / "fig_biomed.png", dpi=150); plt.close(fig)
+
+
 if __name__ == "__main__":
-    fig_acc_vs_k(); fig_stability(); fig_method(); fig_crossdomain()
+    fig_acc_vs_k(); fig_stability(); fig_method(); fig_crossdomain(); fig_biomed()
     print("wrote figures to", OUT)
     for p in sorted(OUT.glob("*.png")):
         print(" ", p, p.stat().st_size, "bytes")

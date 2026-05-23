@@ -52,16 +52,15 @@ natural axis.
 
 ![Cross-domain mapping](figures/fig_crossdomain.png)
 
-- In **multi-excitation hyperspectral imaging** (the origin): a *group* is an excitation
-  wavelength, a *channel* is an emission band, the regular axis is 2-D space → a **3-D conv**
-  encoder. There the method finds discriminative wavelength bands and outperforms classical
-  band-selection baselines.
-- In **wearable human-activity recognition** (this work): a *group* is a body-worn IMU
-  (hand / chest / ankle), a *channel* is one sensor axis (acc/gyro/mag × x,y,z), the regular
-  axis is time → a **1-D conv** encoder.
+- In **wearable human-activity recognition**: a *group* is a body-worn IMU (hand / chest /
+  ankle), a *channel* is one sensor axis (acc/gyro/mag × x,y,z), the regular axis is time →
+  a **1-D conv** encoder.
+- In **biomedical hyperspectral imaging**: a *group* is an excitation wavelength, a *channel*
+  is an emission band, the regular axis is 2-D space → a **2-D/3-D conv** encoder. There the
+  method cuts 58–95% of bands while maintaining or improving classification accuracy.
 
-Nothing in the selection logic was rewritten — only a new encoder was plugged in. That
-transferability is the headline contribution.
+Both are treated as **parallel verification domains** of one general method (not origin →
+transfer). Nothing in the selection logic is rewritten — only the encoder changes.
 
 ---
 

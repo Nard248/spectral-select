@@ -8,25 +8,28 @@ de-branded framing in `CODASSCA2026_Submission/`; can feed that submission direc
 
 ---
 
-## Abstract (~210 words)
+## Abstract (~220 words) — verified against the .docx generator
 
-Modern sensing systems produce many channels that are highly correlated and organized into
-coupled groups. Choosing a small, interpretable subset of the *original* channels — without
-labels — reduces cost and complexity, but existing options force a trade-off: unsupervised
-filters (variance, PCA) ignore inter-channel dependency, while dependency-aware selectors
-(mRMR, JMI) require labels. We present an unsupervised method that captures channel dependency
-directly. A group-structured autoencoder learns a joint representation across channel groups;
-each channel's importance is measured by the sensitivity of the reconstruction to perturbations
-of the learned latent factors; and a relevance–redundancy criterion selects a diverse,
-informative subset of the actual channels. The method is discrete — it returns real channels,
-not a projection — and interpretable. Originally developed for multi-excitation hyperspectral
-imaging, where it identifies discriminative wavelength bands and outperforms classical
-band-selection baselines, the same selection procedure transfers to a very different modality
-with only a domain-appropriate encoder. On a standard wearable-sensor human-activity-recognition
-benchmark, evaluated with leave-one-subject-out cross-validation, the label-free method matches
-supervised mutual-information selection and is substantially more stable across subjects than
-variance-based selection. A single dependency-aware, label-free selection principle thus
-generalizes across markedly different sensor modalities.
+Modern sensors emit many overlapping channels arranged in coupled groups. Selecting a small,
+interpretable subset of the original channels — without labels — lowers cost and aids
+interpretation, yet existing methods trade off: unsupervised filters (variance, PCA) ignore
+inter-channel dependency, while dependency-aware selectors (mRMR, JMI) require labels. We present
+an unsupervised, dependency-aware, and discrete selector. A group-structured autoencoder learns a
+joint representation of the channels; perturbing its latent factors measures each channel's
+reconstruction sensitivity (relevance); and a relevance–redundancy rule chooses a diverse subset
+of the real channels. We verify the same method in two very different domains, changing only the
+encoder. On a wearable-sensor human-activity-recognition benchmark (three inertial units, 27
+channels, leave-one-subject-out), retaining ten channels (a 63% reduction) preserves macro-F1 to
+within 0.04 of the full set and matches a supervised mutual-information selector, while being
+substantially more stable across subjects than variance selection. On biomedical hyperspectral
+imaging, the same method reduces channels by 58–95% while maintaining or improving classification
+accuracy (e.g., 192→80 bands raises accuracy from 88.2% to 95.2%; 158→30 bands from 79.8% to
+85.6%). A single label-free principle thus delivers strong, interpretable channel reduction across
+modalities.
+
+**Framing note:** the two domains are presented as *parallel verifications* of one general
+method — biomedical HSI is a second verification domain, **not** prior work. Biomedical numbers
+are existing verified results; the HAR result is the new contribution.
 
 ---
 

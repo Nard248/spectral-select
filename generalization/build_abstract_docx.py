@@ -1,8 +1,12 @@
-"""Generate the submittable Word document for the generalization short paper.
+"""Generate the submittable Word document for the general channel-selection paper.
 
-Content mirrors generalization/ABSTRACT.md + EXPLAINER.md (honest framing:
-label-free method matches supervised selection and is more stable than variance;
-cross-domain transfer; ME-HSI noted slightly; NO "beats random" / "first" claims).
+Framing (per author direction):
+- One general method, verified in TWO domains: wearable-sensor HAR (the new, detailed
+  result) and biomedical hyperspectral imaging (brief, existing verified results).
+- Biomedical is NOT framed as prior work; it is a second verification domain.
+- Plain language, simple visuals, explicit selection -> verification flow, dataset detail.
+- Honest baselines: matches supervised / beats variance / more stable; no "beats random",
+  no "first" claims. Biomedical numbers are existing verified results.
 
 Run: python generalization/build_abstract_docx.py
 Output: generalization/Meloyan_GeneralChannelSelection.docx
@@ -20,7 +24,6 @@ from docx.oxml import OxmlElement
 HERE = Path(__file__).resolve().parent
 FIGS = HERE / "figures"
 OUT = HERE / "Meloyan_GeneralChannelSelection.docx"
-
 BODY_FONT = "Times New Roman"
 BODY_PT = 9.5
 
@@ -44,8 +47,7 @@ def _margins(section):
     section.left_margin = Inches(0.625); section.right_margin = Inches(0.625)
 
 
-def body_para(doc, text, *, justify=True, first_indent=0.18, size=BODY_PT,
-              bold=False, italic=False):
+def body_para(doc, text, *, justify=True, first_indent=0.18, size=BODY_PT, bold=False, italic=False):
     p = doc.add_paragraph()
     if justify:
         p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
@@ -60,7 +62,8 @@ def body_para(doc, text, *, justify=True, first_indent=0.18, size=BODY_PT,
 def section_heading(doc, numeral, title):
     p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     tighten(p, before=6, after=2)
-    r = p.add_run(f"{numeral}. {title.upper()}")
+    label = f"{numeral}. {title.upper()}" if numeral else title.upper()
+    r = p.add_run(label)
     r.font.name = BODY_FONT; r.font.size = Pt(BODY_PT); r.bold = True; r.font.small_caps = True
 
 
@@ -80,8 +83,16 @@ def column_figure(doc, img, caption, width_in=3.35):
     _caption(doc, caption)
 
 
+def _begin_fullwidth(doc):
+    s = doc.add_section(WD_SECTION.CONTINUOUS); _margins(s); set_columns(s, 1)
+
+
+def _end_fullwidth(doc):
+    s = doc.add_section(WD_SECTION.CONTINUOUS); _margins(s); set_columns(s, 2)
+
+
 def fullwidth_figure(doc, img, caption, width_in=6.9):
-    s1 = doc.add_section(WD_SECTION.CONTINUOUS); _margins(s1); set_columns(s1, 1)
+    _begin_fullwidth(doc)
     p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     tighten(p, before=2, after=0)
     if Path(img).exists():
@@ -89,58 +100,75 @@ def fullwidth_figure(doc, img, caption, width_in=6.9):
     else:
         p.add_run(f"[missing figure: {Path(img).name}]")
     _caption(doc, caption)
-    s2 = doc.add_section(WD_SECTION.CONTINUOUS); _margins(s2); set_columns(s2, 2)
+    _end_fullwidth(doc)
+
+
+def table_block(doc, caption, rows, col_w=None, fullwidth=True):
+    if fullwidth:
+        _begin_fullwidth(doc)
+    cap = doc.add_paragraph(); cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    tighten(cap, before=4, after=1)
+    rc = cap.add_run(caption); rc.font.name = BODY_FONT; rc.font.size = Pt(8); rc.bold = True
+    rc.font.small_caps = True
+    table = doc.add_table(rows=len(rows), cols=len(rows[0])); table.alignment = 1
+    table.style = "Table Grid"
+    for i, row in enumerate(rows):
+        for j, val in enumerate(row):
+            cell = table.rows[i].cells[j]; cell.text = ""
+            par = cell.paragraphs[0]; par.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            tighten(par, before=0, after=0)
+            run = par.add_run(str(val)); run.font.name = BODY_FONT; run.font.size = Pt(8)
+            run.bold = (i == 0)
+    if fullwidth:
+        _end_fullwidth(doc)
+    return table
 
 
 ABSTRACT = (
-    "Modern sensing systems produce many channels that are highly correlated and organized "
-    "into coupled groups. Choosing a small, interpretable subset of the original channels—"
-    "without labels—reduces cost and complexity, but existing options force a trade-off: "
-    "unsupervised filters (variance, PCA) ignore inter-channel dependency, while "
-    "dependency-aware selectors (mRMR, JMI) require labels. We present an unsupervised method "
-    "that captures channel dependency directly. A group-structured autoencoder learns a joint "
-    "representation across channel groups; each channel's importance is measured by the "
-    "sensitivity of the reconstruction to perturbations of the learned latent factors; and a "
-    "relevance-redundancy criterion selects a diverse, informative subset of the actual "
-    "channels. The method is discrete—it returns real channels, not a projection—and "
-    "interpretable. Originally developed for multi-excitation hyperspectral imaging, where it "
-    "identifies discriminative wavelength bands and outperforms classical band-selection "
-    "baselines, the same selection procedure transfers to a very different modality with only "
-    "a domain-appropriate encoder. On a standard wearable-sensor human-activity-recognition "
-    "benchmark, evaluated with leave-one-subject-out cross-validation, the label-free method "
-    "matches supervised mutual-information selection and is substantially more stable across "
-    "subjects than variance-based selection. A single dependency-aware, label-free selection "
-    "principle thus generalizes across markedly different sensor modalities."
+    "Modern sensors emit many overlapping channels arranged in coupled groups. Selecting a "
+    "small, interpretable subset of the original channels—without labels—lowers cost and aids "
+    "interpretation, yet existing methods trade off: unsupervised filters (variance, PCA) "
+    "ignore inter-channel dependency, while dependency-aware selectors (mRMR, JMI) require "
+    "labels. We present an unsupervised, dependency-aware, and discrete selector. A "
+    "group-structured autoencoder learns a joint representation of the channels; perturbing its "
+    "latent factors measures each channel's reconstruction sensitivity (relevance); and a "
+    "relevance-redundancy rule chooses a diverse subset of the real channels. We verify the "
+    "same method in two very different domains, changing only the encoder. On a wearable-sensor "
+    "human-activity-recognition benchmark (three inertial units, 27 channels, leave-one-subject-"
+    "out), retaining ten channels (a 63% reduction) preserves macro-F1 to within 0.04 of the "
+    "full set and matches a supervised mutual-information selector, while being substantially "
+    "more stable across subjects than variance selection. On biomedical hyperspectral imaging, "
+    "the same method reduces channels by 58-95% while maintaining or improving classification "
+    "accuracy (e.g., 192 to 80 bands raises accuracy from 88.2% to 95.2%; 158 to 30 bands from "
+    "79.8% to 85.6%). A single label-free principle thus delivers strong, interpretable channel "
+    "reduction across modalities."
 )
 
 REFS = [
     "M. F. Balin, A. Abid, and J. Zou, \"Concrete autoencoders: Differentiable feature "
     "selection and reconstruction,\" in Proc. ICML, 2019.",
-    "H. Peng, F. Long, and C. Ding, \"Feature selection based on mutual information: "
-    "Criteria of max-dependency, max-relevance, and min-redundancy,\" IEEE Trans. Pattern "
-    "Anal. Mach. Intell., vol. 27, no. 8, 2005.",
+    "H. Peng, F. Long, and C. Ding, \"Feature selection based on mutual information,\" IEEE "
+    "Trans. Pattern Anal. Mach. Intell., vol. 27, no. 8, 2005.",
     "X. He, D. Cai, and P. Niyogi, \"Laplacian score for feature selection,\" in Proc. "
     "NeurIPS, 2005.",
     "Y. Cai et al., \"BS-Nets: An end-to-end framework for band selection of hyperspectral "
     "image,\" IEEE Trans. Geosci. Remote Sens., vol. 58, no. 3, 2020.",
     "A. Reiss and D. Stricker, \"Introducing a new benchmarked dataset for activity "
     "monitoring,\" in Proc. IEEE Int. Symp. Wearable Computers (ISWC), 2012.",
-    "N. Meloyan and N. Sarvazyan, \"Perturbation-based wavelength selection for "
-    "multi-excitation hyperspectral imaging\" (companion work).",
+    "A. Carbonneau et al., \"The MONSTER benchmark for multivariate time-series "
+    "classification,\" arXiv:2502.15122, 2025.",
 ]
 
 
 def build():
     doc = Document()
-    sec = doc.sections[0]
-    sec.page_height = Inches(11); sec.page_width = Inches(8.5); _margins(sec)
+    sec = doc.sections[0]; sec.page_height = Inches(11); sec.page_width = Inches(8.5); _margins(sec)
 
     # Title
     t = doc.add_paragraph(); t.alignment = WD_ALIGN_PARAGRAPH.CENTER; tighten(t, after=4)
     rt = t.add_run("Label-Free, Dependency-Aware Channel Selection\n"
                    "for Coupled Multi-Channel Sensor Data")
     rt.font.name = BODY_FONT; rt.font.size = Pt(18); rt.bold = True
-
     a = doc.add_paragraph(); a.alignment = WD_ALIGN_PARAGRAPH.CENTER; tighten(a, before=2, after=0)
     ra = a.add_run("Narek Meloyan, Aleksandr Hayrapetyan, and Narine Sarvazyan")
     ra.font.name = BODY_FONT; ra.font.size = Pt(11)
@@ -151,105 +179,134 @@ def build():
 
     body = doc.add_section(WD_SECTION.CONTINUOUS); _margins(body); set_columns(body, 2)
 
-    # Abstract
+    # Abstract + index terms
     ab = doc.add_paragraph(); ab.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY; tighten(ab, after=3)
     lab = ab.add_run("Abstract—"); lab.font.name = BODY_FONT; lab.font.size = Pt(BODY_PT)
     lab.bold = True; lab.italic = True
     rab = ab.add_run(ABSTRACT); rab.font.name = BODY_FONT; rab.font.size = Pt(BODY_PT)
     rab.bold = True; rab.italic = True
-
     idx = doc.add_paragraph(); idx.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY; tighten(idx, after=4)
     il = idx.add_run("Index Terms—"); il.font.name = BODY_FONT; il.font.size = Pt(BODY_PT)
     il.bold = True; il.italic = True
     it = idx.add_run("unsupervised feature selection, channel selection, conditional relevance, "
-                     "autoencoders, interpretability, human activity recognition, "
-                     "hyperspectral imaging.")
+                     "autoencoders, interpretability, human activity recognition, hyperspectral "
+                     "imaging.")
     it.font.name = BODY_FONT; it.font.size = Pt(BODY_PT); it.italic = True
 
     # I. Introduction
     section_heading(doc, "I", "Introduction")
     body_para(doc,
         "Complex sensors emit many channels that overlap heavily and arrive in natural groups—"
-        "the three axes of one inertial unit, or the emission bands of one excitation. For cost, "
-        "power, and interpretability one often wants to retain only a handful of the actual "
-        "channels, not a learned mixture of them. Existing selectors force a trade-off. "
-        "Unsupervised filters such as variance ranking and PCA judge each channel by its marginal "
-        "statistics and ignore inter-channel dependency. Dependency-aware selectors such as mRMR "
-        "and JMI model conditional relevance but require labels. The cell that is "
-        "label-free, dependency-aware, and discrete is sparsely populated; this work targets it "
-        "and, more importantly, shows that one such method generalizes across very different "
-        "sensor modalities.")
+        "the three axes of one inertial unit, or the emission bands measured under one excitation. "
+        "For cost, power, transmission, and interpretability, one often wants to keep only a "
+        "handful of the actual channels, not a learned mixture of them. The challenge is to decide "
+        "which channels to keep without labels.")
+    body_para(doc,
+        "Existing selectors force a trade-off. Unsupervised filters such as variance ranking or "
+        "PCA score each channel by its own statistics and ignore how channels depend on one "
+        "another, so they tend to keep several channels that carry the same information. "
+        "Dependency-aware selectors such as mRMR or JMI account for this redundancy but need "
+        "labels. The cell that is at once label-free, dependency-aware, and discrete (returning "
+        "real channels, not a projection) is sparsely occupied. This paper presents a method for "
+        "that cell and, more importantly, shows that one such method works across two very "
+        "different sensing modalities by changing only its front-end encoder.")
 
     # II. Method
     section_heading(doc, "II", "Method")
     body_para(doc,
-        "The method has three stages (Fig. 1). First, a group-structured autoencoder is trained "
-        "by reconstruction alone—no labels: each channel group is encoded separately, the "
-        "per-group features are mean-fused into a shared latent representation, and the latent is "
-        "decoded back to each group. Second, perturbation-based attribution nudges individual "
-        "latent factors and measures how much each channel's reconstruction changes; channels the "
-        "model relies on react strongly. Third, a relevance-redundancy (maximal marginal "
-        "relevance) criterion greedily selects channels that are individually informative yet "
-        "non-redundant with those already chosen. The output is a discrete, ordered, interpretable "
-        "subset of the real channels that can be thresholded to any target size.")
+        "The method has three simple stages (Fig. 1). (1) A group-structured autoencoder is "
+        "trained by reconstruction only—no labels. Each channel group has its own small encoder; "
+        "the per-group features are averaged into one shared latent representation, which is then "
+        "decoded back to every group. (2) We probe what the model learned: nudging one latent "
+        "factor and measuring how much each channel's reconstruction changes gives that channel's "
+        "relevance—channels the model depends on react strongly. (3) A relevance-redundancy rule "
+        "(maximal marginal relevance) then picks channels one at a time, preferring those that are "
+        "informative yet not already represented by a previously chosen channel. The output is an "
+        "ordered, interpretable list of real channels that can be cut to any target size.")
     fullwidth_figure(doc, FIGS / "fig_method.png",
-        "Fig. 1.  The selection pipeline. The engine (perturbation → per-channel influence "
-        "→ relevance-redundancy selection) is identical across domains; only the "
-        "encoder/decoder changes with the data's regular axis.")
-
-    # III. Cross-domain transfer
-    section_heading(doc, "III", "Cross-Domain Transfer")
+        "Fig. 1.  The three-stage pipeline. The selection engine (perturbation -> per-channel "
+        "relevance -> relevance-redundancy selection) is identical across domains; only the "
+        "encoder/decoder changes to match the data's regular axis.")
     body_para(doc,
-        "The selection engine is modality-agnostic: it operates on an abstract layout of "
-        "groups, channels, and one regular axis. Moving to a new modality requires only an "
-        "encoder matched to that axis (Fig. 2). The method was originally developed for "
-        "multi-excitation hyperspectral imaging, where a group is an excitation wavelength, a "
-        "channel is an emission band, the regular axis is 2-D space, and a 3-D convolutional "
-        "encoder is used; there it identifies discriminative bands and outperforms classical "
-        "band-selection baselines. For wearable human-activity recognition, a group is a "
-        "body-worn inertial unit, a channel is one sensor axis, and the regular axis is time, so "
-        "a 1-D convolutional encoder is substituted. No part of the selection logic was rewritten.")
+        "Crucially, the selection engine is modality-agnostic: it works on an abstract layout of "
+        "groups, channels, and one regular axis (space or time). Moving to a new modality requires "
+        "only an encoder matched to that axis (Fig. 2). We verify the same engine on two domains.")
     fullwidth_figure(doc, FIGS / "fig_crossdomain.png",
-        "Fig. 2.  The same method instantiated in two modalities. Only the encoder changes.")
+        "Fig. 2.  One method, two verification domains. Only the encoder changes (1-D temporal "
+        "convolutions for wearable sensors; 2-D/3-D spatial convolutions for imaging).")
 
-    # IV. Experiments
-    section_heading(doc, "IV", "Experiments and Results")
+    # III. Verification 1 — HAR (detailed)
+    section_heading(doc, "III", "Verification 1: Wearable-Sensor Activity Recognition")
     body_para(doc,
-        "We evaluate on a standard wearable-sensor activity-recognition benchmark with three "
-        "body-worn inertial units, using leave-one-subject-out cross-validation and macro-F1, the "
-        "rigorous protocol in which the test subject is never seen during training. We compare the "
-        "label-free method against a supervised mutual-information selector, an unsupervised "
-        "variance baseline, and random selection, sweeping the number of retained channels.")
+        "Dataset. We use PAMAP2, a standard human-activity-recognition (HAR) benchmark recorded "
+        "from three body-worn inertial measurement units (IMUs) placed on the hand, chest, and "
+        "ankle, sampled at 100 Hz. Each IMU contributes nine channels (3-axis accelerometer, "
+        "gyroscope, and magnetometer), giving 27 channels organized into three natural groups. We "
+        "use the preprocessed release with fixed one-second windows, yielding 38,856 windows "
+        "across eight subjects and twelve activity classes.")
+    body_para(doc,
+        "Protocol (the selection-then-verification flow). For each held-out subject we (i) train "
+        "the group autoencoder unsupervised on the remaining subjects' windows, with one IMU per "
+        "group and a 1-D temporal-convolution encoder; (ii) run the selection engine to obtain an "
+        "ordered channel list; and (iii) verify the chosen subset by training a k-nearest-neighbour "
+        "classifier on those channels and measuring macro-F1 on the held-out subject. All numbers "
+        "are leave-one-subject-out (LOSO) means—the rigorous protocol in which the test subject is "
+        "never seen during training. We compare against a supervised mutual-information selector, "
+        "an unsupervised variance baseline, and random selection.")
     column_figure(doc, FIGS / "fig_acc_vs_k.png",
-        "Fig. 3.  Macro-F1 vs. number of selected channels (leave-one-subject-out). The "
-        "label-free method (red) tracks the supervised selector (blue) and exceeds variance "
-        "(orange).")
+        "Fig. 3.  Macro-F1 versus number of retained channels (LOSO). The label-free method (red) "
+        "tracks the supervised selector (blue) and stays above variance (orange).")
     body_para(doc,
-        "Two results stand out. First, the label-free method matches the supervised "
-        "mutual-information selector across channel budgets, achieving without labels what the "
-        "supervised method requires labels to attain. Second, it consistently exceeds the "
-        "variance baseline and—crucially for deployment—selects far more stably across subjects "
-        "(Fig. 4): variance selection swings widely from subject to subject, whereas the proposed "
-        "method does not. We note in the interest of full disclosure that on this particular "
-        "benchmark no selector, including the supervised one, surpasses random selection: its "
-        "channels are intrinsically redundant, so almost any moderate subset approaches the "
-        "all-channel ceiling. The comparison against a supervised selector and the stability "
-        "analysis are therefore the informative axes here.")
+        "Results (Table I). Reducing from 27 to 10 channels (a 63% reduction) keeps macro-F1 within "
+        "0.04 of the full set, and the label-free method matches the supervised selector at every "
+        "budget while clearly beating variance. It also selects far more consistently across "
+        "subjects (Fig. 4): variance swings widely from person to person, whereas our method does "
+        "not—important when a single sensor set must be fixed before deployment. For full "
+        "transparency, on this particular benchmark no selector, including the supervised one, "
+        "surpasses random selection, because the 27 channels are highly redundant and almost any "
+        "moderate subset approaches the full-set ceiling; the informative comparisons here are "
+        "therefore against the supervised selector and on stability.")
+    table_block(doc, "TABLE I.  HAR macro-F1 under channel reduction (LOSO). Full set (27 ch) = 0.72.",
+        [("Method", "10 ch (-63%)", "7 ch (-74%)", "5 ch (-81%)"),
+         ("Ours (label-free)", "0.68", "0.63", "0.54"),
+         ("Mutual info (supervised)", "0.68", "0.61", "0.54"),
+         ("Variance (unsupervised)", "0.59", "0.54", "0.51")])
     column_figure(doc, FIGS / "fig_stability.png",
         "Fig. 4.  Stability of the selected set across subjects (lower is better). The proposed "
         "method is markedly more consistent than variance selection.")
 
+    # IV. Verification 2 — Biomedical HSI (brief)
+    section_heading(doc, "IV", "Verification 2: Biomedical Hyperspectral Imaging")
+    body_para(doc,
+        "We verify the identical method on biomedical multi-excitation fluorescence hyperspectral "
+        "imaging, where a group is an excitation wavelength, a channel is an emission band, and the "
+        "regular axis is the 2-D image plane (a spatial-convolution encoder is substituted). On a "
+        "lichen-tissue dataset (192 bands, four classes) the method reaches 95.2% classification "
+        "accuracy using 80 of 192 bands—above the 88.2% obtained with all bands—and still achieves "
+        "89.4% using only nine bands (a 95% reduction). On a collagen dataset (158 bands, three "
+        "classes), 30 bands raise accuracy from 79.8% to 85.6% (Table II, Fig. 5). In this "
+        "high-redundancy imaging regime, intelligent selection clearly separates from trivial "
+        "baselines, complementing the wearable-sensor result.")
+    table_block(doc, "TABLE II.  Biomedical HSI: aggressive reduction maintains or improves accuracy.",
+        [("Dataset", "Channels (all -> kept)", "Reduction", "Accuracy (all -> kept)"),
+         ("Lichens", "192 -> 80", "58%", "88.2% -> 95.2%"),
+         ("Lichens", "192 -> 9", "95%", "88.2% -> 89.4%"),
+         ("Collagen", "158 -> 30", "81%", "79.8% -> 85.6%")])
+    column_figure(doc, FIGS / "fig_biomed.png",
+        "Fig. 5.  Biomedical HSI: fewer channels, same-or-better accuracy.")
+
     # V. Conclusion
     section_heading(doc, "V", "Conclusion and Future Work")
     body_para(doc,
-        "A single unsupervised, dependency-aware selection principle transfers from hyperspectral "
-        "imaging to wearable sensors with only an encoder substitution, matching supervised "
-        "selection without labels and selecting more stably than variance. Future work targets a "
-        "higher-redundancy activity benchmark, where intelligent selection should separate from "
-        "random by a clear margin, and a direct comparison against differentiable unsupervised "
-        "selectors such as the concrete autoencoder.")
+        "A single unsupervised, dependency-aware selection principle delivers strong, interpretable "
+        "channel reduction across two very different modalities, requiring only an encoder change. "
+        "On wearable sensors it matches a supervised selector without labels and selects more "
+        "stably than variance; on biomedical imaging it cuts 58-95% of channels while maintaining "
+        "or improving accuracy. Future work targets a higher-redundancy activity benchmark, where "
+        "selection should separate from random by a wide margin, and a direct comparison with "
+        "differentiable unsupervised selectors such as the concrete autoencoder.")
 
-    # Acknowledgement / AI disclosure
+    # VI. Acknowledgement
     section_heading(doc, "VI", "Acknowledgement")
     body_para(doc,
         "AI-assisted tooling was used for code scaffolding, figure generation, and manuscript "
@@ -258,12 +315,10 @@ def build():
     # References
     section_heading(doc, "", "References")
     for i, r in enumerate(REFS, 1):
-        p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-        tighten(p, after=1)
+        p = doc.add_paragraph(); p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY; tighten(p, after=1)
         p.paragraph_format.left_indent = Inches(0.18)
         p.paragraph_format.first_line_indent = Inches(-0.18)
-        run = p.add_run(f"[{i}] {r}")
-        run.font.name = BODY_FONT; run.font.size = Pt(8)
+        run = p.add_run(f"[{i}] {r}"); run.font.name = BODY_FONT; run.font.size = Pt(8)
 
     doc.save(OUT)
     print("wrote", OUT)
