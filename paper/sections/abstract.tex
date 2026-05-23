@@ -1,0 +1,13 @@
+\begin{abstract}
+Conventional Hyperspectral Imaging (HSI) is based on acquiring either reflectance, emission, or excitation profiles from each pixel of an image.
+Emission-based HSI can be expanded into a fourth dimension by varying the excitation wavelength, which enables an improved discrimination of materials that contain mixed fluorophores.
+Multi-excitation HSI (ME-HSI) creates a 4D dataset encompassing signal intensity across two spatial and two spectral dimensions, the latter being the emission and excitation wavelengths.
+The processing of ME-HSI datasets presents notable challenges due to the numerous spectral layers per pixel, introducing considerable redundancy and computational burden.
+Existing band selection methods, developed for 3D HSI, fail to capture the nonlinear cross-excitation correlations present in ME-HSI.
+To fill this gap, we developed a deep learning framework comprising three stages: (1) a 3D convolutional autoencoder with parallel excitation branches that learns a unified latent representation of ME-HSI data, (2) a perturbation-based attribution method that traces reconstruction sensitivity to individual excitation-emission wavelength pairs, and (3) Maximum Marginal Relevance (MMR) selection that balances informativeness with spectral diversity.
+The framework is evaluated on three datasets covering distinct ME-HSI regimes: a four-class lichen autofluorescence dataset (3{,}072 configurations sweep), a three-class collagen sponges--collagen dataset that tests transfer to a chemically distinct fluorophore family, and a fully unlabeled droplet dataset that tests the unsupervised claim end-to-end.
+On lichens, 95.2\% accuracy is achieved with 80 of 192 bands (58\% data reduction, 7.0 points above the 88.2\% baseline), and 89.4\% is maintained at only 9 bands (95\% reduction).
+On collagen sponges--collagen, the same pipeline---unchanged---reaches 85.6\% accuracy at 30 of 158 bands (81\% reduction, 5.8 points above baseline); a ten-classifier evaluation confirms the selected bands are intrinsically informative rather than tuned to a single classifier.
+On the unlabeled droplet dataset, the framework recovers the three spectral types identified by full-spectrum hierarchical clustering at 96.4\% per-pixel cross-validated accuracy using only 10 of 214 bands, outperforming or matching eight band-selection baselines including BS-Net-FC and a supervised Sparse-LASSO control.
+The framework facilitates practical applications of ME-HSI by reducing acquisition complexity while improving discriminative power, with results that hold across supervised and fully blind settings.
+\end{abstract}

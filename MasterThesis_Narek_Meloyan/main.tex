@@ -1,0 +1,121 @@
+\documentclass[journal]{IEEEtran}
+
+% 
+% PACKAGES
+% 
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{siunitx}
+\usepackage{balance}
+
+% TikZ libraries for diagrams
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc, patterns}
+\pgfplotsset{compat=1.18}
+
+% Hyperref configuration
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,
+    urlcolor=cyan,
+    citecolor=blue,
+    pdftitle={Master's Thesis: Deep Learning for Dimensionality Reduction in ME-HSI},
+    pdfauthor={Narek Meloyan},
+    pdfsubject={Master's Thesis, American University of Armenia},
+}
+
+% Custom commands
+\newcommand{\lambdaex}{\lambda_{\text{ex}}}
+\newcommand{\lambdaem}{\lambda_{\text{em}}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\vect}[1]{\mathbf{#1}}
+\newcommand{\mat}[1]{\mathbf{#1}}
+
+% 
+% DOCUMENT
+%
+\begin{document}
+
+\title{Deep Learning for Dimensionality Reduction in Multi-Excitation Hyperspectral Imaging\\
+\vspace{0.4em}\large \textit{Master's Thesis}}
+
+\author{\IEEEauthorblockN{Narek Meloyan\textsuperscript{1,2}}\\
+\IEEEauthorblockA{\textsuperscript{1}American University of Armenia, Yerevan, Armenia\\
+\textsuperscript{2}L.A. Orbeli Institute of Physiology NAS RA, Yerevan, Armenia\\
+Email: narek\_meloyan@edu.aua.am}\\[0.6em]
+\IEEEauthorblockA{\textit{Thesis Supervisor:} Prof.\ Narine Sarvazyan\textsuperscript{1,3}\\
+\textsuperscript{3}George Washington University, Washington, DC, USA}}
+
+
+\maketitle
+
+% 
+% ABSTRACT
+% 
+\input{sections/abstract}
+
+% 
+% KEYWORDS
+%
+\begin{IEEEkeywords}
+Wavelength selection, convolutional autoencoder, perturbation analysis, spectral band selection, fluorescence imaging
+\end{IEEEkeywords}
+
+%
+% MAIN CONTENT
+%
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/methodology}
+\input{sections/experimental_setup}
+\input{sections/results}
+\input{sections/discussion}
+\input{sections/conclusion}
+
+% 
+% ACKNOWLEDGMENT
+% 
+\section*{Acknowledgments}
+The author thanks his thesis supervisor, Prof.\ Narine Sarvazyan, for her continuous guidance, mentorship, and substantive scientific input throughout this research.
+Financial support of the European Union (ERA Chair NAS-SAR award, grant 101087403) is gratefully acknowledged.
+The author thanks Dr.\ Arsen Gasparyan from the Takhtajyan Institute of Botany, National Academy of Sciences of Armenia, for providing lichen samples; Narek Chillingaryan from the L.A. Orbeli Institute of Physiology for his assistance with sample preparation and data acquisition; and Aleksandr Hayrapetyan from Yerevan State University for his assistance with model selection and benchmarking.
+Aram Butavyan, Grigor Bezirganyan, and Fernando Villarruel are gratefully acknowledged for the critical reading of the final version of the manuscript.
+Anthropic's Claude was used solely for refining grammatical clarity and editing LaTeX source code; the AI did not contribute to the conceptual design, data analysis, or original intellectual substance of this work.
+
+
+%
+% REFERENCES
+% 
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+% 
+% BIOGRAPHY
+% 
+% ============================================================================
+% BIOGRAPHY
+% ============================================================================
+
+\newcommand{\meloyanphoto}{\includegraphics[width=1in,height=1.25in,clip,keepaspectratio]{meloyan.png}}
+
+\vspace{-10.5cm}
+
+\begin{IEEEbiography}[\meloyanphoto]{Narek Meloyan}
+received his B.S. degree in Data Science from the American University of Armenia (AUA), where he is currently pursuing an M.S. in Computer and Information Science and serves as a Teaching Associate. He is a Software Architect and Tech Lead at Wireless2020 and a researcher at the YSU Photonics AI Research Group and the L.A. Orbeli Institute of Physiology. His main research interests include deep learning and its applications in scientific domains, particularly medicine and biomedical engineering.
+\end{IEEEbiography}
+
+\vspace{0.4em}
+Code available at: \url{https://github.com/Nard248/spectral-select.git}
+
+\end{document}

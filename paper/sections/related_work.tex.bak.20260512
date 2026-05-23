@@ -1,0 +1,90 @@
+% ============================================================================
+% II. RELATED WORK (REVISED)
+% ============================================================================
+\section{Related Work}
+\label{sec:related_work}
+
+This section reviews prior work in four areas relevant to our framework: hyperspectral imaging systems and data characteristics, band selection methods for hyperspectral data, deep learning approaches for spectral analysis, and explainability methods for feature attribution.
+
+% ----------------------------------------------------------------------------
+\subsection{Multi-Excitation Hyperspectral Imaging Systems}
+\label{sec:related_hsi}
+
+Hyperspectral imaging systems have evolved from early pushbroom scanners requiring platform motion~\cite{goetz1985imaging} to contemporary snapshot sensors capable of real-time acquisition~\cite{hagen2013review}.
+While reflectance-based hyperspectral imaging remains dominant for remote sensing applications, fluorescence hyperspectral imaging has gained traction in laboratory and close-range settings where controlled excitation is feasible~\cite{mishra2017close}.
+The extension to multiple excitation wavelengths---yielding the EEM structure that characterizes ME-HSI---was pioneered in analytical chemistry for fluorescence spectroscopy of solutions~\cite{murphy2013fluorescence} and has been adapted for imaging applications where spatially resolved EEM data provides additional discrimination power~\cite{lavine2001exploratory}.
+Such systems have proven particularly valuable for biological specimens, including lichens and plant tissues, where autofluorescence signatures encode information about molecular composition that reflectance imaging cannot capture~\cite{croce2019autofluorescence}.
+
+The 4D data structure of ME-HSI presents unique challenges.
+Unlike 3D hyperspectral cubes where spectral bands sample a single physical phenomenon (reflectance or emission at fixed excitation), ME-HSI data exhibits complex cross-excitation correlations arising from energy transfer between fluorophores, concentration-dependent quenching, and overlapping emission spectra~\cite{lakowicz2006principles}.
+Additionally, Rayleigh and Raman scattering at wavelengths near the excitation produce artifacts that must be removed, resulting in variable numbers of valid emission bands per excitation~\cite{murphy2013fluorescence}.
+While hardware advances have made 4D acquisition practical, analytical methods for handling the resulting data dimensionality have lagged behind~\cite{mishra2017close}.
+
+% ----------------------------------------------------------------------------
+\subsection{Band Selection for Hyperspectral Data}
+\label{sec:related_band}
+
+Band selection methods aim to identify a subset of spectral bands that retain discriminative information while reducing dimensionality~\cite{sun2019hyperspectral}.
+These methods are typically categorized as filter, wrapper, or embedded approaches.
+
+Filter methods rank bands based on statistical properties computed without reference to any downstream task.
+Variance-based selection prioritizes bands with high variance across samples~\cite{chang2000constrained}, entropy-based methods favor bands with maximum information content~\cite{guo2006band}, and correlation-based approaches remove redundant bands that are highly correlated with others~\cite{martinez2006comparison}.
+While computationally efficient, filter methods lack any notion of discriminative value---a band with high variance may capture noise rather than meaningful variation.
+Moreover, they treat bands independently, ignoring the joint information captured by band combinations.
+
+Wrapper methods evaluate band subsets based on the performance of a classifier trained on the selected features.
+Sequential forward selection (SFS) greedily adds bands that most improve classification accuracy~\cite{pudil1994floating}, while genetic algorithms and particle swarm optimization explore the combinatorial search space more globally~\cite{pal2010feature}.
+These methods can identify task-relevant bands but suffer from computational cost that grows combinatorially with the number of bands.
+For a 192-band ME-HSI dataset, exhaustive evaluation of all possible subsets is intractable.
+
+Embedded methods integrate band selection into model training.
+Sparse regression (LASSO) induces feature selection through $L_1$ regularization~\cite{tibshirani1996regression}, attention mechanisms in neural networks learn to weight input bands~\cite{mou2017deep}, and reinforcement learning formulations treat band selection as a sequential decision process~\cite{roy2020hybridsn}.
+While elegant, these approaches typically require labeled training data, limiting their applicability when ground truth is scarce or expensive to obtain.
+
+Critically, nearly all existing band selection methods assume a 3D data structure where bands can be evaluated independently.
+For ME-HSI, where information lies in excitation-emission \emph{pairs} and cross-excitation patterns may be discriminative, methods that explicitly model the 4D structure are needed.
+Recent work on tensor decomposition for EEM data~\cite{murphy2013fluorescence} and multi-way analysis~\cite{bro1997parafac} addresses spectroscopic rather than imaging data.
+Our framework bridges this gap by extending deep learning band selection to the 4D imaging case.
+
+% ----------------------------------------------------------------------------
+\subsection{Deep Learning for Hyperspectral Analysis}
+\label{sec:related_dl}
+
+Deep learning has transformed hyperspectral image analysis, with convolutional neural networks achieving state-of-the-art results in classification, segmentation, and anomaly detection~\cite{li2019deep,paoletti2019deep}.
+Early approaches applied 2D CNNs to spectral vectors treated as 1D signals~\cite{hu2015deep}, while subsequent work exploited spatial context through 3D convolutions that jointly process spatial and spectral dimensions~\cite{chen2016deep}.
+Architectures such as spectral-spatial residual networks~\cite{zhong2017spectral} and HybridSN~\cite{roy2020hybridsn} combine 3D convolutions for spectral-spatial feature extraction with 2D convolutions for spatial refinement, achieving classification accuracies exceeding 95\% on standard benchmarks.
+
+For unsupervised analysis, autoencoders have been applied to hyperspectral data for compression~\cite{chen2014deep}, denoising~\cite{vincent2008extracting}, and feature extraction~\cite{mou2017unsupervised}.
+Variational autoencoders (VAEs) provide probabilistic latent representations that enable uncertainty quantification~\cite{kingma2013auto}, while sparse autoencoders encourage disentangled features through sparsity constraints~\cite{ng2011sparse}.
+Stacked convolutional autoencoders~\cite{masci2011stacked} have demonstrated the ability to learn hierarchical features from spectral data without supervision.
+These works focus on learning representations for downstream classification; in contrast, our framework uses the learned representation as the basis for wavelength attribution.
+
+Most deep learning approaches for hyperspectral data assume a 3D input structure.
+While 3D convolutions naturally extend to 4D data by adding an excitation dimension, the variable number of emission bands per excitation after Rayleigh cutoff complicates a monolithic architecture.
+Our parallel-branch design addresses this limitation, enabling end-to-end learning on 4D ME-HSI data with heterogeneous spectral dimensions.
+
+% ----------------------------------------------------------------------------
+\subsection{Explainability and Attribution Methods}
+\label{sec:related_explain}
+
+Explaining neural network predictions has become crucial for scientific applications where understanding \emph{why} a model makes decisions is as important as accuracy~\cite{gilpin2018explaining}.
+Post-hoc explanation methods include saliency maps that compute gradients of outputs with respect to inputs~\cite{simonyan2014deep}, Grad-CAM that localizes class-discriminative regions~\cite{selvaraju2017grad}, LIME that fits local linear models~\cite{ribeiro2016should}, and SHAP that provides game-theoretic feature attributions~\cite{lundberg2017unified}.
+
+Perturbation-based methods offer a model-agnostic approach to attribution: by perturbing inputs or intermediate representations and observing changes in output, one can infer which features are important without access to model internals~\cite{zeiler2014visualizing}.
+This approach has been applied to image classification by occluding image regions~\cite{zeiler2014visualizing}, to text analysis by removing words~\cite{li2016understanding}, and to tabular data by shuffling feature values~\cite{fisher2019all}.
+
+In the context of autoencoders, latent space perturbation provides insights into what the model has learned~\cite{higgins2017beta}.
+By perturbing individual latent dimensions and observing reconstruction changes, one can identify which input features are encoded by each dimension.
+This principle underlies disentanglement analysis in VAEs~\cite{chen2018isolating} and has been used for concept discovery in generative models~\cite{voynov2020unsupervised}.
+Our work adapts latent perturbation for wavelength selection in ME-HSI: rather than seeking disentangled concepts, we trace reconstruction sensitivity back to specific excitation-emission combinations to identify informative wavelengths.
+
+% ----------------------------------------------------------------------------
+\subsection{Summary and Positioning}
+\label{sec:related_summary}
+
+In summary, existing band selection methods predominantly assume a 3D hyperspectral data structure and rely on either statistical properties (filter methods), supervised classification performance (wrapper methods), or labeled training data (embedded methods).
+Deep learning approaches for hyperspectral imaging have focused primarily on supervised classification rather than unsupervised wavelength analysis.
+Meanwhile, explainability methods have been developed for understanding model predictions but have not been systematically applied to spectral band selection.
+
+Our framework addresses these gaps by: (1)~designing a 4D-aware autoencoder architecture with parallel excitation branches that accommodates variable band counts, (2)~leveraging unsupervised representation learning to avoid dependence on class labels, and (3)~applying perturbation-based attribution to trace learned importance back to interpretable wavelength selections.
+This combination enables principled wavelength selection for ME-HSI data without requiring ground-truth annotations.

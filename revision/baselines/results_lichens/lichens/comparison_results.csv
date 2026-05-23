@@ -1,0 +1,9 @@
+dataset,method,method_type,K,seed,select_time_s,knn_acc_mean,knn_acc_std
+lichens,variance,filter,13,0,0.003,0.6130000000000001,0.007851751396981433
+lichens,pca_loading,filter,13,0,0.006,0.6130000000000001,0.007851751396981433
+lichens,sam_greedy,wrapper-unsup,13,0,0.011,0.6418,0.0054849794894785255
+lichens,sam_greedy,wrapper-unsup,13,1,0.009,0.6437999999999999,0.006544845299928806
+lichens,spa,wrapper-unsup,13,0,0.144,0.9806000000000001,0.002016184515365612
+lichens,random,baseline,13,0,0.001,0.97295,0.0019390719429665418
+lichens,random,baseline,13,1,0.0,0.97545,0.0018193405398660037
+lichens,ae_perturb,ours,13,0,0.0,0.97705,0.0020579115627256646

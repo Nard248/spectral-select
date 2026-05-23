@@ -1,0 +1,15 @@
+dataset,method,method_type,K,seed,select_time_s,ari,nmi,n_correct_3type,n_drops
+drop_data_full_cr,variance,filter,5,0,0.001,0.3637970209543045,0.5936300920654847,10,16
+drop_data_full_cr,variance,filter,13,0,0.001,0.3637970209543045,0.5936300920654847,10,16
+drop_data_full_cr,pca_loading,filter,5,0,0.008,0.3637970209543045,0.5936300920654847,10,16
+drop_data_full_cr,pca_loading,filter,13,0,0.003,0.3637970209543045,0.5936300920654847,10,16
+drop_data_full_cr,sam_greedy,wrapper-unsup,5,0,0.003,0.7750702905342081,0.8271423565886092,15,16
+drop_data_full_cr,sam_greedy,wrapper-unsup,5,1,0.002,0.7750702905342081,0.8271423565886092,15,16
+drop_data_full_cr,sam_greedy,wrapper-unsup,13,0,0.004,0.7750702905342081,0.8271423565886092,15,16
+drop_data_full_cr,sam_greedy,wrapper-unsup,13,1,0.003,0.7750702905342081,0.8271423565886092,15,16
+drop_data_full_cr,spa,wrapper-unsup,5,0,0.011,0.300087489063867,0.6072839124852141,11,16
+drop_data_full_cr,spa,wrapper-unsup,13,0,0.021,0.2219820932386539,0.4715474696969276,10,16
+drop_data_full_cr,random,baseline,5,0,0.0,0.5876288659793815,0.7373795844927791,14,16
+drop_data_full_cr,random,baseline,5,1,0.0,0.2398190045248869,0.49494555741149565,10,16
+drop_data_full_cr,random,baseline,13,0,0.0,0.2219820932386539,0.4715474696969276,10,16
+drop_data_full_cr,random,baseline,13,1,0.0,0.2219820932386539,0.4715474696969276,10,16
