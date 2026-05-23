@@ -182,3 +182,12 @@ cython_debug/
 # Image files (generated outputs)
 *.png
 *.tiff
+
+# LaTeX build artifacts
+generalization/paper/*.aux
+generalization/paper/*.log
+generalization/paper/*.out
+generalization/paper/*.fls
+generalization/paper/*.fdb_latexmk
+generalization/paper/*.bbl
+generalization/paper/*.blg

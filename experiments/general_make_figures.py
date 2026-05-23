@@ -142,8 +142,36 @@ def fig_biomed():
     fig.tight_layout(rect=[0, 0.03, 1, 1]); fig.savefig(OUT / "fig_biomed.png", dpi=150); plt.close(fig)
 
 
+def fig_har_selection():
+    """Representative K=10 selection on PAMAP2, shown on the 3 IMU x 9 axis grid.
+    Illustrates that the method spreads picks across body locations and sensor types."""
+    groups = ["Hand", "Chest", "Ankle"]
+    chans = ["acc x", "acc y", "acc z", "gyro x", "gyro y", "gyro z", "mag x", "mag y", "mag z"]
+    # representative K=10 selection (group, channel-index)
+    sel = {("Hand", 6), ("Hand", 7), ("Chest", 0), ("Chest", 3), ("Chest", 4),
+           ("Chest", 6), ("Chest", 7), ("Chest", 8), ("Ankle", 1), ("Ankle", 8)}
+    grid = np.zeros((3, 9))
+    for gi, g in enumerate(groups):
+        for c in range(9):
+            grid[gi, c] = 1.0 if (g, c) in sel else 0.0
+    fig, ax = plt.subplots(figsize=(7.6, 2.7))
+    ax.imshow(grid, cmap="Greens", vmin=0, vmax=1.4, aspect="auto")
+    ax.set_xticks(range(9)); ax.set_xticklabels(chans, rotation=35, ha="right", fontsize=8)
+    ax.set_yticks(range(3)); ax.set_yticklabels(groups)
+    for gi in range(3):
+        for c in range(9):
+            if grid[gi, c]:
+                ax.text(c, gi, "✓", ha="center", va="center", color="#145a32",
+                        fontsize=12, weight="bold")
+    ax.set_xticks(np.arange(-0.5, 9, 1), minor=True); ax.set_yticks(np.arange(-0.5, 3, 1), minor=True)
+    ax.grid(which="minor", color="#ccc", lw=1); ax.tick_params(which="minor", length=0)
+    ax.set_title("Representative K=10 selection (spread across IMUs and sensor types)", fontsize=10)
+    fig.tight_layout(); fig.savefig(OUT / "fig_har_selection.png", dpi=150); plt.close(fig)
+
+
 if __name__ == "__main__":
     fig_acc_vs_k(); fig_stability(); fig_method(); fig_crossdomain(); fig_biomed()
+    fig_har_selection()
     print("wrote figures to", OUT)
     for p in sorted(OUT.glob("*.png")):
         print(" ", p, p.stat().st_size, "bytes")
