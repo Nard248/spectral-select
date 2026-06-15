@@ -62,5 +62,5 @@ Homepage = "https://github.com/narekmeloyan/spectral-select"
 Repository = "https://github.com/narekmeloyan/spectral-select"
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["spectral_select*", "mehsi_preprocessor*"]
+where = ["src"]
+include = ["spectral_select*", "channel_select*", "mehsi_preprocessor*"]
