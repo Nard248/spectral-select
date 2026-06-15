@@ -35,3 +35,14 @@ These directories were already under `archive/` before this reorganization (~7.1
 
 > Note: the active CommsAIComputing drafts were **not** archived — they were reorganized to
 > `publications/commsai_computing/{overleaf,submission}/` (still untracked working drafts).
+
+### Zip snapshots untracked from the tree (Task 3.4) — also purged from git history in Phase 6
+
+| Original path | Preserved copy | Date | Reason |
+|---|---|---|---|
+| `Archive.zip` (538M) | `archive/snapshots/Archive.zip` | 2026-06-15 | Results snapshot; regenerable; bloats git |
+| `paper.zip` | `archive/snapshots/paper.zip` | 2026-06-15 | Snapshot of `publications/tpami/paper/` |
+| `MasterThesis_Narek_Meloyan.zip` | `archive/snapshots/MasterThesis_Narek_Meloyan.zip` | 2026-06-15 | Snapshot of `publications/master_thesis/` |
+| `Showcase_Poster.zip` | `archive/snapshots/Showcase_Poster.zip` | 2026-06-15 | Snapshot of `publications/iasim_poster/` |
+| `publications/iasim_poster/dataset_plots.zip` | `archive/snapshots/dataset_plots.zip` | 2026-06-15 | Nested zip of poster dataset plots |
+| `publications/generalization/paper/Meloyan_GeneralChannelSelection_LaTeX.zip` | (already deleted on disk; in history) | 2026-06-15 | Regenerable LaTeX source zip |
