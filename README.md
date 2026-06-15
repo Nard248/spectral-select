@@ -57,26 +57,32 @@ print(results.selected_wavelengths)
 
 ## Repository Structure
 
+Uses a `src/` layout (install with `pip install -e .`, then `import spectral_select`).
+
 ```
-spectral_select/           Core library (pip-installable)
-  models/                  Autoencoder architecture, dataset, training
-  analyzer.py              Main analysis engine
-  config.py                Configuration management
-  types.py                 Data types (SpectraData, WavelengthResult, etc.)
-  loader.py                Data loading utilities
-  validation.py            Ground-truth validation
-  results.py               Results management and export
-  visualizer.py            Plotting and visualization
-  viewer.py                Interactive hyperspectral viewer
-mehsi_preprocessor/        Optional preprocessing GUI (requires PyQt6)
-  io/                      Raw .im3 file loading
-  steps/                   Processing pipeline steps
-  widgets/                 GUI components
-experiments/               Paper reproduction scripts
+src/
+  spectral_select/         Core HSI wavelength-selection library + interactive viewer
+    models/                Autoencoder architecture, dataset, training
+    analyzer.py            Main analysis engine    config.py  types.py  loader.py
+    validation.py          results.py  visualizer.py  viewer.py  widgets.py
+  channel_select/          Domain-agnostic selection engine (e.g. PAMAP2 wearables)
+  mehsi_preprocessor/      PyQt6 preprocessing GUI — launch: `python -m mehsi_preprocessor`
+experiments/               Reusable pipeline drivers (see experiments/README.md)
+  pamap2/                  Generalization-domain experiments (channel_select)
+  _archive/2026_paper_runs/  One-off paper/figure scripts, kept for provenance
+publications/              Manuscripts & posters, one subdir per venue
+  tpami/  commsai_computing/  codassca2026/  master_thesis/  iasim_poster/  generalization/
 examples/                  Tutorial notebooks
-tests/                     Test suite
-docs/                      Documentation
+tests/                     Test suite (pytest)
+docs/                      Documentation — USER_GUIDE, DATA.md (dataset contract),
+                           ARCHIVE_MANIFEST.md, design specs & plans under superpowers/
+Data/                      (gitignored) datasets — see docs/DATA.md
+archive/                   (gitignored) legacy + archived material — see docs/ARCHIVE_MANIFEST.md
 ```
+
+A shared `src/selection_core/` (unifying the perturbation algorithm behind both
+`spectral_select` and `channel_select`) is planned — see
+`docs/superpowers/specs/2026-06-15-repo-cleanup-reorg-design.md`.
 
 ## Reproducing Paper Results
 
