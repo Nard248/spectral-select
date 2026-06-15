@@ -17,3 +17,8 @@ These directories were already under `archive/` before this reorganization (~7.1
 
 | Original path | Archived to | Date | Reason |
 |---|---|---|---|
+| `TM.py` | `archive/misc/TM.py` | 2026-06-15 | Unrelated Turing-machine class artifact |
+| `Paper Source/` | `archive/misc/Paper Source/` | 2026-06-15 | Legacy paper wrapper, superseded by `publications/tpami/paper/` |
+| `model_output/` | `archive/misc/model_output/` | 2026-06-15 | Old `.pth`/`.npy` training artifacts, superseded by `results/` |
+| `visualizations/` | `archive/misc/visualizations/` | 2026-06-15 | Old viz outputs, superseded by `results/` |
+| `run_preprocessor.py` | `archive/misc/run_preprocessor.py` | 2026-06-15 | Redundant launcher; use `python -m mehsi_preprocessor` |
