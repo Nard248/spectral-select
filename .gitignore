@@ -183,11 +183,23 @@ cython_debug/
 *.png
 *.tiff
 
-# LaTeX build artifacts
-generalization/paper/*.aux
-generalization/paper/*.log
-generalization/paper/*.out
-generalization/paper/*.fls
-generalization/paper/*.fdb_latexmk
-generalization/paper/*.bbl
-generalization/paper/*.blg
+# LaTeX build artifacts (repo-wide, e.g. publications/**)
+*.aux
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+*.out
+*.synctex.gz
+*.toc
+
+# Tool state
+.remember/
+
+# Binary artifacts not version-controlled going forward.
+# (Existing tracked .docx/.pptx deliverables stay tracked; these only block NEW additions.
+#  Large tracked .zip/.npz are removed from the tree in Phase 3 and purged from history in Phase 6.)
+*.zip
+*.npz
+*.docx
+*.pptx
