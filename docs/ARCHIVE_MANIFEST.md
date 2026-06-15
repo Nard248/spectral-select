@@ -30,3 +30,8 @@ These directories were already under `archive/` before this reorganization (~7.1
 | `Data/processed/lichens_data_cropped/` | `archive/redundant_data/processed/lichens_data_cropped/` | 2026-06-15 | Redundant Lichens (3.9G), 0 refs |
 | `Data/processed/{spectra_masked,spectra_unmasked}.pkl`, `class_mask.png`, `roi_regions.json` | `archive/redundant_data/processed/_loose_root/` | 2026-06-15 | Stray exports at processed/ root, 0 refs |
 | `Data/Raw/Lichens/` (empty), `Data/processed/YourSample/` (empty) | removed (rmdir) | 2026-06-15 | Empty placeholder dirs |
+| `notebooks/` | `archive/misc/notebooks_cache/` | 2026-06-15 | Vestigial cache (only `.pth`/`.png` outputs); active notebooks live in `examples/` |
+| `CommsAIComputing_Overleaf.zip` | `archive/snapshots/` | 2026-06-15 | Redundant snapshot of the Overleaf folder |
+
+> Note: the active CommsAIComputing drafts were **not** archived — they were reorganized to
+> `publications/commsai_computing/{overleaf,submission}/` (still untracked working drafts).
