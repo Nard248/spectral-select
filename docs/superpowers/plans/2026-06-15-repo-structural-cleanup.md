@@ -630,6 +630,11 @@ Expected: tags listed, SHA printed.
 **Files:** none (branch deletion)
 
 > **STOP — confirm with owner before deleting remote branches.** Local deletions are recoverable via tags/reflog; remote deletions are visible to anyone watching the repo.
+>
+> **Amended 2026-06-15 (owner choice):** Local branch deletion done now (Step 1). The **remote**
+> branch deletions (Step 2) and **tag push** (Step 3) are **deferred to Task 6.4** so all
+> outward-facing mutations happen together after the history rewrite. Steps 2–3 below are executed
+> as part of 6.4, not here.
 
 - [ ] **Step 1: Delete local stale branches**
 
@@ -737,13 +742,16 @@ Run:
 git remote add origin https://github.com/Nard248/4D-Hyperspectral-Unsupervised-Clustering.git
 ```
 
-- [ ] **Step 2: Force-push all branches and tags**
+- [ ] **Step 2: Delete stale remote branches, then force-push all branches and tags**
 
-Run:
+Run (deferred from Task 5.3):
 ```bash
+git push origin --delete main-cleanup publication/cleanup collagen-experiments information-detection/initial-setup
 git push origin --force --all && git push origin --force --tags
 ```
-Expected: origin updated to the rewritten history. (This breaks any other existing clone — expected; sole author.)
+Expected: stale origin branches removed; origin updated to the rewritten history (only `main` +
+`ExperimentsOnDrops` + 4 archive tags remain). (This breaks any other existing clone — expected;
+sole author.)
 
 - [ ] **Step 3: Verify with a fresh clone**
 
