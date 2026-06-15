@@ -55,17 +55,16 @@ git -C ~/4d-hyperspectral-backup-20260615.git rev-list --count --all && git -C ~
 ```
 Expected: nonzero commit count; all refs present. **Do not proceed past Phase 0 unless this succeeds.**
 
-### Task 0.2: Push the local-only working branch to origin
+### Task 0.2: Push the local-only working branch to origin — DEFERRED to Phase 6.4
 
-**Files:** none (remote push — requires GitHub auth)
+**Files:** none (remote push)
 
-- [ ] **Step 1: Push `ExperimentsOnDrops`**
-
-Run:
-```bash
-git push -u origin ExperimentsOnDrops
-```
-Expected: branch created on origin. (If auth fails, resolve credentials before continuing — this branch currently exists nowhere but locally.)
+> **Amended 2026-06-15:** The push fails at GitHub's 100MB pre-receive hook because
+> `Archive.zip` (538MB) and `revision/baselines/lichens_cube.npz` (62MB) are in this branch's
+> history — which is precisely why `ExperimentsOnDrops` was never pushed. The origin push is
+> therefore impossible until Phase 6 purges those blobs, and is folded into **Task 6.4**
+> (force-push after the rewrite). Until then, the **local mirror (Task 0.1)** is the backup.
+> Owner confirmed (2026-06-15) to proceed on the local mirror.
 
 ### Task 0.3: Establish the green-test + size baseline
 
@@ -75,7 +74,7 @@ Expected: branch created on origin. (If auth fails, resolve credentials before c
 
 Run:
 ```bash
-pip install -e .[dev] >/dev/null 2>&1; pytest -q -m "not slow and not notebook" | tail -20
+pip install -e '.[dev]' >/dev/null 2>&1; pytest -q -m "not slow and not notebook" | tail -20
 ```
 Expected: all selected tests PASS. **Record the pass count** — Phase 4 must match it.
 
@@ -443,7 +442,7 @@ include = ["spectral_select*", "channel_select*", "mehsi_preprocessor*"]
 
 Run:
 ```bash
-pip install -e .[dev] >/dev/null && python -c "import spectral_select, channel_select, mehsi_preprocessor; print('ok')"
+pip install -e '.[dev]' >/dev/null && python -c "import spectral_select, channel_select, mehsi_preprocessor; print('ok')"
 ```
 Expected: `ok`.
 
