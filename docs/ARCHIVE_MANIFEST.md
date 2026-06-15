@@ -46,3 +46,11 @@ These directories were already under `archive/` before this reorganization (~7.1
 | `Showcase_Poster.zip` | `archive/snapshots/Showcase_Poster.zip` | 2026-06-15 | Snapshot of `publications/iasim_poster/` |
 | `publications/iasim_poster/dataset_plots.zip` | `archive/snapshots/dataset_plots.zip` | 2026-06-15 | Nested zip of poster dataset plots |
 | `publications/generalization/paper/Meloyan_GeneralChannelSelection_LaTeX.zip` | (already deleted on disk; in history) | 2026-06-15 | Regenerable LaTeX source zip |
+
+### npz baseline cubes untracked before history rewrite (Phase 6 prep)
+
+| Original path | Preserved copy | Date | Reason |
+|---|---|---|---|
+| `publications/tpami/revision/baselines/lichens_cube.npz` (62M) | `archive/snapshots/npz_cubes/` | 2026-06-15 | Regenerable figure-build input; bloats git |
+| `publications/tpami/revision/baselines/pepsin_cube.npz` (13M) | `archive/snapshots/npz_cubes/` | 2026-06-15 | Regenerable figure-build input |
+| `publications/tpami/revision/figures/drop_data/full_cr_cube.npz` (20M) | `archive/snapshots/npz_cubes/` | 2026-06-15 | Regenerable figure-build input |
