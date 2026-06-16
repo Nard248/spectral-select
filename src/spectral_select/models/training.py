@@ -148,7 +148,8 @@ def train_with_masking(
         scheduler_patience=5,
         mask=None,
         output_dir="model_output",
-        verbose=True
+        verbose=True,
+        progress_callback=None,
 ):
     """
     Train the hyperspectral autoencoder with masked loss.
@@ -318,6 +319,10 @@ def train_with_masking(
         avg_recon_loss = epoch_recon_loss / len(batches)
         avg_sparsity_loss = epoch_sparsity_loss / len(batches)
         train_losses.append(avg_loss)
+
+        # Optional per-epoch progress hook (used by the GUI; CLI/experiments pass None).
+        if progress_callback is not None:
+            progress_callback(epoch + 1, num_epochs, float(avg_loss))
 
         # Update learning rate scheduler
         scheduler.step(avg_loss)
