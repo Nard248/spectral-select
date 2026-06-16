@@ -32,6 +32,8 @@ import numpy as np
 import tifffile
 import torch
 
+import selection_core
+
 from .config import Config
 from .types import AnalysisMetrics, SpectraData, WavelengthBand, WavelengthResult
 
@@ -884,74 +886,19 @@ class Analyzer:
     def _select_important_dimensions(self) -> None:
         """Select the most important latent dimensions for perturbation.
 
-        Analyzes the baseline latent representations to identify which dimensions
-        carry the most information, using one of three methods:
-        - variance: Dimensions with highest variance across samples
-        - activation: Dimensions with highest mean absolute activation
-        - pca: Dimensions with highest PCA loading contributions
-
-        Stores results in self._important_dims as List[(score, (c, l, h, w))].
+        Delegates the ranking math to ``selection_core.select_important_dimensions``
+        (variance / activation / pca). Stores results in self._important_dims as
+        List[(score, (c, l, h, w))] — coords have one entry per non-batch latent axis.
         """
         if self._baseline_latent is None:
             raise RuntimeError("_setup_baseline must be called before _select_important_dimensions")
 
-        from sklearn.decomposition import PCA
-        from sklearn.preprocessing import StandardScaler
-
-        logger.info(
-            f"Selecting important dimensions using {self._config.dimension_selection_method} method..."
-        )
-
-        latent = self._baseline_latent
-        batch_size, n_channels, n_latent, h_latent, w_latent = latent.shape
-
-        # Flatten spatial dimensions for analysis: (batch, features)
-        latent_flat = latent.reshape(batch_size, -1)
-
-        # Compute importance scores based on selected method
         method = self._config.dimension_selection_method
+        logger.info(f"Selecting important dimensions using {method} method...")
 
-        if method == "variance":
-            # Higher variance = more informative dimension
-            importance_scores = torch.var(latent_flat, dim=0)
-
-        elif method == "activation":
-            # Higher mean absolute activation = more used by model
-            importance_scores = torch.mean(torch.abs(latent_flat), dim=0)
-
-        elif method == "pca":
-            # Use PCA loadings to identify important dimensions
-            scaler = StandardScaler()
-            latent_scaled = scaler.fit_transform(latent_flat.cpu().numpy())
-            n_samples, n_features = latent_scaled.shape
-
-            # PCA components limited by samples and target dimensions
-            n_components = min(
-                self._config.n_important_dimensions * 2,
-                n_features,
-                n_samples - 1,
-            )
-
-            pca = PCA(n_components=n_components)
-            pca.fit(latent_scaled)
-
-            # Sum absolute loadings across components to get importance
-            components = torch.tensor(pca.components_)
-            importance_scores = torch.sum(torch.abs(components), dim=0)
-
-        else:
-            raise ValueError(f"Unknown dimension selection method: {method}")
-
-        # Convert flat indices to (channel, latent, h, w) coordinates
-        coordinate_importance: List[Tuple[float, Tuple[int, int, int, int]]] = []
-        for i, score in enumerate(importance_scores):
-            coords = np.unravel_index(i, (n_channels, n_latent, h_latent, w_latent))
-            coords_tuple: Tuple[int, int, int, int] = tuple(int(c) for c in coords)
-            coordinate_importance.append((score.item(), coords_tuple))
-
-        # Sort by importance (descending) and keep top N
-        coordinate_importance.sort(reverse=True, key=lambda x: x[0])
-        self._important_dims = coordinate_importance[: self._config.n_important_dimensions]
+        self._important_dims = selection_core.select_important_dimensions(
+            self._baseline_latent, method, self._config.n_important_dimensions
+        )
 
         logger.info(f"Selected top {len(self._important_dims)} dimensions")
         # Log top 5 for visibility
@@ -973,223 +920,52 @@ class Analyzer:
         logger.info(
             f"Computing influence scores using {self._config.perturbation_method} method..."
         )
-
-        # Initialize influence matrix for each excitation wavelength
-        self._influence_matrix = {}
-        for ex in self._model.excitation_wavelengths:
-            n_bands = self._model.emission_bands[ex]
-            self._influence_matrix[ex] = np.zeros(n_bands)
-
-        # Get latent dimensions for statistics calculation
-        batch_size, n_channels, n_latent, h_latent, w_latent = self._baseline_latent.shape
-        latent_flat = self._baseline_latent.reshape(batch_size, -1)
-
-        # Calculate statistics for perturbation scaling
-        stats = self._calculate_latent_statistics(latent_flat)
-
-        # Perturbation parameters from config
-        magnitudes = self._config.perturbation_magnitudes
-        directions = self._config.perturbation_directions
-
-        total_perturbations = 0
-
         logger.info(
-            f"Analyzing {len(self._important_dims)} dimensions with magnitudes {magnitudes}"
+            f"Analyzing {len(self._important_dims)} dimensions with magnitudes "
+            f"{self._config.perturbation_magnitudes}"
         )
 
-        for dim_idx, (importance_score, coords) in enumerate(self._important_dims):
-            c, l, h, w = coords
-
-            for magnitude in magnitudes:
-                for direction in directions:
-                    # Determine which signs to test
-                    if direction == "bidirectional":
-                        test_signs = [-1, 1]
-                    elif direction == "positive":
-                        test_signs = [1]
-                    elif direction == "negative":
-                        test_signs = [-1]
-                    else:
-                        test_signs = [-1, 1]  # Default to bidirectional
-
-                    for sign in test_signs:
-                        # Calculate perturbation amount
-                        perturbation_amount = self._calculate_perturbation_amount(
-                            coords, magnitude, sign, stats, latent_flat.shape
-                        )
-
-                        # Apply perturbation to baseline latent
-                        perturbed_latent = self._baseline_latent.clone()
-                        perturbed_latent[:, c, l, h, w] += perturbation_amount
-
-                        # Measure influence on each emission band
-                        influence = self._measure_band_influence(
-                            perturbed_latent, importance_score
-                        )
-
-                        # Accumulate influence (weight by number of directions)
-                        weight = 1.0 if len(test_signs) == 1 else 0.5
-                        for ex in influence:
-                            self._influence_matrix[ex] += influence[ex] * weight
-
-                        total_perturbations += 1
-
-        logger.info(f"Completed {total_perturbations} perturbations")
-
-    def _calculate_latent_statistics(
-        self, latent_flat: torch.Tensor
-    ) -> Dict[str, Any]:
-        """Calculate statistics for perturbation scaling.
-
-        Args:
-            latent_flat: Flattened latent tensor of shape (batch, features).
-
-        Returns:
-            Dictionary with mean, std, min, max, and percentiles.
-        """
-        percentiles = [5, 10, 25, 50, 75, 90, 95]
-        stats: Dict[str, Any] = {
-            "mean": torch.mean(latent_flat, dim=0),
-            "std": torch.std(latent_flat, dim=0),
-            "min": torch.min(latent_flat, dim=0)[0],
-            "max": torch.max(latent_flat, dim=0)[0],
-            "percentiles": {},
+        # Per-excitation band counts -> the channel-per-group map the shared engine expects.
+        channels_per_group = {
+            ex: self._model.emission_bands[ex]
+            for ex in self._model.excitation_wavelengths
         }
 
-        for p in percentiles:
-            stats["percentiles"][p] = torch.quantile(latent_flat, p / 100.0, dim=0)
-
-        return stats
-
-    def _calculate_perturbation_amount(
-        self,
-        coords: Tuple[int, int, int, int],
-        magnitude: float,
-        sign: int,
-        stats: Dict[str, Any],
-        shape: Tuple[int, int],
-    ) -> float:
-        """Calculate the perturbation amount based on method.
-
-        Args:
-            coords: (channel, latent, h, w) coordinates.
-            magnitude: Perturbation magnitude (interpretation depends on method).
-            sign: Direction of perturbation (-1 or 1).
-            stats: Precomputed statistics dictionary.
-            shape: Shape of flattened latent (batch_size, n_features).
-
-        Returns:
-            Perturbation amount to add to the latent dimension.
-        """
-        c, l, h, w = coords
-        batch_size, n_features = shape
-        n_channels, n_latent, h_latent, w_latent = self._baseline_latent.shape[1:]
-
-        # Calculate flat index for this coordinate
-        flat_idx = (
-            c * (n_latent * h_latent * w_latent)
-            + l * (h_latent * w_latent)
-            + h * w_latent
-            + w
+        # Delegate the perturbation accumulation loop to the shared engine.
+        self._influence_matrix = selection_core.accumulate_influence(
+            self._model.decode,
+            list(self._model.excitation_wavelengths),
+            channels_per_group,
+            self._baseline_latent,
+            self._baseline_reconstruction,
+            self._important_dims,
+            magnitudes=self._config.perturbation_magnitudes,
+            directions=self._config.perturbation_directions,
+            perturbation_method=self._config.perturbation_method,
         )
 
-        method = self._config.perturbation_method
-
-        if method == "percentile":
-            # Shift toward target percentile
-            target_percentile = 50 + sign * magnitude / 2
-            closest_percentile = min(
-                stats["percentiles"].keys(),
-                key=lambda x: abs(x - target_percentile),
-            )
-            target_value = stats["percentiles"][closest_percentile][flat_idx]
-            current_mean = torch.mean(self._baseline_latent[:, c, l, h, w])
-            return (target_value - current_mean).item()
-
-        elif method == "standard_deviation":
-            # Scale by standard deviation
-            std_val = stats["std"][flat_idx]
-            return sign * (magnitude / 100.0) * std_val.item()
-
-        elif method == "absolute_range":
-            # Scale by value range
-            value_range = stats["max"][flat_idx] - stats["min"][flat_idx]
-            return sign * (magnitude / 100.0) * value_range.item()
-
-        else:
-            raise ValueError(f"Unknown perturbation method: {method}")
-
-    def _measure_band_influence(
-        self, perturbed_latent: torch.Tensor, importance_weight: float = 1.0
-    ) -> Dict[float, np.ndarray]:
-        """Measure the influence of perturbation on each emission band.
-
-        Args:
-            perturbed_latent: Perturbed latent tensor.
-            importance_weight: Weight to apply based on dimension importance.
-
-        Returns:
-            Dictionary mapping excitation wavelength to influence per band.
-        """
-        influence: Dict[float, np.ndarray] = {}
-
-        with torch.no_grad():
-            perturbed_recon = self._model.decode(perturbed_latent)
-
-            for ex in self._model.excitation_wavelengths:
-                if ex in self._baseline_reconstruction:
-                    baseline = self._baseline_reconstruction[ex]
-                    perturbed = perturbed_recon[ex]
-
-                    # Calculate mean absolute difference across batch and spatial dimensions
-                    # Result shape: (n_bands,)
-                    band_differences = torch.mean(
-                        torch.abs(perturbed - baseline), dim=(0, 1, 2)
-                    )
-                    influence[ex] = band_differences.cpu().numpy() * importance_weight
-
-        return influence
+        logger.info("Completed perturbation analysis")
 
     def _normalize_influences(self) -> None:
-        """Normalize influence scores based on configured method.
+        """Normalize influence scores. Delegates to selection_core.normalize_influence.
 
-        Applies normalization to the influence matrix to account for
-        different band characteristics:
-        - variance: Divide by per-band variance in original data
-        - max_per_excitation: Normalize each excitation to [0, 1]
-        - none: Skip normalization (use raw scores)
+        The HSI Analyzer computes the variance normalization in the data's native float32
+        (``variance_float64=False``) to keep byte-identical historical output. Config's
+        "max_per_excitation" maps to the engine's domain-agnostic "max_per_group".
         """
         if self._influence_matrix is None:
             raise RuntimeError("_compute_influence_scores must be called first")
 
         method = self._config.normalization_method
-
         logger.info(f"Applying {method} normalization...")
 
-        if method == "variance":
-            # Divide influence by per-band variance in original data
-            all_data = self._dataset.get_all_data()
-            for ex in self._influence_matrix:
-                if ex in all_data:
-                    # Compute variance across spatial dimensions for each band
-                    band_vars = np.var(all_data[ex].numpy(), axis=(0, 1))
-                    # Avoid division by zero
-                    band_vars[band_vars < 1e-10] = 1e-10
-                    self._influence_matrix[ex] = self._influence_matrix[ex] / band_vars
-
-        elif method == "max_per_excitation":
-            # Normalize each excitation's influences to [0, 1]
-            for ex in self._influence_matrix:
-                max_inf = np.max(self._influence_matrix[ex])
-                if max_inf > 1e-10:
-                    self._influence_matrix[ex] = self._influence_matrix[ex] / max_inf
-
-        elif method == "none":
-            # No normalization - keep raw influence scores
-            pass
-
-        else:
-            raise ValueError(f"Unknown normalization method: {method}")
+        core_method = "max_per_group" if method == "max_per_excitation" else method
+        self._influence_matrix = selection_core.normalize_influence(
+            self._influence_matrix,
+            self._dataset.get_all_data(),
+            core_method,
+            variance_float64=False,
+        )
 
     def _select_top_bands(self) -> List[WavelengthBand]:
         """Select top wavelength combinations based on influence scores.
