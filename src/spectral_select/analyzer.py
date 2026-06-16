@@ -95,6 +95,7 @@ class Analyzer:
         self._patch_coords: Optional[List[Tuple[int, int]]] = None
         self._influence_matrix: Optional[Dict[str, Any]] = None
         self._result: Optional[WavelengthResult] = None
+        self._is_prepared: bool = False
 
         # Create output directory if specified (backward compatibility)
         if config.output_dir is not None:
@@ -119,6 +120,11 @@ class Analyzer:
     def is_fitted(self) -> bool:
         """Whether the analyzer has been fitted to data."""
         return self._result is not None
+
+    @property
+    def is_prepared(self) -> bool:
+        """Whether the model + baseline are ready (so select() can run)."""
+        return self._is_prepared
 
     @property
     def result(self) -> Optional[WavelengthResult]:
@@ -150,15 +156,12 @@ class Analyzer:
             )
         return self._results_manager
 
-    def fit(self, data: SpectraData) -> Analyzer:
-        """Run the full wavelength selection analysis pipeline.
+    def prepare(self, data: SpectraData) -> Analyzer:
+        """Slow, one-time setup: load data, load-or-train the model, set up baseline.
 
-        This method executes the complete analysis workflow:
-        1. Load or use existing autoencoder model
-        2. Compute baseline latent representations
-        3. Perform latent space perturbations
-        4. Calculate wavelength sensitivity/influence scores
-        5. Select top wavelength combinations
+        After this, :meth:`select` can be called repeatedly with different selection
+        parameters without retraining. Separated from selection so a GUI can train once
+        and let the user tune band selection interactively.
 
         Args:
             data: The hyperspectral data to analyze.
@@ -166,37 +169,43 @@ class Analyzer:
         Returns:
             self, for method chaining.
         """
-        logger.info(f"Starting analysis for {self._config.sample_name}")
-
-        # Step 1: Load data
+        logger.info(f"Preparing analyzer for {self._config.sample_name}")
         self._load_data(data)
-
-        # Step 2: Load or train model
         self._load_or_train_model()
-
-        # Step 3: Setup baseline
         self._setup_baseline()
+        self._is_prepared = True
+        return self
 
-        # Step 4: Select important dimensions
+    def select(self, config: Optional[Config] = None) -> WavelengthResult:
+        """Run band selection on the prepared model + baseline (fast, re-runnable).
+
+        Uses the analysis / perturbation / normalization / selection fields of
+        ``config`` (defaults to the analyzer's current config). Does NOT retrain — call
+        :meth:`prepare` (or :meth:`fit`) first.
+
+        Args:
+            config: Optional config whose selection parameters override the current one.
+
+        Returns:
+            The WavelengthResult (also stored on the analyzer).
+        """
+        if not self._is_prepared:
+            raise RuntimeError(
+                "Analyzer must be prepared before select(); call prepare(data) or fit(data)."
+            )
+        if config is not None:
+            self._config = config
+
         self._select_important_dimensions()
-
-        # Step 5: Compute influence
         self._compute_influence_scores()
-
-        # Step 6: Normalize
         if self._config.normalization_method != "none":
             self._normalize_influences()
-
-        # Step 7: Select bands
         selected_bands = self._select_top_bands()
 
-        # Step 8: Create result
-        # Calculate total available bands across all excitations
         total_available = sum(
             self._model.emission_bands[ex]
             for ex in self._model.excitation_wavelengths
         )
-
         self._result = WavelengthResult(
             sample_name=self._config.sample_name,
             selected_bands=selected_bands,
@@ -208,8 +217,23 @@ class Analyzer:
                 "normalization": self._config.normalization_method,
             },
         )
+        logger.info(f"Selection complete: {len(selected_bands)} bands selected")
+        return self._result
 
-        logger.info(f"Analysis complete: {len(selected_bands)} bands selected")
+    def fit(self, data: SpectraData) -> Analyzer:
+        """Run the full pipeline: ``prepare(data)`` then ``select()``.
+
+        Backward-compatible single-call entry point.
+
+        Args:
+            data: The hyperspectral data to analyze.
+
+        Returns:
+            self, for method chaining.
+        """
+        logger.info(f"Starting analysis for {self._config.sample_name}")
+        self.prepare(data)
+        self.select(self._config)
         return self
 
     def transform(self, data: SpectraData) -> SpectraData:
