@@ -66,6 +66,11 @@ STEP_SPECTRAL_CROP = 5
 STEP_DRAW_CLASSES = 6
 STEP_ROI_REGIONS = 7
 STEP_EXPORT = 8
+STEP_TRAIN = 9
+STEP_SELECT = 10
+
+# Highest step index (used for invalidation bounds)
+_MAX_STEP = STEP_SELECT
 
 # Maps each step to the attribute names it owns
 _STEP_ATTRIBUTES: Dict[int, List[str]] = {
@@ -77,6 +82,8 @@ _STEP_ATTRIBUTES: Dict[int, List[str]] = {
     STEP_DRAW_CLASSES: ["class_mask", "class_definitions"],
     STEP_ROI_REGIONS: ["roi_regions"],
     STEP_EXPORT: [],  # export doesn't own mutable state
+    STEP_TRAIN: ["analyzer", "training_losses", "model_source"],
+    STEP_SELECT: ["selection_result", "selection_config"],
 }
 
 
@@ -113,6 +120,15 @@ class PipelineState:
         # Step 7 – ROI regions
         self.roi_regions: List[ROIRegion] = []
 
+        # Step 9 – Train autoencoder
+        self.analyzer: Optional[Any] = None          # prepared spectral_select.Analyzer
+        self.training_losses: List[float] = []
+        self.model_source: Optional[str] = None      # "trained" | "loaded"
+
+        # Step 10 – Select bands
+        self.selection_result: Optional[Any] = None  # WavelengthResult
+        self.selection_config: Optional[Any] = None  # Config used for the last selection
+
     # ------------------------------------------------------------------
     # Convenience properties
     # ------------------------------------------------------------------
@@ -141,7 +157,7 @@ class PipelineState:
 
     def invalidate_from(self, step: int) -> None:
         """Clear all outputs from steps *after* ``step``."""
-        for s in range(step + 1, STEP_EXPORT + 1):
+        for s in range(step + 1, _MAX_STEP + 1):
             for attr in _STEP_ATTRIBUTES.get(s, []):
                 default = self._default_for(attr)
                 setattr(self, attr, default)
@@ -155,6 +171,6 @@ class PipelineState:
         """Return the reset value for an attribute name."""
         if attr in ("exposure_times", "laser_powers"):
             return {}
-        if attr in ("class_definitions", "roi_regions"):
+        if attr in ("class_definitions", "roi_regions", "training_losses"):
             return []
         return None
