@@ -156,7 +156,7 @@ class Analyzer:
             )
         return self._results_manager
 
-    def prepare(self, data: SpectraData) -> Analyzer:
+    def prepare(self, data: SpectraData, *, progress_callback=None) -> Analyzer:
         """Slow, one-time setup: load data, load-or-train the model, set up baseline.
 
         After this, :meth:`select` can be called repeatedly with different selection
@@ -165,13 +165,16 @@ class Analyzer:
 
         Args:
             data: The hyperspectral data to analyze.
+            progress_callback: Optional ``(epoch, total_epochs, loss)`` callback forwarded
+                to training (used by the GUI for a live progress bar). Ignored when a
+                pretrained model is loaded.
 
         Returns:
             self, for method chaining.
         """
         logger.info(f"Preparing analyzer for {self._config.sample_name}")
         self._load_data(data)
-        self._load_or_train_model()
+        self._load_or_train_model(progress_callback=progress_callback)
         self._setup_baseline()
         self._is_prepared = True
         return self
@@ -682,11 +685,12 @@ class Analyzer:
             filter_size=self._config.model_filter_size,
         )
 
-    def _load_or_train_model(self) -> None:
+    def _load_or_train_model(self, progress_callback=None) -> None:
         """Load pretrained model or train a new one if needed.
 
         Attempts to load model weights from config.model_path. If the file
         is missing or architecture doesn't match, trains a new model.
+        ``progress_callback`` is forwarded to training (no-op when loading).
         """
         if self._dataset is None:
             raise RuntimeError("_load_data must be called before _load_or_train_model")
@@ -725,13 +729,14 @@ class Analyzer:
                 logger.info("No model path specified")
 
         # Train new model if loading failed or no file exists
-        self._train_new_model()
+        self._train_new_model(progress_callback=progress_callback)
 
-    def _train_new_model(self) -> None:
+    def _train_new_model(self, progress_callback=None) -> None:
         """Train a new autoencoder model from scratch.
 
         Uses the training parameters from spectral_select.models.training with
-        reasonable defaults for wavelength selection analysis.
+        reasonable defaults for wavelength selection analysis. ``progress_callback``
+        (epoch, total_epochs, loss) is forwarded to the training loop.
         """
         logger.warning(
             "Training new autoencoder model. "
@@ -765,6 +770,7 @@ class Analyzer:
             mask=mask,
             output_dir=str(train_output_dir),
             verbose=True,
+            progress_callback=progress_callback,
         )
 
         # Move to device and set to evaluation mode
