@@ -55,6 +55,19 @@ results = analyzer.fit(data)
 print(results.selected_wavelengths)
 ```
 
+## Run the GUI (no code)
+
+```bash
+pip install -e ".[gui]"
+spectral-select-gui          # or: python -m mehsi_preprocessor
+```
+
+The wizard walks you through the whole workflow without writing code: **load → metadata →
+normalize → spatial/spectral crop → draw classes → ROI → export → train autoencoder →
+select bands**. Step 9 trains the autoencoder (or loads a saved `.pth`) with a live progress
+bar; Step 10 runs Perturbation-Based AE selection and exports the chosen bands as CSV / JSON /
+TIFF.
+
 ## Repository Structure
 
 Uses a `src/` layout (install with `pip install -e .`, then `import spectral_select`).
