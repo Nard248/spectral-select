@@ -61,6 +61,9 @@ gui = [
 Homepage = "https://github.com/narekmeloyan/spectral-select"
 Repository = "https://github.com/narekmeloyan/spectral-select"
 
+[project.scripts]
+spectral-select-gui = "mehsi_preprocessor.app:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["selection_core*", "spectral_select*", "channel_select*", "mehsi_preprocessor*"]
