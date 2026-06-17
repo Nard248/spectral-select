@@ -96,6 +96,8 @@ class PreprocessorWindow(QMainWindow):
         from mehsi_preprocessor.steps.step6_draw_classes import Step6DrawClasses
         from mehsi_preprocessor.steps.step7_roi_regions import Step7ROIRegions
         from mehsi_preprocessor.steps.step8_export import Step8Export
+        from mehsi_preprocessor.steps.step9_train import Step9Train
+        from mehsi_preprocessor.steps.step10_select import Step10Select
 
         step_classes = [
             Step1Load,
@@ -106,6 +108,8 @@ class PreprocessorWindow(QMainWindow):
             Step6DrawClasses,
             Step7ROIRegions,
             Step8Export,
+            Step9Train,
+            Step10Select,
         ]
 
         for cls in step_classes:
