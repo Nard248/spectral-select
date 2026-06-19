@@ -76,8 +76,13 @@ materials → paint them onto a scene → render a `SpectraData` cube plus per-f
 concentration maps and "which bands carry signal" ground truth.
 
 ```bash
-spectraforge-demo -o my_dataset      # writes spectra_unmasked.pkl + groundtruth.npz/json
+spectraforge-gui                     # the Forge: paint materials on a canvas, render datasets
+spectraforge-demo -o my_dataset      # or headless: writes spectra_unmasked.pkl + groundtruth.npz/json
 ```
+
+The Forge GUI is a workbench: define fluorophores and view their spectra (left), compose
+materials (brushes), paint them onto layered canvases (center), manage layers (right), then
+configure excitations and **Render** + **Export** (bottom) — output loads in `spectral-select-gui`.
 
 ```python
 from spectraforge import Fluorophore, Material, Scene, AcquisitionConfig, ArtifactConfig, render, load_builtin_library
