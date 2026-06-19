@@ -39,6 +39,16 @@ class Scene:
         inside = MplPath(vertices).contains_points(pts).reshape(self.height, self.width)
         self._add_region(inside, material, amount)
 
+    def paint_map(self, material: Material, amount_map) -> None:
+        """Add per-pixel concentration: ``concentration[f] += conc * amount_map``.
+
+        Unlike paint_rect/paint_circle (uniform amount over a region), this applies a
+        full H x W amount map — used by GUI brush strokes / layer amount maps.
+        """
+        amount_map = np.asarray(amount_map, dtype=float)
+        for fname, conc in material.recipe.items():
+            self._ensure(fname)[:] += conc * amount_map
+
     def resolve(self) -> dict[str, np.ndarray]:
         return {k: v.copy() for k, v in self._maps.items()}
 

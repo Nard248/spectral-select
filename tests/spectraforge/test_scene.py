@@ -37,3 +37,15 @@ def test_paint_circle():
     maps = s.resolve()
     assert maps["EGFP"][10, 10] == 1.0
     assert maps["EGFP"][0, 0] == 0.0
+
+
+def test_paint_map_accumulates_per_pixel():
+    s = Scene(4, 4)
+    amt = np.zeros((4, 4))
+    amt[0, 0] = 2.0
+    amt[1, 1] = 0.5
+    s.paint_map(Material("m", {"collagen": 3.0}), amt)
+    maps = s.resolve()
+    assert maps["collagen"][0, 0] == 6.0   # 3.0 * 2.0
+    assert maps["collagen"][1, 1] == 1.5
+    assert maps["collagen"][2, 2] == 0.0
