@@ -81,6 +81,37 @@ def _canvas_state():
     return st
 
 
+def test_layers_panel_reorder_and_remove():
+    from spectraforge.gui.panels.layers_panel import LayersPanel
+    st = ForgeState(height=8, width=8)
+    st.materials["a"] = Material("a", {"collagen": 1.0})
+    st.materials["b"] = Material("b", {"NADH": 1.0})
+    p = LayersPanel(st)
+    p.add_layer_with_material("a")
+    p.add_layer_with_material("b")
+    assert [layer.name for layer in st.layers] == ["a", "b"]
+    p.move_up(1)
+    assert [layer.name for layer in st.layers] == ["b", "a"]
+    p.move_down(0)
+    assert [layer.name for layer in st.layers] == ["a", "b"]
+    p.remove_layer(0)
+    assert [layer.name for layer in st.layers] == ["b"]
+
+
+def test_layers_panel_checkbox_toggles_visibility():
+    from PyQt6.QtCore import Qt
+    from spectraforge.gui.panels.layers_panel import LayersPanel
+    st = ForgeState(height=8, width=8)
+    st.materials["a"] = Material("a", {"collagen": 1.0})
+    p = LayersPanel(st)
+    p.add_layer_with_material("a")
+    item = p._list.item(0)
+    item.setCheckState(Qt.CheckState.Unchecked)
+    assert st.layers[0].visible is False
+    item.setCheckState(Qt.CheckState.Checked)
+    assert st.layers[0].visible is True
+
+
 def test_canvas_brush_at_paints_disc():
     from spectraforge.gui.panels.canvas_panel import CanvasPanel
     st = _canvas_state()
