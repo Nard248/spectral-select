@@ -52,6 +52,10 @@ class LibraryPanel(QWidget):
         self._list.clear()
         self._list.addItems(sorted(self.state.library))
 
+    def refresh(self):
+        """Public re-sync of the fluorophore list (e.g. after project load)."""
+        self._refresh()
+
     def _on_select(self, name):
         if name in self.state.library:
             self._plot.plot_fluorophore(self.state.library[name])

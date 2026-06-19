@@ -57,3 +57,11 @@ class MaterialPanel(QWidget):
         self._materials_list.addItems(sorted(self.state.materials))
         ex = self.state.acquisition.excitations[0]
         self._plot.plot_material(mat, self.state.library, ex)
+
+    def refresh(self):
+        """Re-sync the materials list and fluorophore combos from state (e.g. after load)."""
+        self._materials_list.clear()
+        self._materials_list.addItems(sorted(self.state.materials))
+        for combo, _ in self._rows:
+            combo.clear()
+            combo.addItems(sorted(self.state.library))

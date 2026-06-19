@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import numpy as np
 from PyQt6.QtWidgets import (
-    QComboBox, QHBoxLayout, QLabel, QSpinBox, QVBoxLayout, QWidget,
+    QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel, QSpinBox, QVBoxLayout, QWidget,
 )
 
 from mehsi_preprocessor.state import DEFAULT_CLASS_COLORS
@@ -33,11 +33,18 @@ class CanvasPanel(QWidget):
         self._radius_spin.setRange(1, 50)
         self._radius_spin.setValue(self._radius)
         self._radius_spin.valueChanged.connect(self.set_radius)
+        self._value_spin = QDoubleSpinBox()
+        self._value_spin.setRange(0.0, 100.0)
+        self._value_spin.setSingleStep(0.1)
+        self._value_spin.setValue(self._brush_value)
+        self._value_spin.valueChanged.connect(self.set_brush_value)
         bar = QHBoxLayout()
         bar.addWidget(QLabel("Tool"))
         bar.addWidget(self._tool_combo)
         bar.addWidget(QLabel("Brush radius"))
         bar.addWidget(self._radius_spin)
+        bar.addWidget(QLabel("Brush value"))
+        bar.addWidget(self._value_spin)
         bar.addStretch(1)
 
         root = QVBoxLayout(self)
@@ -60,6 +67,9 @@ class CanvasPanel(QWidget):
 
     def set_radius(self, r: int) -> None:
         self._radius = int(r)
+
+    def set_brush_value(self, v: float) -> None:
+        self._brush_value = float(v)
 
     # ------------------------------------------------------------------
     # Painting primitives

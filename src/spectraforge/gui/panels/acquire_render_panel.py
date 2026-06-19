@@ -55,6 +55,10 @@ class AcquireRenderPanel(QWidget):
     # Acquisition + render
     # ------------------------------------------------------------------
 
+    def refresh(self):
+        """Re-sync the excitation field from state (e.g. after project load)."""
+        self._ex.setText(",".join(f"{e:.0f}" for e in self.state.acquisition.excitations))
+
     def _apply_excitations(self):
         try:
             ex = [float(x) for x in self._ex.text().split(",") if x.strip()]

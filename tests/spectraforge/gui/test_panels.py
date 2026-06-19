@@ -147,6 +147,16 @@ def test_canvas_mouse_rect_paints_on_release():
     assert am[0, 0] == 0.0
 
 
+def test_canvas_brush_value_control():
+    from spectraforge.gui.panels.canvas_panel import CanvasPanel
+    st = _canvas_state()
+    p = CanvasPanel(st)
+    p.set_brush_value(0.4)
+    p.set_radius(2)
+    p.brush_at(6, 6)
+    assert st.layers[0].amount_map[6, 6] == 0.4
+
+
 def test_canvas_eraser_zeros_disc():
     from spectraforge.gui.panels.canvas_panel import CanvasPanel
     st = _canvas_state()
@@ -193,3 +203,19 @@ def test_forge_window_builds():
     from spectraforge.gui.app import ForgeWindow
     w = ForgeWindow()
     assert w._state is not None
+
+
+def test_forge_window_save_open_roundtrip(tmp_path):
+    from spectraforge.gui.app import ForgeWindow
+    w = ForgeWindow()
+    w._state.materials["m"] = Material("m", {"collagen": 1.0})
+    w._state.add_layer("L", w._state.materials["m"])
+    w._state.layers[0].amount_map[1, 1] = 0.5
+    path = tmp_path / "proj.npz"
+    w.save_to(path)
+    w._state.layers.clear()          # mutate, then reopen
+    w.open_from(path)
+    assert len(w._state.layers) == 1
+    assert w._state.layers[0].amount_map[1, 1] == 0.5
+    w.new_project()                  # New clears layers
+    assert w._state.layers == []
