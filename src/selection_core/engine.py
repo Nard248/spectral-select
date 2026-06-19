@@ -50,10 +50,19 @@ def select_important_dimensions(
 
 
 def latent_statistics(latent_flat: torch.Tensor) -> dict:
-    """Per-coordinate statistics used to scale perturbations."""
+    """Per-coordinate statistics used to scale perturbations.
+
+    With a single sample (batch=1, e.g. a tiny image yielding one baseline patch),
+    ``torch.std`` (correction=1) would divide by n-1=0 and return NaN; we return a
+    zero std in that degenerate case. For batch>=2 this is the unchanged sample std.
+    """
     pcts = [5, 10, 25, 50, 75, 90, 95]
+    if latent_flat.shape[0] > 1:
+        std = torch.std(latent_flat, dim=0)
+    else:
+        std = torch.zeros(latent_flat.shape[1], dtype=latent_flat.dtype, device=latent_flat.device)
     return {
-        "std": torch.std(latent_flat, dim=0),
+        "std": std,
         "min": torch.min(latent_flat, dim=0)[0],
         "max": torch.max(latent_flat, dim=0)[0],
         "percentiles": {p: torch.quantile(latent_flat, p / 100.0, dim=0) for p in pcts},

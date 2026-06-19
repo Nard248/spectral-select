@@ -101,3 +101,19 @@ def test_accumulate_influence_runs_end_to_end():
     )
     assert infl["g"].shape == (3,)
     assert np.all(infl["g"] >= 0)
+
+
+def test_latent_statistics_single_sample_is_finite():
+    # Degenerate batch=1 (e.g. a tiny image yields one baseline patch) must not produce
+    # NaN std (torch.std with correction=1 divides by n-1=0). Surfaced by SpectraForge.
+    latent = torch.randn(1, 5)
+    stats = latent_statistics(latent)
+    assert torch.isfinite(stats["std"]).all()
+    assert torch.allclose(stats["std"], torch.zeros(5))
+
+
+def test_latent_statistics_multisample_unchanged():
+    # batch >= 2 keeps sample std (correction=1) so the Phase-7 equivalence holds.
+    latent = torch.tensor([[0.0, 0.0], [2.0, 4.0]])
+    stats = latent_statistics(latent)
+    assert torch.allclose(stats["std"], torch.std(latent, dim=0))
