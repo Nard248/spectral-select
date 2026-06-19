@@ -63,7 +63,11 @@ Repository = "https://github.com/narekmeloyan/spectral-select"
 
 [project.scripts]
 spectral-select-gui = "mehsi_preprocessor.app:main"
+spectraforge-demo = "spectraforge.demo:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["selection_core*", "spectral_select*", "channel_select*", "mehsi_preprocessor*", "spectraforge*"]
+
+[tool.setuptools.package-data]
+spectraforge = ["data/*.json"]

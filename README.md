@@ -68,6 +68,30 @@ select bands**. Step 9 trains the autoencoder (or loads a saved `.pth`) with a l
 bar; Step 10 runs Perturbation-Based AE selection and exports the chosen bands as CSV / JSON /
 TIFF.
 
+## SpectraForge — synthetic ME-HSI data
+
+Generate chemically-grounded synthetic multi-excitation hyperspectral datasets (with perfect
+ground truth) to validate the band-selection methods. Define fluorophores → mix them into
+materials → paint them onto a scene → render a `SpectraData` cube plus per-fluorophore
+concentration maps and "which bands carry signal" ground truth.
+
+```bash
+spectraforge-demo -o my_dataset      # writes spectra_unmasked.pkl + groundtruth.npz/json
+```
+
+```python
+from spectraforge import Fluorophore, Material, Scene, AcquisitionConfig, ArtifactConfig, render, load_builtin_library
+lib = load_builtin_library()                         # collagen, NADH, FAD, EGFP, fluorescein, ...
+scene = Scene(64, 64)
+scene.paint_rect(Material("tissue", {"collagen": 1.0, "NADH": 0.3}), 5, 50, 5, 50)
+acq = AcquisitionConfig(excitations=[340, 450, 488], em_min=360, em_max=700, em_step=5)
+spectra, gt = render(scene, lib, acq, artifacts=ArtifactConfig(rayleigh_strength=0.15, photon_scale=400), seed=42)
+spectra.to_pickle("synthetic.pkl")                   # loads in the Analyzer / GUI
+```
+
+The output drops straight into `spectral-select-gui` (Step 1) or `Analyzer`, and
+`GroundTruth.informative_bands()` tells you which wavelengths *should* be selected.
+
 ## Repository Structure
 
 Uses a `src/` layout (install with `pip install -e .`, then `import spectral_select`).
