@@ -66,4 +66,4 @@ spectral-select-gui = "mehsi_preprocessor.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["selection_core*", "spectral_select*", "channel_select*", "mehsi_preprocessor*"]
+include = ["selection_core*", "spectral_select*", "channel_select*", "mehsi_preprocessor*", "spectraforge*"]
