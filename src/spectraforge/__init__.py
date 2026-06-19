@@ -11,11 +11,14 @@ from spectraforge.forward import render
 from spectraforge.groundtruth import GroundTruth
 from spectraforge.library import load_builtin_library
 from spectraforge.material import Material
+from spectraforge.measured import MeasuredFluorophore, from_fpbase_payload
 from spectraforge.physics import PhysicsConfig
 from spectraforge.scene import Scene
 
 __all__ = [
     "Fluorophore",
+    "MeasuredFluorophore",
+    "from_fpbase_payload",
     "Material",
     "Scene",
     "AcquisitionConfig",
