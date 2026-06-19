@@ -171,6 +171,24 @@ def test_composite_first_layer_is_visible():
     assert rgb[0, 0].sum() == 0.0     # unpainted stays black
 
 
+def test_acquire_render_panel_slice_preview():
+    import numpy as np
+    from spectraforge.gui.panels.acquire_render_panel import AcquireRenderPanel
+    st = ForgeState(height=10, width=10)
+    st.materials["m"] = Material("m", {"EGFP": 1.0})
+    layer = st.add_layer("L", st.materials["m"])
+    layer.amount_map[:] = 1.0
+    p = AcquireRenderPanel(st)
+    p.render_now()
+    img = p.preview_slice(0, 0)
+    assert img.shape == (10, 10)
+    grid = st.acquisition.emission_grid()
+    ex_idx = list(st.acquisition.excitations).index(488.0)   # EGFP excites at 488
+    band_507 = int(np.argmin(np.abs(grid - 507)))            # its emission peak
+    band_far = int(np.argmin(np.abs(grid - 380)))
+    assert p.preview_slice(ex_idx, band_507).mean() > p.preview_slice(ex_idx, band_far).mean()
+
+
 def test_forge_window_builds():
     from spectraforge.gui.app import ForgeWindow
     w = ForgeWindow()

@@ -1,12 +1,16 @@
-"""Acquire / Render / Export bar: configure excitations, render, export."""
+"""Acquire / Render / Export bar: configure excitations, render, preview slices, export."""
 from __future__ import annotations
 
 from pathlib import Path
 
+import numpy as np
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QFileDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget,
+    QComboBox, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSlider,
+    QVBoxLayout, QWidget,
 )
 
+from mehsi_preprocessor.widgets.image_canvas import ImageCanvas
 from spectraforge.gui.render_ops import export_dataset, render_state
 from spectraforge.gui.workers import RenderWorker
 
@@ -16,6 +20,7 @@ class AcquireRenderPanel(QWidget):
         super().__init__(parent)
         self.state = state
         self._worker = None
+
         self._ex = QLineEdit(",".join(f"{e:.0f}" for e in state.acquisition.excitations))
         self._status = QLabel("")
         render_btn = QPushButton("Render")
@@ -23,13 +28,32 @@ class AcquireRenderPanel(QWidget):
         export_btn = QPushButton("Export pkl + ground truth")
         export_btn.clicked.connect(self._on_export)
 
+        # --- slice preview ---
+        self._preview = ImageCanvas(self)
+        self._ex_combo = QComboBox()
+        self._ex_combo.currentIndexChanged.connect(self._update_preview)
+        self._band = QSlider(Qt.Orientation.Horizontal)
+        self._band.setRange(0, 0)
+        self._band.valueChanged.connect(self._update_preview)
+
         root = QVBoxLayout(self)
-        h = QHBoxLayout()
-        h.addWidget(QLabel("Excitations (nm)"))
-        h.addWidget(self._ex)
-        root.addLayout(h)
+        ex_row = QHBoxLayout()
+        ex_row.addWidget(QLabel("Excitations (nm)"))
+        ex_row.addWidget(self._ex)
+        root.addLayout(ex_row)
         for b in (render_btn, export_btn, self._status):
             root.addWidget(b)
+        prev_row = QHBoxLayout()
+        prev_row.addWidget(QLabel("Excitation"))
+        prev_row.addWidget(self._ex_combo)
+        prev_row.addWidget(QLabel("Emission band"))
+        prev_row.addWidget(self._band)
+        root.addLayout(prev_row)
+        root.addWidget(self._preview)
+
+    # ------------------------------------------------------------------
+    # Acquisition + render
+    # ------------------------------------------------------------------
 
     def _apply_excitations(self):
         try:
@@ -43,6 +67,7 @@ class AcquireRenderPanel(QWidget):
         """Synchronous render (used headless / in tests)."""
         self._apply_excitations()
         self.state.last_render = render_state(self.state)
+        self._after_render()
         self._status.setText("Rendered.")
 
     def _on_render(self):
@@ -55,7 +80,48 @@ class AcquireRenderPanel(QWidget):
 
     def _on_done(self, result):
         self.state.last_render = result
+        self._after_render()
         self._status.setText(f"Rendered {result[0].n_excitations} excitations.")
+
+    # ------------------------------------------------------------------
+    # Slice preview
+    # ------------------------------------------------------------------
+
+    def _excitations(self):
+        return self.state.last_render[0].excitation_wavelengths if self.state.last_render else []
+
+    def preview_slice(self, ex_index, band_index):
+        """Return the 2-D image at the given excitation index + emission band index."""
+        spectra = self.state.last_render[0]
+        ex_nm = self._excitations()[ex_index]
+        return spectra.get_excitation(ex_nm).cube[:, :, band_index]
+
+    def _after_render(self):
+        exes = self._excitations()
+        self._ex_combo.blockSignals(True)
+        self._ex_combo.clear()
+        self._ex_combo.addItems([f"{e:.0f} nm" for e in exes])
+        self._ex_combo.blockSignals(False)
+        if exes:
+            n_bands = self.state.last_render[0].get_excitation(exes[0]).n_bands
+            self._band.blockSignals(True)
+            self._band.setRange(0, n_bands - 1)
+            self._band.setValue(n_bands // 2)
+            self._band.blockSignals(False)
+        self._update_preview()
+
+    def _update_preview(self, *_):
+        if self.state.last_render is None or not self._excitations():
+            return
+        ex_index = max(0, self._ex_combo.currentIndex())
+        band = self._band.value()
+        img = self.preview_slice(ex_index, band)
+        self._preview.show_image(img)
+        self._preview.set_title(f"{self._excitations()[ex_index]:.0f} nm, band {band}")
+
+    # ------------------------------------------------------------------
+    # Export
+    # ------------------------------------------------------------------
 
     def export_to(self, out_dir):
         if self.state.last_render is None:
