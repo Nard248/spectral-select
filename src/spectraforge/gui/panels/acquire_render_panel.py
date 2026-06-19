@@ -11,8 +11,8 @@ from PyQt6.QtWidgets import (
 )
 
 from mehsi_preprocessor.widgets.image_canvas import ImageCanvas
-from spectraforge.gui.render_ops import export_dataset, render_state
-from spectraforge.gui.workers import RenderWorker
+from spectraforge.gui.render_ops import export_dataset, render_state, validate_state
+from spectraforge.gui.workers import RenderWorker, ValidateWorker
 
 
 class AcquireRenderPanel(QWidget):
@@ -20,6 +20,7 @@ class AcquireRenderPanel(QWidget):
         super().__init__(parent)
         self.state = state
         self._worker = None
+        self._vworker = None
 
         self._ex = QLineEdit(",".join(f"{e:.0f}" for e in state.acquisition.excitations))
         self._status = QLabel("")
@@ -27,6 +28,10 @@ class AcquireRenderPanel(QWidget):
         render_btn.clicked.connect(self._on_render)
         export_btn = QPushButton("Export pkl + ground truth")
         export_btn.clicked.connect(self._on_export)
+        validate_btn = QPushButton("Validate selection vs ground truth")
+        validate_btn.clicked.connect(self._on_validate)
+        self._metrics = QLabel("")
+        self._metrics.setWordWrap(True)
 
         # --- slice preview ---
         self._preview = ImageCanvas(self)
@@ -41,7 +46,7 @@ class AcquireRenderPanel(QWidget):
         ex_row.addWidget(QLabel("Excitations (nm)"))
         ex_row.addWidget(self._ex)
         root.addLayout(ex_row)
-        for b in (render_btn, export_btn, self._status):
+        for b in (render_btn, export_btn, self._status, validate_btn, self._metrics):
             root.addWidget(b)
         prev_row = QHBoxLayout()
         prev_row.addWidget(QLabel("Excitation"))
@@ -86,6 +91,30 @@ class AcquireRenderPanel(QWidget):
         self.state.last_render = result
         self._after_render()
         self._status.setText(f"Rendered {result[0].n_excitations} excitations.")
+
+    # ------------------------------------------------------------------
+    # Validate the band selection against ground truth
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _format_metrics(m):
+        marks = "  ".join(f"{name} {'✓' if ok else '✗'}" for name, ok in m["per_fluorophore"].items())
+        return (f"recovered {m['fluorophores_recovered'] * 100:.0f}%   "
+                f"precision {m['precision']:.2f}   recall {m['recall']:.2f}   f1 {m['f1']:.2f}\n{marks}")
+
+    def validate_now(self, config=None):
+        """Synchronous validate (used headless / in tests): render→select→score vs ground truth."""
+        self._metrics.setText("Validating…")
+        metrics = validate_state(self.state, config=config)
+        self._metrics.setText(self._format_metrics(metrics))
+        return metrics
+
+    def _on_validate(self):
+        self._metrics.setText("Validating… (training the autoencoder — this can take a while)")
+        self._vworker = ValidateWorker(self.state)
+        self._vworker.finished_ok.connect(lambda m: self._metrics.setText(self._format_metrics(m)))
+        self._vworker.failed.connect(lambda msg: self._metrics.setText(f"Validate failed: {msg}"))
+        self._vworker.start()
 
     # ------------------------------------------------------------------
     # Slice preview

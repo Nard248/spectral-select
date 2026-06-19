@@ -199,6 +199,41 @@ def test_acquire_render_panel_slice_preview():
     assert p.preview_slice(ex_idx, band_507).mean() > p.preview_slice(ex_idx, band_far).mean()
 
 
+def test_validate_state_returns_metrics(tmp_path):
+    from spectral_select import Config
+    from spectraforge.gui.render_ops import validate_state
+    from spectraforge.scenegen import random_field
+    st = ForgeState(height=32, width=32)
+    st.materials["m"] = Material("m", {"EGFP": 1.0})
+    layer = st.add_layer("L", st.materials["m"])
+    layer.amount_map[:] = random_field(32, 32, seed=1)
+    cfg = Config(sample_name="t", n_important_dimensions=6, n_bands_to_select=4,
+                 perturbation_method="standard_deviation", use_diversity_constraint=False,
+                 training_epochs=2, device="cpu", output_dir=tmp_path)
+    m = validate_state(st, config=cfg, tol_nm=15)
+    assert {"precision", "recall", "f1", "fluorophores_recovered", "per_fluorophore"} <= set(m)
+    assert 0.0 <= m["precision"] <= 1.0
+    assert "EGFP" in m["per_fluorophore"]
+
+
+def test_acquire_panel_validate_now(tmp_path):
+    from spectral_select import Config
+    from spectraforge.gui.panels.acquire_render_panel import AcquireRenderPanel
+    from spectraforge.scenegen import random_field
+    st = ForgeState(height=24, width=24)
+    st.materials["m"] = Material("m", {"EGFP": 1.0})
+    layer = st.add_layer("L", st.materials["m"])
+    layer.amount_map[:] = random_field(24, 24, seed=2)
+    p = AcquireRenderPanel(st)
+    p.render_now()
+    cfg = Config(sample_name="t", n_important_dimensions=6, n_bands_to_select=4,
+                 perturbation_method="standard_deviation", use_diversity_constraint=False,
+                 training_epochs=2, device="cpu", output_dir=tmp_path)
+    p.validate_now(config=cfg)
+    text = p._metrics.text().lower()
+    assert "precision" in text or "recover" in text
+
+
 def test_forge_window_builds():
     from spectraforge.gui.app import ForgeWindow
     w = ForgeWindow()
