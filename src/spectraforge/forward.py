@@ -8,11 +8,13 @@ from spectral_select.types import ExcitationData, SpectraData
 from spectraforge.groundtruth import GroundTruth
 
 
-def render(scene, library, acquisition, artifacts=None, seed=None, sample_name="synthetic"):
+def render(scene, library, acquisition, artifacts=None, physics=None, seed=None, sample_name="synthetic"):
     """Render a synthetic ME-HSI dataset.
 
-    Returns ``(SpectraData, GroundTruth)``. With ``artifacts=None`` the result is the
-    clean, exactly-linear forward model: ``render(A+B) == render(A)+render(B)``.
+    Returns ``(SpectraData, GroundTruth)``. With ``artifacts=None`` and ``physics`` off the result
+    is the clean, exactly-linear forward model: ``render(A+B) == render(A)+render(B)``. Pass a
+    ``PhysicsConfig`` to add optical PSF blur, Beer-Lambert inner-filter (nonlinear), or
+    autofluorescence — see :mod:`spectraforge.physics`.
     """
     conc = scene.resolve()                       # {fname: (H, W)}
     h, w = scene.height, scene.width
@@ -29,15 +31,22 @@ def render(scene, library, acquisition, artifacts=None, seed=None, sample_name="
             * acquisition.power_for(ex)
         )
         cube = np.zeros((h, w, len(em)), dtype=float)
+        absorbance = np.zeros((h, w), dtype=float)        # excitation absorbance (inner-filter)
         for fname, cmap in conc.items():
             f = library[fname]
-            amp = f.extinction * f.quantum_yield * float(f.excitation(ex))  # scalar
+            exc = float(f.excitation(ex))
+            amp = f.extinction * f.quantum_yield * exc                      # scalar
             em_profile = f.emission(em)                                     # (n_em,)
             contrib = (cmap * amp)[:, :, None] * em_profile[None, None, :]
             cube += contrib
+            absorbance += f.extinction * exc * cmap
             band_max = contrib.reshape(-1, len(em)).max(axis=0) * scale     # (n_em,)
             per_fluorophore.setdefault(fname, {})[float(ex)] = band_max
         cube *= scale
+        if physics is not None:
+            from spectraforge.physics import apply_physics
+
+            cube = apply_physics(cube, physics, em, scale, absorbance)
         clean_cubes[float(ex)] = cube.copy()
         if artifacts is not None:
             from spectraforge.artifacts import add_noise, add_scatter_lines

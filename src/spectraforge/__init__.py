@@ -11,6 +11,7 @@ from spectraforge.forward import render
 from spectraforge.groundtruth import GroundTruth
 from spectraforge.library import load_builtin_library
 from spectraforge.material import Material
+from spectraforge.physics import PhysicsConfig
 from spectraforge.scene import Scene
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "Scene",
     "AcquisitionConfig",
     "ArtifactConfig",
+    "PhysicsConfig",
     "GroundTruth",
     "render",
     "load_builtin_library",
