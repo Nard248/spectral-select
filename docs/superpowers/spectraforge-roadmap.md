@@ -1,5 +1,11 @@
 # SpectraForge — Roadmap (next increments)
 
+> **STATUS (2026-06-19):** Increments **A, B, C, E, D all DONE** (main@e116b9a, 453 tests).
+> F (FRET/advanced) intentionally deferred — not needed. The harness produced a headline finding:
+> the band-selection method recovers reliably on realistic **asymmetric** spectra (recovery
+> 1.00±0.00, precision 0.75) but looks weak on toy symmetric **Gaussians** (recovery 0.25) —
+> synthetic validation must use realistic spectral shapes. See `reports/spectraforge_validation_report.py`.
+
 **North star:** rigorous, scalable validation of unsupervised band-selection methods using
 chemically-faithful synthetic ME-HSI data with perfect ground truth. Every increment must serve
 **realism**, **fidelity**, **scale**, or **usability** toward that.
