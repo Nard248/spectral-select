@@ -65,6 +65,69 @@ def test_acquire_render_panel_render_and_export(tmp_path):
     assert (tmp_path / "spectra_unmasked.pkl").exists()
 
 
+class _Ev:
+    """Minimal stand-in for a matplotlib MouseEvent."""
+    def __init__(self, ax, x, y, button=1):
+        self.inaxes = ax
+        self.xdata = x
+        self.ydata = y
+        self.button = button
+
+
+def _canvas_state():
+    st = ForgeState(height=12, width=12)
+    st.materials["m"] = Material("m", {"collagen": 1.0})
+    st.add_layer("L", st.materials["m"])
+    return st
+
+
+def test_canvas_brush_at_paints_disc():
+    from spectraforge.gui.panels.canvas_panel import CanvasPanel
+    st = _canvas_state()
+    p = CanvasPanel(st)
+    p.set_tool("brush")
+    p.set_radius(2)
+    p.brush_at(6, 6)
+    am = st.layers[0].amount_map
+    assert am[6, 6] == 1.0
+    assert am[6, 8] == 1.0    # distance 2, within radius 2
+    assert am[0, 0] == 0.0
+
+
+def test_canvas_mouse_press_paints_with_brush():
+    from spectraforge.gui.panels.canvas_panel import CanvasPanel
+    st = _canvas_state()
+    p = CanvasPanel(st)
+    p.set_tool("brush")
+    p.set_radius(1)
+    p._on_press(_Ev(p._canvas.ax, x=4.0, y=7.0))
+    assert st.layers[0].amount_map[7, 4] == 1.0
+
+
+def test_canvas_mouse_rect_paints_on_release():
+    from spectraforge.gui.panels.canvas_panel import CanvasPanel
+    st = _canvas_state()
+    p = CanvasPanel(st)
+    p.set_tool("rect")
+    p._on_press(_Ev(p._canvas.ax, x=2.0, y=3.0))
+    p._on_release(_Ev(p._canvas.ax, x=6.0, y=8.0))
+    am = st.layers[0].amount_map
+    assert am[5, 4] > 0        # inside rows 3..8, cols 2..6
+    assert am[0, 0] == 0.0
+
+
+def test_composite_first_layer_is_visible():
+    # Regression: the first layer must not render as black (invisible on black bg).
+    from spectraforge.gui.panels.canvas_panel import CanvasPanel
+    st = _canvas_state()
+    p = CanvasPanel(st)
+    p.set_radius(3)
+    p.brush_at(6, 6)
+    rgb = p.composite()
+    assert rgb[6, 6].sum() > 0.0      # painted pixel of layer 0 is a visible color
+    assert rgb[0, 0].sum() == 0.0     # unpainted stays black
+
+
 def test_forge_window_builds():
     from spectraforge.gui.app import ForgeWindow
     w = ForgeWindow()
