@@ -116,6 +116,18 @@ def test_canvas_mouse_rect_paints_on_release():
     assert am[0, 0] == 0.0
 
 
+def test_canvas_eraser_zeros_disc():
+    from spectraforge.gui.panels.canvas_panel import CanvasPanel
+    st = _canvas_state()
+    p = CanvasPanel(st)
+    p.set_radius(3)
+    p.brush_at(6, 6)
+    assert st.layers[0].amount_map[6, 6] == 1.0
+    p.set_tool("eraser")
+    p._on_press(_Ev(p._canvas.ax, x=6.0, y=6.0))   # erase via mouse
+    assert st.layers[0].amount_map[6, 6] == 0.0
+
+
 def test_composite_first_layer_is_visible():
     # Regression: the first layer must not render as black (invisible on black bg).
     from spectraforge.gui.panels.canvas_panel import CanvasPanel

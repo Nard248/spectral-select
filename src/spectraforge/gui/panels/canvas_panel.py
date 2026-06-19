@@ -27,7 +27,7 @@ class CanvasPanel(QWidget):
 
         # --- tool bar ---
         self._tool_combo = QComboBox()
-        self._tool_combo.addItems(["brush", "rect", "circle"])
+        self._tool_combo.addItems(["brush", "eraser", "rect", "circle"])
         self._tool_combo.currentTextChanged.connect(self.set_tool)
         self._radius_spin = QSpinBox()
         self._radius_spin.setRange(1, 50)
@@ -69,15 +69,29 @@ class CanvasPanel(QWidget):
         i = self.state.active_layer
         return self.state.layers[i] if 0 <= i < len(self.state.layers) else None
 
+    def _disc(self, row, col):
+        yy, xx = np.ogrid[: self.state.height, : self.state.width]
+        return (yy - row) ** 2 + (xx - col) ** 2 <= self._radius ** 2
+
     def brush_at(self, row, col) -> None:
         """Set a disc of the current radius around (row, col) to the brush value."""
         layer = self._active()
         if layer is None:
             return
-        yy, xx = np.ogrid[: self.state.height, : self.state.width]
-        disc = (yy - row) ** 2 + (xx - col) ** 2 <= self._radius ** 2
+        disc = self._disc(row, col)
         layer.amount_map[disc] = np.maximum(layer.amount_map[disc], self._brush_value)
         self.refresh()
+
+    def erase_at(self, row, col) -> None:
+        """Zero a disc of the current radius around (row, col)."""
+        layer = self._active()
+        if layer is None:
+            return
+        layer.amount_map[self._disc(row, col)] = 0.0
+        self.refresh()
+
+    def _dab_at(self, row, col) -> None:
+        (self.erase_at if self._tool == "eraser" else self.brush_at)(row, col)
 
     def paint_rect(self, r0, r1, c0, c1, amount=1.0):
         layer = self._active()
@@ -119,15 +133,15 @@ class CanvasPanel(QWidget):
         if px is None:
             return
         self._press_px = px
-        if self._tool == "brush":
-            self.brush_at(*px)
+        if self._tool in ("brush", "eraser"):
+            self._dab_at(*px)
 
     def _on_motion(self, event):
-        if self._press_px is None or self._tool != "brush" or not self._painting_allowed():
+        if self._press_px is None or self._tool not in ("brush", "eraser") or not self._painting_allowed():
             return
         px = self._event_pixel(event)
         if px is not None:
-            self.brush_at(*px)
+            self._dab_at(*px)
 
     def _on_release(self, event):
         if self._press_px is None:
