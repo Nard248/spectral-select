@@ -78,6 +78,28 @@ def validate_selection(ground_truth, selected, tol_nm: float = 10.0, threshold: 
         per_fluorophore[fname] = bool(recovered)
     frac = (sum(per_fluorophore.values()) / len(per_fluorophore)) if per_fluorophore else 0.0
 
+    # TIGHT, artifact-free recovery: did a selected band hit each fluorophore's TRUE emission peak
+    # (argmax of its own per-pixel-max spectrum, at its best excitation), not just land anywhere on
+    # the broad informative mask? This is the metric that actually discriminates a real selector
+    # from chance — the broad-mask `fluorophores_recovered`/`precision` saturate (see mask_coverage).
+    peak_hits = {}
+    for fname, perex in ground_truth.per_fluorophore_spectra.items():
+        if not perex:
+            peak_hits[fname] = False
+            continue
+        best_ex = max(perex, key=lambda e: float(np.max(perex[e])))
+        spec = np.asarray(perex[best_ex], dtype=float)
+        if spec.max() <= 0:
+            peak_hits[fname] = False
+            continue
+        peak_nm = float(grid[int(np.argmax(spec))])
+        peak_hits[fname] = any(abs(ex - best_ex) <= 1.0 and abs(em_nm - peak_nm) <= tol_nm
+                               for ex, em_nm in sel)
+    peak_recovery = (sum(peak_hits.values()) / len(peak_hits)) if peak_hits else 0.0
+
+    n_grid = sum(int(m.size) for m in informative.values())
+    mask_coverage = (n_informative / n_grid) if n_grid else 0.0
+
     return {
         "precision": precision,
         "recall": recall,
@@ -87,4 +109,7 @@ def validate_selection(ground_truth, selected, tol_nm: float = 10.0, threshold: 
         "n_informative": n_informative,
         "per_fluorophore": per_fluorophore,
         "fluorophores_recovered": frac,
+        "peak_hits": {k: bool(v) for k, v in peak_hits.items()},
+        "peak_recovery": peak_recovery,
+        "mask_coverage": mask_coverage,
     }

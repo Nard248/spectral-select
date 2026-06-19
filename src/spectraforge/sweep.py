@@ -12,7 +12,7 @@ import numpy as np
 from spectraforge.forward import render
 from spectraforge.validation import validate_selection
 
-_AGG_KEYS = ("precision", "recall", "f1", "fluorophores_recovered")
+_AGG_KEYS = ("precision", "recall", "f1", "fluorophores_recovered", "peak_recovery", "mask_coverage")
 
 
 def run_validation_sweep(scene_factory, library, acquisition, selector, seeds,
@@ -40,6 +40,25 @@ def aggregate_metrics(results) -> dict:
         agg[f"{key}_mean"] = float(np.mean(vals)) if vals else 0.0
         agg[f"{key}_std"] = float(np.std(vals)) if vals else 0.0
     return agg
+
+
+def make_random_selector(k: int = 12, seed: int = 0):
+    """Return a chance-baseline selector: ``k`` uniformly-random (excitation, emission) bands.
+
+    Essential control — if a learned selector cannot beat this on the tight ``peak_recovery``
+    metric, the harness has not shown the method recovers anything. Each call draws fresh bands
+    (so a sweep's per-scene draws differ); a new selector with the same seed reproduces its draws.
+    """
+    state = {"n": 0}
+
+    def selector(spectra):
+        excitations = list(spectra.excitation_wavelengths)
+        grid = list(spectra.get_excitation(excitations[0]).emission_wavelengths)
+        state["n"] += 1
+        rng = np.random.default_rng((seed + 1) * 100003 + state["n"])
+        return [(float(rng.choice(excitations)), float(rng.choice(grid))) for _ in range(k)]
+
+    return selector
 
 
 def make_analyzer_selector(config):

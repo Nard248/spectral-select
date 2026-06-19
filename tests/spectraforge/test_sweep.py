@@ -24,6 +24,25 @@ def test_random_scene_resolves_to_fluorophores_with_variance():
     assert conc["A"].std() > 0.0                # spatially varying -> non-degenerate spectra
 
 
+def test_make_random_selector_is_a_chance_baseline():
+    from spectraforge import Fluorophore, Scene, render
+    from spectraforge.sweep import make_random_selector
+    lib = {"A": Fluorophore("A", 480, 40, 520, 40)}
+    acq = AcquisitionConfig(excitations=[480.0], em_min=400, em_max=700, em_step=10)
+    s = Scene(8, 8)
+    s.paint_rect(Material("m", {"A": 1.0}), 0, 8, 0, 8)
+    spectra, _ = render(s, lib, acq)
+    sel = make_random_selector(k=6, seed=1)
+    bands = sel(spectra)
+    assert len(bands) == 6
+    grid = list(acq.emission_grid())
+    for ex, em in bands:
+        assert ex == 480.0 and em in grid          # valid (excitation, emission) pairs on the grid
+    # deterministic by seed across the two calls a sweep would make is NOT required, but a fresh
+    # selector with the same seed reproduces its own first draw:
+    assert make_random_selector(k=6, seed=1)(spectra) == bands
+
+
 def test_run_validation_sweep_and_aggregate():
     from spectraforge.scenegen import random_scene
     from spectraforge.sweep import aggregate_metrics, run_validation_sweep

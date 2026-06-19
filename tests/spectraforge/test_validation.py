@@ -37,6 +37,19 @@ def test_validate_per_fluorophore_recovery():
     assert m2["fluorophores_recovered"] == 0.0
 
 
+def test_validate_peak_recovery_and_mask_coverage():
+    # peak_recovery is TIGHT: it requires hitting the fluorophore's true emission peak (500 nm),
+    # not merely landing anywhere on the broad informative mask. mask_coverage exposes saturation.
+    gt = _gt_single_informative()
+    m = validate_selection(gt, [(488.0, 500.0)], tol_nm=5)
+    assert m["peak_recovery"] == 1.0
+    assert m["peak_hits"]["A"] is True
+    assert m["mask_coverage"] == 0.25       # only 1 of 4 bands is informative
+    m2 = validate_selection(gt, [(488.0, 520.0)], tol_nm=5)   # 20 nm off the 500 nm peak
+    assert m2["peak_recovery"] == 0.0
+    assert m2["peak_hits"]["A"] is False
+
+
 def test_render_populates_per_fluorophore_spectra():
     from spectraforge import Fluorophore, Material, Scene, AcquisitionConfig, render
     lib = {"A": Fluorophore("A", 480, 40, 520, 30, quantum_yield=0.5, extinction=1.0)}
