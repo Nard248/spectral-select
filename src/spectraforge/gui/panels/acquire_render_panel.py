@@ -28,8 +28,8 @@ class AcquireRenderPanel(QWidget):
         render_btn.clicked.connect(self._on_render)
         export_btn = QPushButton("Export pkl + ground truth")
         export_btn.clicked.connect(self._on_export)
-        validate_btn = QPushButton("Validate selection vs ground truth")
-        validate_btn.clicked.connect(self._on_validate)
+        self._validate_btn = QPushButton("Validate selection vs ground truth")
+        self._validate_btn.clicked.connect(self._on_validate)
         self._metrics = QLabel("")
         self._metrics.setWordWrap(True)
 
@@ -46,7 +46,7 @@ class AcquireRenderPanel(QWidget):
         ex_row.addWidget(QLabel("Excitations (nm)"))
         ex_row.addWidget(self._ex)
         root.addLayout(ex_row)
-        for b in (render_btn, export_btn, self._status, validate_btn, self._metrics):
+        for b in (render_btn, export_btn, self._status, self._validate_btn, self._metrics):
             root.addWidget(b)
         prev_row = QHBoxLayout()
         prev_row.addWidget(QLabel("Excitation"))
@@ -98,23 +98,39 @@ class AcquireRenderPanel(QWidget):
 
     @staticmethod
     def _format_metrics(m):
-        marks = "  ".join(f"{name} {'✓' if ok else '✗'}" for name, ok in m["per_fluorophore"].items())
-        return (f"recovered {m['fluorophores_recovered'] * 100:.0f}%   "
-                f"precision {m['precision']:.2f}   recall {m['recall']:.2f}   f1 {m['f1']:.2f}\n{marks}")
+        # Lead with the TIGHT peak metric (the meaningful one) and expose mask saturation; compare
+        # to a random baseline before reading anything into precision (the broad mask saturates it).
+        marks = "  ".join(f"{name} {'OK' if ok else '--'}" for name, ok in m["peak_hits"].items())
+        return (f"peak-recovery {m['peak_recovery'] * 100:.0f}%   precision {m['precision']:.2f}   "
+                f"f1 {m['f1']:.2f}\nmask covers {m['mask_coverage'] * 100:.0f}% of grid "
+                f"(compare vs a random baseline)   peaks: {marks}")
 
     def validate_now(self, config=None):
-        """Synchronous validate (used headless / in tests): render→select→score vs ground truth."""
-        self._metrics.setText("Validating…")
+        """Synchronous validate (used headless / in tests): render->select->score vs ground truth."""
+        self._apply_excitations()
+        self._metrics.setText("Validating...")
         metrics = validate_state(self.state, config=config)
         self._metrics.setText(self._format_metrics(metrics))
         return metrics
 
     def _on_validate(self):
-        self._metrics.setText("Validating… (training the autoencoder — this can take a while)")
+        if self._vworker is not None and self._vworker.isRunning():
+            return                                   # guard: never drop an in-flight QThread
+        self._apply_excitations()
+        self._metrics.setText("Validating... (training the autoencoder, this can take a while)")
+        self._validate_btn.setEnabled(False)
         self._vworker = ValidateWorker(self.state)
-        self._vworker.finished_ok.connect(lambda m: self._metrics.setText(self._format_metrics(m)))
-        self._vworker.failed.connect(lambda msg: self._metrics.setText(f"Validate failed: {msg}"))
+        self._vworker.finished_ok.connect(self._on_validated)
+        self._vworker.failed.connect(self._on_validate_failed)
         self._vworker.start()
+
+    def _on_validated(self, metrics):
+        self._metrics.setText(self._format_metrics(metrics))
+        self._validate_btn.setEnabled(True)
+
+    def _on_validate_failed(self, message):
+        self._metrics.setText(f"Validate failed: {message}")
+        self._validate_btn.setEnabled(True)
 
     # ------------------------------------------------------------------
     # Slice preview

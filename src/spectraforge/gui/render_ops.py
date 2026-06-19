@@ -28,18 +28,17 @@ def _default_validate_config():
 
 
 def validate_state(state, config=None, tol_nm: float = 12.0):
-    """Render (if needed), select bands with the Analyzer, and score them against ground truth.
+    """Render the current scene, select bands with the Analyzer, and score vs ground truth.
 
-    Returns the ``validate_selection`` metrics dict (precision/recall/f1 + per-fluorophore recovery)
-    — the harness answer to "did the selection recover the planted emission bands?".
+    Renders fresh into a LOCAL (never assigns ``state.last_render``) so this is safe to run on a
+    worker thread without racing the GUI thread, and always reflects the current scene rather than a
+    stale render. Returns the ``validate_selection`` metrics dict (incl. the tight ``peak_recovery``
+    and ``mask_coverage`` — read these next to a chance baseline; the broad-mask metrics saturate).
     """
     from spectral_select import Analyzer
     from spectraforge.validation import validate_selection
 
-    if state.last_render is None:
-        state.last_render = render_state(state)
-    spectra, ground_truth = state.last_render
-
+    spectra, ground_truth = render_state(state)
     analyzer = Analyzer(config or _default_validate_config())
     analyzer.fit(spectra)
     return validate_selection(ground_truth, analyzer.get_wavelengths(), tol_nm=tol_nm)

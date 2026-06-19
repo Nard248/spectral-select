@@ -234,6 +234,22 @@ def test_acquire_panel_validate_now(tmp_path):
     assert "precision" in text or "recover" in text
 
 
+def test_validate_guard_blocks_concurrent_runs():
+    # Regression: a second Validate click while one is in flight must NOT drop the running QThread
+    # (which would crash with "QThread: Destroyed while thread is still running").
+    from spectraforge.gui.panels.acquire_render_panel import AcquireRenderPanel
+    st = ForgeState(height=8, width=8)
+    p = AcquireRenderPanel(st)
+
+    class _Running:
+        def isRunning(self):
+            return True
+
+    p._vworker = sentinel = _Running()
+    p._on_validate()                       # must early-return
+    assert p._vworker is sentinel          # in-flight worker untouched
+
+
 def test_forge_window_builds():
     from spectraforge.gui.app import ForgeWindow
     w = ForgeWindow()
