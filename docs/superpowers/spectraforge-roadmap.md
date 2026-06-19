@@ -1,10 +1,13 @@
 # SpectraForge — Roadmap (next increments)
 
-> **STATUS (2026-06-19):** Increments **A, B, C, E, D all DONE** (main@e116b9a, 453 tests).
-> F (FRET/advanced) intentionally deferred — not needed. The harness produced a headline finding:
-> the band-selection method recovers reliably on realistic **asymmetric** spectra (recovery
-> 1.00±0.00, precision 0.75) but looks weak on toy symmetric **Gaussians** (recovery 0.25) —
-> synthetic validation must use realistic spectral shapes. See `reports/spectraforge_validation_report.py`.
+> **STATUS (2026-06-20):** Increments **A, B, C, E, D** built; harness then **corrected** after
+> adversarial review. The earlier "method recovers on realistic spectra, not on Gaussians" headline
+> is **RETRACTED** — it was an artifact of a saturated ground-truth mask (83-93% of the grid) with no
+> chance baseline; a uniformly-random selector matched/beat the AE. The harness now has a random
+> baseline + tight `peak_recovery`/`mask_coverage` metrics. On peak_recovery the AE scores ~0 vs
+> random ~0.33, but this is **INCONCLUSIVE** (peaks need not be the discriminative target); a
+> discriminability-grounded ground truth is the real open task. No claim went into any paper.
+> See `reports/fpbase_validation.py` and `reports/spectraforge_validation_report.py`.
 
 **North star:** rigorous, scalable validation of unsupervised band-selection methods using
 chemically-faithful synthetic ME-HSI data with perfect ground truth. Every increment must serve
