@@ -15,6 +15,8 @@ class GroundTruth:
     emission_grid: np.ndarray
     excitations: list[float]
     materials: dict = field(default_factory=dict)
+    # fluorophore_name -> {excitation -> (n_em,) per-pixel-max emission spectrum}
+    per_fluorophore_spectra: dict = field(default_factory=dict)
     seed: "int | None" = None
 
     def save(self, out_dir) -> None:
@@ -41,4 +43,15 @@ class GroundTruth:
         for ex, cube in self.clean_cubes.items():
             band_max = cube.reshape(-1, cube.shape[-1]).max(axis=0)
             out[ex] = band_max > (threshold * gmax)
+        return out
+
+    def informative_bands_per_fluorophore(self, threshold: float = 0.01) -> dict:
+        """Per fluorophore, per excitation: boolean mask of emission bands carrying that
+        fluorophore's signal (its per-pixel-max emission spectrum > ``threshold * global_max``).
+        Enables asking 'did the selection recover *each* material's signature?'."""
+        allvals = [s for perex in self.per_fluorophore_spectra.values() for s in perex.values()]
+        gmax = max((float(np.max(s)) for s in allvals), default=0.0) or 1.0
+        out = {}
+        for fname, perex in self.per_fluorophore_spectra.items():
+            out[fname] = {ex: (np.asarray(s) > threshold * gmax) for ex, s in perex.items()}
         return out

@@ -21,18 +21,22 @@ def render(scene, library, acquisition, artifacts=None, seed=None, sample_name="
 
     excitations = {}
     clean_cubes = {}
+    per_fluorophore = {}                          # fname -> {ex -> (n_em,) per-pixel-max spectrum}
     for ex in acquisition.excitations:
-        cube = np.zeros((h, w, len(em)), dtype=float)
-        for fname, cmap in conc.items():
-            f = library[fname]
-            amp = f.extinction * f.quantum_yield * float(f.excitation(ex))  # scalar
-            em_profile = f.emission(em)                                     # (n_em,)
-            cube += (cmap * amp)[:, :, None] * em_profile[None, None, :]
         scale = (
             acquisition.lamp_for(ex)
             * acquisition.exposure_for(ex)
             * acquisition.power_for(ex)
         )
+        cube = np.zeros((h, w, len(em)), dtype=float)
+        for fname, cmap in conc.items():
+            f = library[fname]
+            amp = f.extinction * f.quantum_yield * float(f.excitation(ex))  # scalar
+            em_profile = f.emission(em)                                     # (n_em,)
+            contrib = (cmap * amp)[:, :, None] * em_profile[None, None, :]
+            cube += contrib
+            band_max = contrib.reshape(-1, len(em)).max(axis=0) * scale     # (n_em,)
+            per_fluorophore.setdefault(fname, {})[float(ex)] = band_max
         cube *= scale
         clean_cubes[float(ex)] = cube.copy()
         if artifacts is not None:
@@ -54,6 +58,7 @@ def render(scene, library, acquisition, artifacts=None, seed=None, sample_name="
         clean_cubes=clean_cubes,
         emission_grid=em,
         excitations=[float(e) for e in acquisition.excitations],
+        per_fluorophore_spectra=per_fluorophore,
         seed=seed,
     )
     return spectra, gt
