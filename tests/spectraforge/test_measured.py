@@ -49,3 +49,19 @@ def test_from_fpbase_payload():
     assert f.quantum_yield == 0.6
     assert f.excitation(488) == 1.0
     assert f.emission(np.array([507.0])).sum() > 0
+
+
+def test_from_fpbase_payload_real_state_format():
+    # the real FPbase API tags spectra with `state` ("default_ex"/"default_em"), not `subtype`
+    from spectraforge.measured import from_fpbase_payload
+    payload = {
+        "name": "EGFP",
+        "spectra": [
+            {"state": "default_ex", "data": [[480, 0.5], [489, 1.0], [500, 0.6]]},
+            {"state": "default_em", "data": [[500, 0.2], [511, 1.0], [540, 0.4]]},
+        ],
+    }
+    f = from_fpbase_payload(payload)
+    assert f.name == "EGFP"
+    assert f.excitation(489) == 1.0
+    assert abs(f.em_peak_nm - 511) < 1e-6

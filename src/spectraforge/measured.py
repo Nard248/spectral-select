@@ -66,18 +66,19 @@ def from_fpbase_payload(payload: dict, quantum_yield: "float | None" = None,
                         extinction: float = 1.0) -> MeasuredFluorophore:
     """Build a MeasuredFluorophore from an FPbase-style payload.
 
-    Expects ``{"name": ..., "spectra": [{"subtype": "EX"|"AB"|"EM", "data": [[wl, val], ...]}, ...]}``.
-    The first EX/AB spectrum is the excitation; the first EM spectrum is the emission. Fetch the
+    Each spectrum is tagged either by ``subtype`` ("EX"/"AB"/"EM") or, as the real FPbase API does,
+    by ``state`` ("default_ex"/"default_em"/"default_ab"). The first excitation/absorption spectrum
+    becomes the excitation curve; the first emission spectrum becomes the emission curve. Fetch the
     payload yourself (FPbase API / a cached JSON) — this importer needs no network.
     """
     ex = em = None
     for spec in payload.get("spectra", []):
-        sub = str(spec.get("subtype", "")).upper()
+        tag = str(spec.get("subtype", "") or spec.get("state", "")).lower()
         data = np.asarray(spec["data"], dtype=float)
-        if sub in ("EX", "AB") and ex is None:
-            ex = data
-        elif sub == "EM" and em is None:
+        if "em" in tag and em is None:
             em = data
+        elif ("ex" in tag or "ab" in tag) and ex is None:
+            ex = data
     if ex is None or em is None:
         raise ValueError("payload must contain both an excitation (EX/AB) and an emission (EM) spectrum")
     qy = quantum_yield if quantum_yield is not None else float(payload.get("qy", 0.5))
