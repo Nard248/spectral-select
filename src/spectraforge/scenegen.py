@@ -31,3 +31,21 @@ def random_scene(materials, height: int, width: int, seed: int) -> Scene:
     for i, material in enumerate(materials):
         scene.paint_map(material, random_field(height, width, seed * 101 + i * 7))
     return scene
+
+
+def make_labeled_scene(materials, height: int, width: int, seed: int):
+    """A LABELLED, balanced scene for classification experiments.
+
+    Each material gets its own smooth concentration field; the per-pixel class label is the
+    argmax material (the dominant one). Because the fields are i.i.d. the classes come out
+    balanced, the regions are organic (not blocks), and every pixel is a genuine mixture of all
+    materials (heavier mixing near class boundaries) — realistic for material classification.
+
+    Returns ``(Scene, labels)`` where ``labels`` is an (H, W) int array of class indices.
+    """
+    fields = np.stack([random_field(height, width, seed * 13 + 31 * k) for k in range(len(materials))])
+    labels = fields.argmax(axis=0).astype(int)
+    scene = Scene(height, width)
+    for k, material in enumerate(materials):
+        scene.paint_map(material, fields[k])
+    return scene, labels

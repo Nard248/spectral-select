@@ -24,6 +24,22 @@ def test_random_scene_resolves_to_fluorophores_with_variance():
     assert conc["A"].std() > 0.0                # spatially varying -> non-degenerate spectra
 
 
+def test_make_labeled_scene_is_balanced_and_labels_match_dominant():
+    import numpy as np
+    from spectraforge.scenegen import make_labeled_scene
+    mats = [Material("a", {"A": 1.0}), Material("b", {"B": 1.0}), Material("c", {"C": 1.0})]
+    scene, labels = make_labeled_scene(mats, 48, 48, seed=1)
+    assert labels.shape == (48, 48)
+    counts = np.bincount(labels.ravel(), minlength=3)
+    # balanced: every class present and none dominates wildly (each within 0.5x..2x of even split)
+    even = labels.size / 3
+    assert counts.min() > 0.5 * even and counts.max() < 2.0 * even
+    # the label is the argmax material by concentration at that pixel
+    conc = scene.resolve()
+    stack = np.stack([conc["A"], conc["B"], conc["C"]])      # (3, H, W)
+    assert np.array_equal(stack.argmax(0), labels)
+
+
 def test_make_random_selector_is_a_chance_baseline():
     from spectraforge import Fluorophore, Scene, render
     from spectraforge.sweep import make_random_selector
