@@ -1,0 +1,42 @@
+% ============================================================================
+% I. INTRODUCTION (REVISED)
+% ============================================================================
+\section{Introduction}
+\label{sec:introduction}
+
+\IEEEPARstart{H}{yperspectral} imaging has become an established technology for remote sensing, material characterization, and biomedical analysis, capturing reflected or emitted light across hundreds of contiguous wavelength bands, exceeding the discriminative capabilities of RGB or multispectral data~\cite{plaza2009recent,bioucas2013hyperspectral}.
+While reflectance-based HSI measures how materials scatter
+incident light, fluorescence-based HSI traditionally captures the emission spectra produced when materials absorb ultraviolet or visible light and re-emit photons at longer wavelengths.
+This fluorescence response encodes molecular-level information about chromophores, enabling discrimination of materials that appear identical under reflectance imaging but possess distinct fluorescent signatures~\cite{muselimyan2016,gil2017}.
+
+The multi-excitation HSI (ME-HSI) approach combines
+acquisition of emission profiles with stepwise changes in the
+wavelength of illuminating light, yielding a four-dimensional data structure spanning two spatial $(x, y)$, and two spectral dimensions, namely emission $\lambda_{\text{em}}$, and excitation wavelengths $\lambda_{\text{ex}}$.
+This yields a simplified version of the excitation-emission matrix (EEM) for each spatial pixel, a comprehensive fluorescence fingerprint that has proven valuable for a variety of different applications~\cite{lakowicz2006principles,swift2018}.
+% ranging from mineral identification~\cite{mishra2017close} and vegetation stress monitoring~\cite{zarco2012fluorescence} to biomedical tissue characterization~\cite{croce2019autofluorescence} and cultural heritage analysis~\cite{dyer2018fluorescence}.
+
+The discriminative power of ME-HSI comes at a computational cost.
+An example acquisition with $N_{\text{ex}} = 8$ excitation wavelengths and $N_{\text{em}} = 24$ emission bands per excitation yields 192 data points per pixel, which for a megapixel image (e.g., $1040 \times 925$ pixels) translates to over 184 million data points per ME-HSI dataset.
+Not all of these excitation-emission combinations carry discriminative information: spectral overlap between fluorophores, detector noise in low-signal regions, and physical constraints such as Rayleigh scattering near the excitation wavelength introduce redundancy.
+The fundamental question thus becomes: \emph{which excitation-emission wavelength pairs actually matter for discriminating materials of interest?}
+Answering this question has direct implications for:
+(i)~sensor design, reducing the number of required LEDs, filters, and detector channels;
+(ii)~real-time processing, enabling faster classification; and
+(iii)~system deployment, decreasing power consumption, and data transmission requirements.
+
+The challenge of identifying informative spectral bands has been extensively studied for conventional 3D HSI~\cite{sun2019hyperspectral,jia2020survey,asfour2018,guan2018}, with approaches spanning filter-based methods (variance, entropy), wrapper methods (sequential forward selection, genetic algorithms), and embedded methods (sparse regression, attention mechanisms)~\cite{martinez2006comparison,chang2000constrained,pudil1994floating,pal2010feature,tibshirani1996regression,mou2017deep}.
+However, these approaches have notable limitations when applied to ME-HSI: filter-based methods lack task relevance, wrapper methods suffer from prohibitive computational cost when the search space is large, and embedded methods require labeled training data.
+Importantly, the vast majority of these methods treat each spectral band independently, assuming a 3D data structure of $(x, y, \lambda)$ where bands can be selected without considering their relationship to excitation wavelengths.
+For ME-HSI data, the information lies in specific excitation-emission \emph{combinations} and the nonlinear correlations between excitations may include important discriminative patterns.
+Therefore, methods that explicitly model the joint spectral-spatial structures are needed.
+To the best of our knowledge, no existing band selection method addresses this 4D structure directly.
+
+Deep learning offers a principled approach to learning nonlinear representations from high-dimensional data without requiring explicit feature engineering~\cite{lecun2015deep}.
+Autoencoders, which learn compressed representations by training a network to reconstruct its inputs, provide an unsupervised mechanism for identifying the essential structure in data~\cite{hinton2006reducing,bengio2013representation}.
+An autoencoder trained on ME-HSI data must encode the information necessary to reconstruct all excitation-emission combinations; analyzing what the autoencoder has learned, specifically probing the sensitivity of reconstruction to perturbations in the latent space, enables attribution of importance to individual wavelengths without requiring class labels.
+This insight connects representation learning to feature selection: the autoencoder identifies important features implicitly through compression, and perturbation analysis makes this implicit knowledge explicit.
+
+This paper presents an unsupervised deep learning framework for wavelength selection in ME-HSI datasets, combining a 3D convolutional autoencoder (CAE) with parallel excitation branches, perturbation-based attribution, and Maximum Marginal Relevance (MMR) selection~\cite{carbonell1998use}.
+The framework requires no class labels and produces ordered wavelength rankings at any desired reduction level; the methodology is detailed in Section~\ref{sec:methodology}.
+The framework is evaluated on two independent fluorescence datasets (lichen samples and collagen sponges) that differ in their excitation grids, valid band counts, and class structures, providing complementary tests of the same approach.
+To the best of our knowledge, this represents the first deep learning approach for wavelength selection in 4D ME-HSI data.

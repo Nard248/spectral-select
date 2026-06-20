@@ -1,0 +1,159 @@
+% ============================================================================
+% VI. DISCUSSION (REVISED - FINAL)
+% ============================================================================
+\section{Discussion}
+\label{sec:discussion}
+
+% ----------------------------------------------------------------------------
+\subsection{Key reasons for the CAE-induced improvements}
+\label{sec:discussion_why}
+
+This wavelength selection approach showed that using fewer bands yields better results than using the full 192 bands(Table~\ref{tab:main_results}). Accuracy did not decrease monotonically with band reduction; instead, an optimal operating point existed where sufficient discriminative information was retained while noise was maximally suppressed.
+Beyond this optimum, further reduction traded accuracy for efficiency, a favorable exchange for resource-constrained applications.
+
+\subsubsection{Noise Removal Through Intelligent Selection}
+Hyperspectral data inherently contains redundancy and noise.
+Spectral bands with low signal-to-noise ratios, bands capturing uninformative variance (e.g., illumination artifacts), and bands with high inter-class overlap all contribute to the full spectrum.
+A classifier operating on all 192 bands had to navigate this noise, which could degrade decision boundaries.
+
+By selecting only wavelengths with high discriminative value, the method effectively performed dimensionality reduction that removed uninformative or harmful information.
+The perturbation analysis identified wavelengths that the autoencoder considered important for faithful reconstruction, wavelengths that captured meaningful spectral structure rather than noise.
+
+\subsubsection{Joint 4D Representation}
+Traditional band selection methods process each spectral band independently, assuming that informativeness can be assessed from individual band statistics.
+For ME-HSI data, where discriminative patterns emerge from excitation-emission \emph{combinations}, this assumption failed.
+The parallel-branch architecture with feature averaging enabled the network to learn cross-excitation correlations---patterns that manifested only when comparing fluorescence responses across excitation wavelengths.
+The latent space encoded these joint patterns, capturing information that per-band analysis would miss.
+
+\subsubsection{Perturbation as Learned Attribution}
+The perturbation analysis operated on what the autoencoder had learned, not on raw data statistics.
+By measuring reconstruction sensitivity to latent perturbations, wavelengths that the network considered essential for accurate reconstruction were identified.
+This is fundamentally different from variance-based band selection, which might prioritize noisy bands with high variance but low discriminative value.
+The autoencoder's compression objective acted as an implicit importance filter: wavelengths that did not contribute to reconstruction fidelity were effectively ignored.
+
+% ----------------------------------------------------------------------------
+\subsection{Robustness Analysis Insights}
+\label{sec:discussion_robustness}
+The search space of $\binom{192}{13} \approx 3.6 \times 10^{18}$ possible 13-band combinations is far too large for exhaustive search.
+That the learned selection outperformed all 10,000 random samples---with a $12.3\sigma$ separation from the random mean ($p \ll 10^{-20}$)---demonstrated that the perturbation-based attribution genuinely identified discriminative wavelengths rather than benefiting from chance.
+
+% ----------------------------------------------------------------------------
+\subsection{Object-Level Performance Patterns}
+\label{sec:discussion_objects}
+The object-level analysis (Table~\ref{tab:objects}) revealed that difficult-to-classify specimens benefited most from wavelength selection.
+This suggests that the full spectrum contains wavelengths \emph{detrimental} to certain specimens---likely bands where intra-class variance is high or spectral signatures overlap with other classes.
+Removing these bands preferentially improves challenging cases while maintaining performance on straightforward ones.
+This property can be valuable since the challenging specimens are often the most diagnostically important (e.g., early-stage lesions with subtle spectral signatures).
+
+The accompanying 54\% reduction in performance variance across specimens (Table~\ref{tab:objects}) makes classification more predictable and less prone to bias, which can be important for quality control applications.
+
+% ----------------------------------------------------------------------------
+\subsection{PCA vs.\ Variance Dimension Selection}
+\label{sec:discussion_pca}
+
+The substantial gap between PCA and variance-based selection reflects a difference in how these methods analyze the latent space.
+PCA identifies orthogonal directions in the autoencoder's learned representation, capturing structured variation through a linear combination of dimensions.
+Variance-based selection ranks individual dimensions independently, missing these interactions, hence its lower performance ceiling and need for more bands to reach it.
+
+% ----------------------------------------------------------------------------
+\subsection{The Role of Diversity}
+\label{sec:discussion_diversity}
+
+The selection with MMR parameter of $\lambda = 1$ underperformed the balanced setting ($\lambda = 0.5$) used throughout the experiments.
+This result reflected the redundancy structure of fluorescence spectra.
+
+High-influence wavelength pairs often clustered together: if one emission wavelength at 480\,nm was highly influential, adjacent wavelengths at 470\,nm and 490\,nm likely showed similar influence due to spectral overlap.
+Selecting all three provided little additional information but occupied three of the $K$ available selection positions.
+MMR's diversity term penalized spectrally similar selections, encouraging the algorithm to ``spread out'' across the EEM space.
+
+The $\lambda = 0.5$ balanced these considerations: wavelengths had to be both relevant (high influence) and complementary (spectrally distinct), mirroring findings in information retrieval where query-relevant layers are more useful when they also provide novel information~\cite{carbonell1998use}.
+
+% ----------------------------------------------------------------------------
+\subsection{Limitations}
+\label{sec:discussion_limitations}
+
+% \subsubsection{Dataset Scope}
+% Evaluation focused on a single primary dataset (lichen fluorescence) with four classes.
+% While results were encouraging, validation across diverse specimen types, imaging conditions, and larger class vocabularies would strengthen generalizability claims.
+% Future work should evaluate the framework on datasets from different application domains, such as biomedical tissue imaging or agricultural produce inspection.
+
+\subsubsection{Computational Cost}
+While wavelength selection enabled efficient inference, the training pipeline, autoencoder training plus perturbation analysis, required significant computational power.
+For the lichen dataset, the complete pipeline took approximately 2 hours on the hardware used (30 minutes for autoencoder training, 90 minutes for perturbation analysis across multiple configurations).
+For rapid exploratory analysis, this overhead may be prohibitive, though it remained a one-time cost per dataset.
+
+\subsubsection{Black-Box Attribution}
+Perturbation analysis revealed \emph{which} wavelengths the network considered important but not \emph{why}.
+Physical interpretation (e.g., attributing high-influence wavelengths to specific fluorophores such as chlorophyll or lignin) requires additional domain expertise \cite{meysurova2021optical} and cannot be derived from the method alone.
+Incorporating such knowledge bases could enable more interpretable wavelength attributions.
+
+\subsubsection{Threshold Selection}
+The number of bands to select ($K$) is user-specified.
+While the results showed that 9 bands exceeded baseline performance for this dataset, choosing an appropriate $K$ for a different application requires domain knowledge or cross-validation.
+Automated threshold selection based on performance curves remains an open problem.
+
+% ----------------------------------------------------------------------------
+\subsection{Practical Implications}
+\label{sec:discussion_practical}
+
+\subsubsection{Sensor Design Guidelines}
+The one-per-excitation pattern observed in the 9-band configuration (Section~\ref{sec:results_wavelengths}) directly informs sensor design: coverage across the full excitation range is essential, but only a single emission band per excitation can be needed for effective discrimination.
+The 95\% data reduction translates to proportional reductions in sensor complexity, cooling requirements, and power consumption.
+
+\subsubsection{Real-Time Processing and Data Transmission}
+Processing 9 features per pixel is over $21\times$ faster than 192 features for KNN classification, with proportional memory savings.
+For embedded systems, UAV-mounted sensors, or clinical point-of-care devices, this reduction enables practical deployment.
+In remote sensing with bandwidth constraints, selective acquisition of only informative wavelengths could increase effective analysis rates.
+
+\subsubsection{Training Data Efficiency}
+Because wavelength selection is unsupervised (the autoencoder requires no labels), the framework could identify informative wavelengths from unlabeled data.
+Subsequent supervised training for classification then operates on the reduced feature set, potentially requiring fewer labeled examples for equivalent performance.
+This two-stage approach, unsupervised selection followed by supervised classification, is particularly valuable when labeled data is scarce or expensive to obtain.
+
+% ----------------------------------------------------------------------------
+\subsection{Comparison to Alternative Approaches}
+\label{sec:discussion_alternatives}
+
+Direct comparison to existing methods is complicated by the novelty of 4D ME-HSI methodology.
+Most band selection literature addresses 3D HSI data from remote sensing; methods designed for EEM data focus on spectroscopic (non-imaging) applications.
+
+For 3D HSI band selection, deep learning approaches include attention-based networks~\cite{mou2017deep} and reinforcement learning approaches~\cite{roy2020hybridsn}.
+These methods require labeled training data and optimize selection for specific classification tasks.
+The CAE perturbation-based unsupervised approach traded task-specific optimization for generalizability: the same wavelength selection could serve multiple downstream tasks (classification, segmentation, anomaly detection) without retraining.
+
+For EEM spectroscopy, parallel factor analysis (PARAFAC)~\cite{bro1997parafac} decomposes 3D EEM tensors into component spectra, enabling chemical identification.
+Extending PARAFAC to 4D imaging data with spatial dimensions is computationally challenging and loses spatial context that the convolutional approach preserved.
+
+To the best of current knowledge, no prior work has directly addressed wavelength selection for 4D ME-HSI data using deep learning approaches.
+
+
+% ----------------------------------------------------------------------------
+\subsection{Future Directions}
+\label{sec:future_work}
+
+The CAE perturbation-based framework provided a baseline for future research in this emerging area, with the potential for extension through attention mechanisms, variational formulations, or end-to-end optimization with task-specific losses. Specifically including: 
+\subsubsection{Multi-Dataset Generalization}
+Evaluation on two fluorescence datasets---lichen specimens and collagen
+sponges---demonstrates that the framework transfers across sample types with
+distinct spectral characteristics and class structures without retuning
+(Section~\ref{sec:results_collagen}). Broader validation across additional
+imaging modalities and larger class vocabularies would further establish
+generalizability, and transfer learning between related sample types could
+reduce the per-dataset training overhead.
+
+\subsubsection{Automated Band Count Selection}
+The current framework requires a user-specified target band count~$K$.
+An adaptive selection criterion, such as monitoring marginal information
+gain per additional band or by applying an elbow-point detector on the
+accuracy, reduction curve, could
+automate this choice, making the pipeline fully autonomous without
+requiring domain knowledge or cross-validation.
+
+\subsubsection{Interpretable Attribution}
+Integrating domain-specific spectroscopic knowledge by including known fluorophore spectra with the perturbation-based importance scores could bridge the gap between statistical wavelength ranking and physical understanding. Such a hybrid attribution would increase practitioner trust and enable targeted experimental validation of the selected bands.
+
+\subsubsection{Uncertainty-Aware Selection}
+Replacing the deterministic autoencoder with a variational or Bayesian
+formulations could yield confidence intervals on wavelength importance.
+This is particularly valuable when selection guides expensive sensor design
+decisions, where incorrect band choices carry a high cost.

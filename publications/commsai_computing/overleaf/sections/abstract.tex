@@ -1,0 +1,10 @@
+\begin{abstract}
+Conventional Hyperspectral Imaging (HSI) acquires reflectance, emission, or excitation profiles at each pixel.
+Emission-based HSI can be expanded into a fourth dimension by varying the excitation wavelength, improving discrimination of materials that contain mixed fluorophores.
+Multi-excitation HSI (ME-HSI) thus forms a 4D dataset spanning two spatial and two spectral dimensions (emission and excitation wavelengths).
+Processing ME-HSI datasets is challenging: the many spectral layers per pixel introduce redundancy and computational burden, and band selection methods developed for 3D HSI fail to capture the nonlinear cross-excitation correlations present in ME-HSI data.
+To address this gap, a deep learning framework was developed comprising three stages: (1) a 3D convolutional autoencoder with parallel excitation branches that learns a unified latent representation, (2) a perturbation-based attribution method that traces reconstruction sensitivity to individual excitation-emission wavelength pairs, and (3) Maximum Marginal Relevance (MMR) selection that balances informativeness with spectral diversity.
+Evaluated on lichen samples with four ground-truth classes, the framework exceeded the full-spectrum baseline while using only 9 of 192 bands (95\% data reduction).
+Applied without retuning to a chemically distinct collagen sponge dataset, it again exceeded the baseline using a small fraction of the bands.
+The proposed approach allows to mitigate the computational and hardware challenges of ME-HSI by dramatically decreasing acquisition complexity while boosting its discriminative power.
+\end{abstract}

@@ -1,0 +1,568 @@
+[
+  {
+    "step_number": 1,
+    "title": "Load Data",
+    "purpose": "This is the first step of the MEHSI Preprocessor wizard. Here you select a folder containing raw hyperspectral .im3 image files and browse the loaded data before proceeding to wavelength selection. The system automatically detects and loads exposure time and laser power metadata from Excel files if present in the data folder.",
+    "what_to_do": [
+      "Click the Browse button to open a file dialog and select the folder containing your .im3 hyperspectral image files.",
+      "Wait for the system to load all .im3 files from the selected folder. A progress dialog will appear showing status messages (initialization, file loading, and spectral data building may take a moment, especially if ImageJ needs to be initialized).",
+      "Once loading completes, review the info text below the folder path to verify the number of excitations loaded, spatial dimensions, number of bands per excitation, and any metadata file detections.",
+      "Check the warnings section in the info text for any missing exposure times or laser power values\u2014if present, you may need to provide metadata.xlsx or average_power.xlsx files.",
+      "Use the Excitation dropdown to select which laser wavelength you want to preview (e.g., '405.0 nm').",
+      "Use the Emission band slider or spin box to browse through individual bands (spectral channels) within the selected excitation. The label shows the current band index, total bands, and emission wavelength in nm.",
+      "Observe the hyperspectral image displayed in the canvas below, which shows the 2D spatial image for the currently selected band. Use the toolbar zoom/pan controls (standard matplotlib toolbar) to inspect details.",
+      "When ready to proceed to wavelength selection and filtering, navigate to the next step using the wizard's navigation controls."
+    ],
+    "key_controls": [
+      {
+        "control": "Browse button",
+        "does": "Opens a file dialog to select the folder containing .im3 hyperspectral image files. Once selected, automatically triggers data loading."
+      },
+      {
+        "control": "Folder path label",
+        "does": "Displays the full path to the currently selected data folder. Starts with 'No folder selected' until a folder is chosen."
+      },
+      {
+        "control": "Info text area",
+        "does": "Shows a summary after loading: number of excitations, spatial resolution (height \u00d7 width), bands per excitation, and status of metadata file detection (exposure times and laser powers). Displays any warnings about missing metadata."
+      },
+      {
+        "control": "Excitation dropdown",
+        "does": "Allows selection of which laser wavelength to preview. Each option is labeled with the wavelength in nm (e.g., '405.0 nm'). Changing this dropdown updates the emission band range and refreshes the displayed image."
+      },
+      {
+        "control": "Emission band slider",
+        "does": "Horizontally scrollable slider to navigate through all spectral bands (emission wavelengths) within the selected excitation. Moving the slider updates the displayed hyperspectral image and synchronizes with the spin box."
+      },
+      {
+        "control": "Emission band spin box",
+        "does": "Numeric input showing the current band index. You can type a number directly or use the up/down arrows to navigate bands. Synchronized with the slider."
+      },
+      {
+        "control": "Emission band label",
+        "does": "Displays the current band selection in the format 'Band X / Y (W.W nm)', showing the current band index, maximum band index, and the emission wavelength of the selected band."
+      },
+      {
+        "control": "Image canvas",
+        "does": "Matplotlib-based viewer displaying a 2D grayscale image of the currently selected band from the hyperspectral cube. Includes a navigation toolbar with zoom, pan, and home (reset view) buttons."
+      }
+    ],
+    "navigation_note": "You can proceed to the next step (Step 2) only after successfully loading hyperspectral data. The wizard's next/forward button will become available once the loading is complete and the raw_spectra state is populated. You can navigate back to this step at any time to reload different data, but doing so will invalidate all downstream processing steps.",
+    "pitfalls": [
+      "Ensure your folder contains valid .im3 files. The loader supports both ImageJ/Fiji and tifffile-based loading; if ImageJ is unavailable, it will automatically fall back to tifffile.",
+      "If no .im3 files are found, you will see an error dialog: 'No .im3 files were successfully loaded from [folder]. The loader's raw_data is empty. Check that the directory contains valid .im3 hyperspectral image files.'",
+      "Metadata files (metadata.xlsx for exposure times and average_power.xlsx for laser power) are optional but recommended for accurate calibration. The system searches for them in the data folder or in a 'TLS Scans' subfolder. If found, exposure and power values are automatically matched to each excitation wavelength.",
+      "If metadata exists but columns are not correctly detected (due to non-standard naming), the system will show warnings like 'No exposure time for: 405, 488, 561 nm'. You can manually edit or restructure the Excel files to match expected column names (Excitation, Wavelength, Exposure, Time, Power, etc.).",
+      "The first load may take time if ImageJ initialization is required. Do not close the application during the 'Initializing loader (ImageJ may take a moment)...' phase.",
+      "Band indices are 0-based, so the first band is Band 0, not Band 1."
+    ]
+  },
+  {
+    "step_number": 2,
+    "title": "Verify Metadata",
+    "purpose": "Step 2 allows you to view and verify the exposure times and laser power settings that were auto-detected from your data folder (or manually upload corrected versions). These metadata values are critical for the hyperspectral preprocessing pipeline\u2014they define how each excitation wavelength was configured during data acquisition. You can see what values the system has loaded and override them if the auto-detection did not find the correct files or if you have new metadata to apply.",
+    "what_to_do": [
+      "Examine the 'Exposure Times (metadata.xlsx)' section to see if the system found and loaded your metadata file. The status icon (\u2705 or \u274c) and path label show whether a file is loaded.",
+      "If the metadata file is missing or incorrect, click the 'Browse...' button next to the Exposure Times section to manually select a metadata.xlsx or .xls file from your computer.",
+      "Review the exposure times table to ensure the excitation wavelengths and corresponding exposure time values are correct.",
+      "Examine the 'Laser Powers (average_power.xlsx)' section to see if the system found and loaded your laser power file.",
+      "If the laser power file is missing or incorrect, click the 'Browse...' button next to the Laser Powers section to manually select an average_power.xlsx or .xls file.",
+      "Review the laser power table to ensure the excitation wavelengths and corresponding power values are correct.",
+      "Check the 'Values Applied to Spectra' table at the bottom, which shows the final exposure time and laser power that will be used for each excitation wavelength in your dataset. This is what actually gets applied during processing.",
+      "If you upload new metadata files, the system will attempt to automatically match columns (looking for headers like 'Excitation Wavelength (nm)', 'Exposure Time', 'Laser', 'Power', etc.) and apply the values to your spectra. A confirmation message will show how many excitations were successfully patched.",
+      "If column matching fails, the system will show a warning listing the available columns in your file so you can verify your spreadsheet structure.",
+      "Once you are satisfied with the exposure times and laser power values shown in the 'Values Applied to Spectra' table, proceed to the next step."
+    ],
+    "key_controls": [
+      {
+        "control": "Exposure Times (metadata.xlsx) \u2014 Status icon",
+        "does": "Shows \u2705 if a metadata file is loaded and valid, or \u274c if not loaded or an error occurred."
+      },
+      {
+        "control": "Exposure Times (metadata.xlsx) \u2014 Path label",
+        "does": "Displays the full file path of the loaded metadata file, or a message like 'Not loaded', 'Not found in data folder', or an error description if loading failed."
+      },
+      {
+        "control": "Exposure Times (metadata.xlsx) \u2014 Browse... button",
+        "does": "Opens a file dialog to manually select a metadata.xlsx or .xls file. Once selected, the file is parsed, its contents are displayed in the table below, and the values are automatically applied to your spectra if the excitation and exposure columns can be detected."
+      },
+      {
+        "control": "Exposure Times metadata table",
+        "does": "Read-only table displaying the raw contents of the metadata.xlsx file (columns and rows as they appear in the spreadsheet). Columns automatically expand to fit content."
+      },
+      {
+        "control": "Laser Powers (average_power.xlsx) \u2014 Status icon",
+        "does": "Shows \u2705 if an average_power.xlsx file is loaded and valid, or \u274c if not loaded or an error occurred."
+      },
+      {
+        "control": "Laser Powers (average_power.xlsx) \u2014 Path label",
+        "does": "Displays the full file path of the loaded power file, or a message like 'Not loaded', 'Not found in data folder', or an error description if loading failed."
+      },
+      {
+        "control": "Laser Powers (average_power.xlsx) \u2014 Browse... button",
+        "does": "Opens a file dialog to manually select an average_power.xlsx or .xls file. Once selected, the file is parsed, its contents are displayed in the table below, and the values are automatically applied to your spectra if the excitation and power columns can be detected."
+      },
+      {
+        "control": "Laser Powers average_power table",
+        "does": "Read-only table displaying the raw contents of the average_power.xlsx file (columns and rows as they appear in the spreadsheet). Columns automatically expand to fit content."
+      },
+      {
+        "control": "Values Applied to Spectra table",
+        "does": "Shows the final processed metadata: one row per excitation wavelength in your dataset, with three columns: 'Excitation (nm)', 'Exposure Time', and 'Laser Power'. This is the actual data that will be used during processing. Displays '\u2014' (em dash) for any missing values. This table automatically refreshes whenever you upload new metadata files."
+      }
+    ],
+    "navigation_note": "To proceed to the next step (Step 3), the wizard must be able to navigate forward. The on_enter() method is called when entering this step, which automatically searches for metadata.xlsx and average_power.xlsx files in your data folder (if one was selected in Step 1) and populates the tables. If files are found and loaded, status icons show \u2705. If no files are found, they show \u274c but you can manually browse to provide them. There is no explicit 'lock' or validation gate on this step\u2014you can always navigate forward to Step 3, even with missing metadata, though downstream processing may be affected if critical values are not supplied.\"",
+    "pitfalls": [
+      "If your spreadsheet columns use non-standard names, the auto-detection may fail to match them. The system looks for exact matches first (e.g., 'Exposure Time' column name), then substring matches (e.g., any column containing 'exposure' or 'time'). Make sure column headers include recognizable keywords or explicitly browse and select files so you see any error message listing available columns.",
+      "Whitespace in column names can break matching. The system strips leading/trailing spaces before searching, but embedded spaces should be fine. If a file fails to load, check for unexpected spaces or special characters in headers.",
+      "The metadata files must be valid Excel (.xlsx or .xls) format. Other formats (CSV, TXT) will not be recognized by the Browse dialog or the read_excel parser.",
+      "If you browse to a file and column detection fails, a warning dialog will appear showing the column names in your file. Check that your file actually contains both an excitation column and an exposure/power column before trying again.",
+      "The 'Values Applied to Spectra' table is built from your actual loaded spectra (from Step 1). If no spectra have been loaded yet, this table will be empty. You must complete Step 1 (Load Spectra) before Step 2 metadata can be fully utilized.",
+      "If you upload a new metadata file, it completely replaces the previous values\u2014there is no undo. Make sure your file is correct before confirming the file dialog.",
+      "When you upload a file, the 'Exposure Time' and 'Laser Power' values are matched by excitation wavelength (in nm). If an excitation wavelength in your data does not appear in the metadata file, that spectrum will retain a missing value (\u2014) for that field."
+    ]
+  },
+  {
+    "step_number": 3,
+    "title": "Normalize",
+    "purpose": "This wizard step normalizes hyperspectral intensity data by dividing pixel values by exposure time and/or laser power metadata per excitation wavelength. The purpose is to remove instrumental biases so that intensity differences reflect real sample properties, not detector/laser settings. You compare raw and normalized imagery side-by-side to verify the effect, navigating through different excitation wavelengths and emission bands as needed.",
+    "what_to_do": [
+      "In the Normalization Options panel, verify that checkboxes 'By Exposure Time' and 'By Laser Power' are both checked (they are by default). Uncheck either if you want to normalize by only one factor.",
+      "Click 'Apply Normalization' to execute the normalization on your raw data. If exposure time or laser power metadata is missing for any excitation wavelength, a confirmation dialog will warn you and ask if you wish to proceed anyway (those excitations will skip normalization for the missing factor).",
+      "Once normalization completes, use the Excitation dropdown to select which wavelength (in nm) to inspect.",
+      "Use the Emission band slider or spinbox to navigate through individual wavelength channels (bands) within that excitation. The label shows the current band number, total bands, and the corresponding emission wavelength in nanometers.",
+      "Examine the Before canvas (left) and After canvas (right) to visually compare raw versus normalized imagery for the selected band. Look for changes in intensity contrast or overall brightness.",
+      "Switch between excitations and bands to verify normalization across the full dataset."
+    ],
+    "key_controls": [
+      {
+        "control": "By Exposure Time (checkbox)",
+        "does": "When checked (default), divides pixel values by exposure time to remove sensor integration time bias. Greyed out data at this excitation is skipped."
+      },
+      {
+        "control": "By Laser Power (checkbox)",
+        "does": "When checked (default), divides pixel values by laser power to remove laser intensity bias. Excitations without this metadata are skipped."
+      },
+      {
+        "control": "Apply Normalization (button)",
+        "does": "Computes normalized spectra using the selected normalization method(s). Shows a warning dialog if metadata is missing, allowing you to cancel or proceed."
+      },
+      {
+        "control": "Excitation (dropdown)",
+        "does": "Selects which excitation wavelength (e.g., '405.0 nm') to display in the Before/After canvases. Automatically populates from all excitations in the loaded raw data."
+      },
+      {
+        "control": "Emission band (slider)",
+        "does": "Moves through emission wavelength bands (0 to N-1) for the selected excitation. Synchronized with the spinbox."
+      },
+      {
+        "control": "Emission band (spinbox)",
+        "does": "Type or step through the band index number directly. Synchronized with the slider."
+      },
+      {
+        "control": "Band label (text)",
+        "does": "Displays 'Band X / Y (WW.W nm)' showing the current band index, total band count, and emission wavelength of the selected band."
+      },
+      {
+        "control": "Before (canvas)",
+        "does": "Matplotlib figure displaying raw (non-normalized) imagery from the selected excitation and band. Includes zoom/pan/reset toolbar."
+      },
+      {
+        "control": "After (canvas)",
+        "does": "Matplotlib figure displaying normalized imagery from the selected excitation and band. Side-by-side comparison with Before canvas."
+      }
+    ],
+    "navigation_note": "Step 3 requires Step 1 (Load Data) to be completed first \u2014 you must have raw spectra in the pipeline state. When you click 'Apply Normalization', the normalized result is stored in the pipeline and invalidates any downstream steps (e.g., if you revisit Step 4+, they will recalculate). You can only proceed to the next step in the wizard after normalization has been applied and stored. The before/after canvases remain empty until you have both raw data (from Step 1) and normalized data (from clicking Apply Normalization here).\"",
+    "pitfalls": [
+      "If you click 'Apply Normalization' and see a warning about missing exposure time or laser power, be aware that normalization will be partial\u2014only excitations with the available metadata will be adjusted by that factor.",
+      "The Before canvas shows raw data from the current pipeline state. If you have not yet run Step 1 (Load), clicking Apply Normalization will show a 'No Data' error.",
+      "Changing the Excitation dropdown or moving the Emission band slider does not apply normalization; it only refreshes the Before/After display for the selected band. You must click 'Apply Normalization' to actually compute and store the normalized data.",
+      "If you uncheck both 'By Exposure Time' and 'By Laser Power', clicking Apply Normalization will create a copy of your raw data unchanged. This is technically valid but defeats the purpose of this step.",
+      "The sidebar in the main wizard may show Step 3 status as incomplete until Apply Normalization has been run at least once."
+    ]
+  },
+  {
+    "step_number": 4,
+    "title": "Spatial Crop",
+    "purpose": "This step allows you to select and extract a rectangular region of interest (ROI) from your hyperspectral image. After defining the crop region visually, you see a live preview of what the cropped image will look like before committing to the operation. This reduces the spatial dimensions of all spectral cubes in your dataset.",
+    "what_to_do": [
+      "Look at the left canvas labeled \"Select crop region:\" displaying your full hyperspectral image.",
+      "Click and drag on the left canvas to draw a rectangle around the area you want to keep. Start at one corner and drag to the opposite corner.",
+      "As you draw, the display updates to show the exact coordinates in the \"Crop Region\" control box (in format: ROI: rows [min, max), cols [min, max) and pixel dimensions).",
+      "Check the right canvas labeled \"Preview:\" to see what your cropped image will look like. The preview updates automatically when you adjust the rectangle.",
+      "If the preview looks correct, click the \"Apply Crop\" button to save the crop region and process the data. If you want to adjust, simply draw a new rectangle.",
+      "After applying, the coordinate label will show confirmation text: \"Crop applied: H x W px (origin reset to 0,0)\"."
+    ],
+    "key_controls": [
+      {
+        "control": "Crop Region group box",
+        "does": "Shows the coordinates of your selected region and enables/disables the Apply button. Displays text like \"Draw a rectangle on the image below\" initially, then updates to show selected coordinates."
+      },
+      {
+        "control": "Select crop region (left canvas with navigation toolbar)",
+        "does": "Interactive matplotlib canvas showing your full hyperspectral image. Click and drag to draw a rectangle selector. Includes zoom, pan, and home buttons in the toolbar for navigation."
+      },
+      {
+        "control": "Preview (right canvas with navigation toolbar)",
+        "does": "Live preview canvas showing what the cropped region will look like at full resolution. Updates in real-time as you adjust the rectangle selector."
+      },
+      {
+        "control": "Apply Crop button",
+        "does": "Commits the selected region to the pipeline state. Disabled until you have drawn a rectangle. After clicking, crops all spectral cubes to the selected region and resets spatial coordinates to (0, 0)."
+      }
+    ],
+    "navigation_note": "You can only proceed to the next step after successfully applying a crop. The \\\"Apply Crop\\\" button is disabled until you draw a rectangle on the left canvas. Once applied, the cropped data becomes the source for all subsequent pipeline steps. If no spectra data is available from previous steps (e.g., raw data or normalized data), the step will not load\u2014return to earlier steps to ensure data is present.\"",
+    "pitfalls": [
+      "Do not click \"Apply Crop\" until you see a preview on the right side\u2014if no rectangle is drawn, the button remains disabled.",
+      "Be aware that cropping only preserves the spatial region you select; spectral bands (wavelengths) remain unchanged. Use an earlier step if you need to filter by wavelength.",
+      "The coordinate system shown (rows and columns) uses 0-based indexing with half-open intervals: row_min is inclusive, row_max is exclusive. For example, rows [0, 100) means rows 0\u201399.",
+      "If you accidentally crop too aggressively or select the wrong region, you must restart the pipeline or go back to Step 3 (normalized data) to recrop. Crops are destructive in the forward direction.",
+      "The preview shows only the first excitation wavelength's cube. If you have multiple excitation wavelengths, all will be cropped identically to the selected region."
+    ]
+  },
+  {
+    "step_number": 5,
+    "title": "Spectral Crop",
+    "purpose": "This step removes unwanted spectral bands from your hyperspectral dataset based on physical constraints (Rayleigh and second-order diffraction) and manual per-excitation wavelength ranges. It cleans your data by filtering out noise-prone regions before analysis, reducing data dimensionality while preserving scientifically relevant emission bands.",
+    "what_to_do": [
+      "In the 'Rayleigh Cutoff' group at the top, decide whether to remove bands affected by Rayleigh scattering: check 'Apply Rayleigh cutoff' (checked by default) to enable filtering",
+      "Set the Rayleigh 'Offset' value in nm (default 30 nm) \u2014 this excludes emission wavelengths closer than this offset to the excitation wavelength; adjust the slider or number field to increase/decrease the cutoff distance",
+      "Optionally check 'Remove second-order' (checked by default) to also filter out second-order diffraction bands around 2\u00d7excitation wavelength",
+      "In the 'Manual Emission Range (per excitation)' section, you will see one pair of Min/Max wavelength spinboxes for each excitation wavelength in your dataset; adjust each pair to define the emission window you want to keep for that specific excitation line",
+      "Click 'Preview' to visualize the effect of your settings \u2014 the bar chart below will update to show which bands are kept (green) vs removed (red)",
+      "Use the 'Show excitation' dropdown to inspect different excitation wavelengths one at a time; the bar chart will refresh to display that excitation's emission band status",
+      "Review the bar chart title which displays how many bands are 'kept' and how many are 'removed' for the current excitation",
+      "Once satisfied with your settings, click 'Apply Spectral Crop' to permanently filter the data; a summary dialog will appear confirming the total bands kept across all excitations",
+      "After applying, the pipeline advances automatically to the next step"
+    ],
+    "key_controls": [
+      {
+        "control": "Apply Rayleigh cutoff (checkbox)",
+        "does": "Toggles on/off Rayleigh scattering removal; when checked, bands near the excitation line are excluded"
+      },
+      {
+        "control": "Offset (spinbox, 0\u2013200 nm)",
+        "does": "Sets the wavelength distance (in nm) below which emission bands are considered Rayleigh scatter and removed; default 30 nm"
+      },
+      {
+        "control": "Remove second-order (checkbox)",
+        "does": "When checked, also excludes bands around 2\u00d7excitation wavelength to remove second-order diffraction noise"
+      },
+      {
+        "control": "Manual Emission Range Min/Max (spinboxes, per excitation)",
+        "does": "Sets the lower and upper wavelength bounds for emission to keep for each excitation wavelength; defaults to dataset min/max; can be narrowed to focus on a specific spectral region"
+      },
+      {
+        "control": "Preview (button)",
+        "does": "Updates the bar chart below to show the effect of current Rayleigh and manual range settings on the selected excitation without applying changes"
+      },
+      {
+        "control": "Apply Spectral Crop (button)",
+        "does": "Applies all Rayleigh and manual range filters to the dataset and saves the result; shows a confirmation dialog with total kept bands"
+      },
+      {
+        "control": "Show excitation (dropdown)",
+        "does": "Selects which excitation wavelength to visualize in the bar chart; list is auto-populated from your dataset"
+      },
+      {
+        "control": "Bar chart (matplotlib canvas)",
+        "does": "Horizontal bar visualization where green bars are kept bands, red bars are removed bands; the title shows counts of kept vs removed for the current excitation"
+      }
+    ],
+    "navigation_note": "This step requires a loaded dataset from a previous step (raw spectra, normalized spectra, or already-cropped spectra). The step is gated \u2014 you cannot proceed forward without data. After clicking 'Apply Spectral Crop', the filtered result is stored and the next step (Step 6) becomes available. The page is read-only until you load data by completing earlier steps in the pipeline.",
+    "pitfalls": [
+      "If the 'Manual Emission Range' section is empty or blank, no data has been loaded yet; complete the prior steps (raw load, normalization, spatial crop) first",
+      "Setting the Rayleigh offset too high (e.g., >100 nm) may remove legitimate emission bands if your excitation and emission ranges are close; test with 'Preview' first",
+      "Enabling 'Remove second-order' is useful for fluorescence data but may not be needed for other spectroscopy types; disable if you see important bands being removed",
+      "The Manual Min/Max ranges must be within the dataset's actual wavelength bounds; spinboxes enforce this, so you cannot set values outside the physical data range",
+      "Clicking 'Preview' multiple times will not harm the data\u2014it only updates the visualization; always use it before 'Apply' to confirm your settings",
+      "After clicking 'Apply Spectral Crop', you cannot undo directly in this step; you must reload or restart the pipeline from an earlier step to revert"
+    ]
+  },
+  {
+    "step_number": 6,
+    "title": "Draw Classes",
+    "purpose": "This step lets you manually paint class labels onto a hyperspectral image using a brush or eraser tool. You define named classes (e.g., \"soil\", \"vegetation\"), assign them colors, and then draw masks directly on a preview of the image data. These labeled masks are saved as a 2D integer array where each pixel records which class it belongs to, enabling supervised classification in later steps.",
+    "what_to_do": [
+      "Start by clicking the Add button in the Classes panel (left side) to create your first class\u2014it will be automatically assigned a unique color and named 'Class 1', 'Class 2', etc.",
+      "Rename a class by selecting it in the class list, then clicking Rename, and typing a meaningful name (e.g., 'Water', 'Rock', 'Building'). The color label shows next to each class name.",
+      "In the Tool panel, choose either Brush (default) to paint a class onto the image, or Eraser to remove painted pixels.",
+      "Adjust the Radius spinbox (range 1\u201350 pixels, default 5) to control the size of the brush or eraser stroke.",
+      "Click and drag on the canvas (right side) to paint or erase. The canvas displays a greyscale or color preview of the underlying image with painted regions overlaid in the class color at 40% transparency.",
+      "Repeat: select a class, choose brush/eraser, set radius if needed, and paint on the canvas. Click on the class list to switch the active class at any time.",
+      "To remove an entire class and all its painted pixels, select it and click Delete.",
+      "Once all desired classes are drawn, proceed to the next step."
+    ],
+    "key_controls": [
+      {
+        "control": "Classes list",
+        "does": "Displays all defined classes with their assigned colors. Click an item to select (activate) that class for painting. The list shows '[ID] ClassName' format (e.g., '[1] Class 1')."
+      },
+      {
+        "control": "Add button",
+        "does": "Creates a new class with an automatically assigned color from the default palette (cycling through red, blue, green, orange, purple, cyan, magenta, yellow, brown, teal). New classes are named 'Class 1', 'Class 2', etc."
+      },
+      {
+        "control": "Rename button",
+        "does": "Opens a text dialog to change the name of the currently selected class. Does not affect the color or class ID."
+      },
+      {
+        "control": "Delete button",
+        "does": "Removes the selected class from the list and erases all pixels tagged with that class ID from the mask (sets them to 0/unclassified)."
+      },
+      {
+        "control": "Brush radio button",
+        "does": "Activates brush mode (default). When checked, clicking and dragging on the canvas paints the currently selected class ID onto the mask."
+      },
+      {
+        "control": "Eraser radio button",
+        "does": "Switches to eraser mode. When checked, clicking and dragging on the canvas removes painted pixels (sets them to 0/unclassified)."
+      },
+      {
+        "control": "Radius spinbox",
+        "does": "Sets the brush or eraser diameter in pixels (minimum 1, maximum 50, default 5). Larger radius covers more area per stroke."
+      },
+      {
+        "control": "Canvas (matplotlib figure)",
+        "does": "Displays the background image from the current spectral data (greyscale or RGB) with a semi-transparent color overlay showing painted class regions. Click and drag to paint or erase. The toolbar above the canvas provides standard matplotlib navigation (pan, zoom, home reset)."
+      },
+      {
+        "control": "Canvas toolbar (matplotlib navigation)",
+        "does": "Provides pan (move view), zoom, and home (reset view) tools. While a toolbar mode is active (zoom/pan), painting is blocked. Click the toolbar icon again or press Escape to deactivate zoom/pan and resume painting."
+      }
+    ],
+    "navigation_note": "You can only reach this step if a previous step has provided valid spectral data (filtered, cropped, normalized, or raw spectra). On entry, the canvas automatically displays a preview image and initializes an empty mask with the same height and width as the spatial dimensions of the current data. You may create, name, paint, rename, and delete classes as many times as you want. When ready, move to the next step (Step 7: ROI Regions) by clicking Next\u2014the class mask and class definitions are automatically saved to the pipeline state.",
+    "pitfalls": [
+      "Deleting a class removes ALL pixels painted with that class ID\u2014use Rename if you only want to change the name.",
+      "The brush is bound to the currently selected class in the list. If you paint without selecting a class first, the stroke may go to an unexpected class ID. Always click the class name in the list before painting.",
+      "The canvas toolbar (pan/zoom) blocks painting\u2014if you accidentally activate Pan or Zoom mode, clicking the same toolbar button again or pressing Escape returns to painting mode.",
+      "Brush radius is global (shared by both brush and eraser)\u2014changing the radius affects both tools equally.",
+      "The overlay transparency is fixed at 40%, so painted regions are always semi-transparent. If regions appear not to paint, check that the current class is selected and brush mode is active.",
+      "Starting with no classes (empty list) means no painting will have any effect\u2014add at least one class before attempting to paint.",
+      "If the canvas does not display an image on entry, the pipeline state's current_spectra is None or invalid; go back and complete or fix earlier steps."
+    ]
+  },
+  {
+    "step_number": 7,
+    "title": "ROI Regions",
+    "purpose": "Step 7 allows you to define rectangular Regions of Interest (ROIs) on the hyperspectral image and assign each one to a class defined in Step 6. These ROI regions define spatial areas associated with your classification categories, which will be used for training and analysis. The page shows a live image viewer where you draw rectangles, then records each rectangle's coordinates and class assignment in a table.",
+    "what_to_do": [
+      "Select a class from the 'Assign to class:' dropdown at the top left (this dropdown is populated from classes you created in Step 6)",
+      "On the right side, click and drag on the image to draw a rectangular region; drag from one corner to the opposite corner to define your region",
+      "After drawing a rectangle, the 'Add Selected Rect' button becomes enabled; click it to save the rectangle as an ROI assigned to the selected class",
+      "Review the ROI table on the left to see all rectangles you have added (columns: ID, Class, Row min, Row max, Col min\u2192max); rectangles appear as colored outlines on the image",
+      "To add more ROIs, repeat steps 1-3 (select a class, draw a rectangle, click 'Add Selected Rect')",
+      "Use 'Duplicate Last' to copy the most recently added ROI with a 10-pixel offset and auto-increment to the next class",
+      "Click a row in the ROI table to select it, then click 'Delete Selected' to remove that ROI",
+      "Once all ROIs are defined, proceed to the next step"
+    ],
+    "key_controls": [
+      {
+        "control": "Assign to class: [dropdown]",
+        "does": "Selects which class the next drawn rectangle will be assigned to; populated from Step 6 class definitions in format '[ID] ClassName'"
+      },
+      {
+        "control": "Add Selected Rect [button]",
+        "does": "Saves the most recently drawn rectangle as an ROI in the selected class; button is disabled until you draw a rectangle on the image; clicking it adds a new row to the table and updates the visualization"
+      },
+      {
+        "control": "Duplicate Last [button]",
+        "does": "Copies the most recent ROI with a 10-pixel offset (shifted down and right) and automatically cycles to the next class in order; if the last region was assigned to class N, the duplicate gets class (N+1) mod(total classes)"
+      },
+      {
+        "control": "Delete Selected [button]",
+        "does": "Removes the currently selected row from the ROI table; click a table row first to select it, then click this button to delete that ROI"
+      },
+      {
+        "control": "ROI table [5-column table]",
+        "does": "Displays all added ROIs with columns: ID (auto-incremented starting from 0), Class (class name), Row min (top edge pixel row), Row max (bottom edge pixel row), Col min\u2192max (column range); read-only display; click a row to select for deletion"
+      },
+      {
+        "control": "Image canvas (right side) [interactive rectangle selector]",
+        "does": "Shows the hyperspectral image from the first excitation wavelength; click and drag to draw a rectangular selection (button [1] / left mouse button only); rectangle appears as a live overlay while dragging; release to finalize the selection and enable 'Add Selected Rect'"
+      }
+    ],
+    "navigation_note": "This step requires Step 6 (Draw Classes) to be completed first \u2014 the class definitions and their colors must exist before you can assign ROIs. You will see a warning 'Define classes in Step 6 first' if you try to add an ROI without classes defined. All ROIs are displayed as colored rectangles on the image (color comes from the class definition). You can add, duplicate, and delete ROIs freely on this page. Once you have defined all desired ROIs, you proceed to Step 8. There is no validation requiring a minimum number of ROIs, so you may leave this step with zero or many ROIs.\"",
+    "pitfalls": [
+      "Classes must be created in Step 6 first; if the dropdown is empty, you cannot add ROIs",
+      "The 'Add Selected Rect' button only activates after you draw a rectangle on the image; simply selecting a class does not enable it",
+      "Rectangle coordinates are based on pixel row and column positions in the image; the table shows row_min, row_max, col_min, col_max in that order (not x, y grid order)",
+      "When you draw a rectangle, the canvas takes mouse coordinates and converts them: col=x-axis, row=y-axis",
+      "Duplicate Last increments the class assignment (wraps around to class 0 if at the end), so expect the duplicate to be in a different color if multiple classes exist",
+      "Deleting an ROI is permanent on this page; row IDs in the table are re-indexed after deletion (the table shows sequential 0, 1, 2, ... IDs)",
+      "The table columns show 'Col min\u2192max' in a single cell formatted as 'min \u2192 max', not two separate columns",
+      "If you do not select a row before clicking 'Delete Selected', nothing happens (no error, the button is simply ignored)"
+    ]
+  },
+  {
+    "step_number": 8,
+    "title": "Export",
+    "purpose": "Step 8 is the final step in the MEHSI Preprocessor pipeline. It allows you to export your processed hyperspectral data in four formats: masked and unmasked spectral data (pickle), a color-coded mask image (PNG), and structured region metadata (JSON). This step packages your work so the data can be used in downstream analysis, machine learning pipelines, or shared with collaborators.",
+    "what_to_do": [
+      "Click 'Browse...' in the Output Folder group and select or create the folder where you want to save all exported files.",
+      "Review the current pipeline status displayed at the bottom of the screen, which shows how many excitations were captured, the spatial dimensions, the number of classes in your mask (if drawn), and how many ROI regions were defined.",
+      "Check or uncheck the four export format options in the Outputs group based on what you need: Masked PKL, Unmasked PKL, Mask PNG, and ROI JSON. By default, all four are checked.",
+      "Click the bold 'Export' button to process and save all checked formats to your chosen output folder.",
+      "Wait for the operation to complete. If successful, a 'Done' dialog will appear and the status area will list the file paths saved. If there are errors (e.g., no mask drawn when masked export is checked), an error dialog will explain what went wrong."
+    ],
+    "key_controls": [
+      {
+        "control": "Browse... button",
+        "does": "Opens a file browser to select the output directory where all exported files will be saved. The selected path is displayed in the label above it. If the folder does not exist, it will be created automatically."
+      },
+      {
+        "control": "Output Folder display label",
+        "does": "Shows the currently selected output directory path, or 'Not selected' if no folder has been chosen yet."
+      },
+      {
+        "control": "Masked PKL checkbox",
+        "does": "When checked (default), exports the spectral data with NaN values outside the class mask boundaries. Requires a mask to have been drawn in Step 6. Saves as 'spectra_masked.pkl'."
+      },
+      {
+        "control": "Unmasked PKL checkbox",
+        "does": "When checked (default), exports the full spectral cubes without masking or NaN substitution. Saves as 'spectra_unmasked.pkl'. Always succeeds if spectra are loaded."
+      },
+      {
+        "control": "Mask PNG checkbox",
+        "does": "When checked (default), exports the class mask as a color-coded PNG image where each class is rendered in its defined color and the background is black. Saves as 'class_mask.png'. Skips silently if no mask was drawn."
+      },
+      {
+        "control": "ROI JSON checkbox",
+        "does": "When checked (default), exports structured JSON containing all ROI region rectangles and class definitions with their assigned colors. Saves as 'roi_regions.json'."
+      },
+      {
+        "control": "Export button",
+        "does": "Initiates the export process. Validates preconditions (output folder selected, spectra available, and mask availability for masked export), then saves all checked formats. Shows a success dialog and status summary on completion, or an error dialog if something fails."
+      },
+      {
+        "control": "Status display area",
+        "does": "On entry to the step, displays a summary of available data: the number of excitations and spatial dimensions of the loaded spectra, the number of classes in the mask (if any), and the count of ROI regions defined. After export, displays the list of successfully saved files and their paths."
+      }
+    ],
+    "navigation_note": "This is the final step (Step 8 of 8). Export is the pipeline terminus \u2014 there are no further steps after this. You can proceed to export only after: (1) loading spectra in Step 1, (2) selecting wavelengths in Step 2, (3) optionally applying spatial transforms in Step 3, (4) optionally filtering in Step 4, (5) defining classes in Step 5, (6) drawing a mask in Step 6 (if you want masked PKL or mask PNG outputs), and (7) defining ROI regions in Step 7 (if you want ROI JSON). Once you click Export and all formats complete successfully, your processed data is ready for downstream use (e.g., the autoencoder pipeline) or external sharing.\"",
+    "pitfalls": [
+      "If you check 'Masked PKL' but did not draw a mask in Step 6, the export will fail with a warning: 'Draw a class mask in Step 6.' Uncheck this option, or go back to Step 6 to create a mask.",
+      "If you do not select an output folder before clicking Export, you will see the warning 'Select an output folder first.' Always click Browse and choose a destination first.",
+      "If you check 'Mask PNG' but have no mask, the export will skip this format silently (not an error) and continue with other formats. The status message will show 'Mask PNG: skipped (no mask)'.",
+      "The Masked PKL export treats any pixel with class ID > 0 as part of the masked region. Only pixels outside all class boundaries become NaN. Ensure your mask in Step 6 covers the intended area.",
+      "Spectral data is exported in pickle (.pkl) format, which is tied to the Python environment and autoencoder pipeline version. Do not share pickle files with incompatible versions; use the PNG and JSON exports for archival or cross-platform sharing.",
+      "If an unexpected error occurs during export (e.g., disk full, permission denied), you will see an error dialog with the exception message. Check that the output folder is writable and that your disk has sufficient space."
+    ]
+  },
+  {
+    "step_number": 9,
+    "title": "Train Autoencoder",
+    "purpose": "This step trains a Convolutional Autoencoder (CAE) on the preprocessed hyperspectral data to learn a compressed representation of the wavelength bands, or loads a previously saved CAE model from disk. Training the autoencoder is essential before band selection in Step 10, as it enables the supervised wavelength reduction that follows.",
+    "what_to_do": [
+      "Choose your model source: either train a new autoencoder or load a pretrained one (via the radio buttons at the top of each section).",
+      "If training new: set the Epochs (default 50, range 1\u20132000) and Learning rate (default 0.001, range 0.00001\u20131.0) in the 'New model' group.",
+      "If loading pretrained: click 'Browse...' to select a PyTorch model file (.pth), then the filename appears below the button.",
+      "Click 'Train / Load' to start; the progress bar and status text show real-time epoch count and loss, or show loading progress for pretrained models.",
+      "Wait for the status label to show 'Model ready \u2713 \u2014 continue to Step 10.' before proceeding."
+    ],
+    "key_controls": [
+      {
+        "control": "Train a new model (radio button)",
+        "does": "Selects training mode; unlocks the Epochs and Learning rate fields below it."
+      },
+      {
+        "control": "Epochs (spinbox, range 1\u20132000)",
+        "does": "Number of training passes over the full dataset; higher epochs train longer but risk overfitting. Default is 50."
+      },
+      {
+        "control": "Learning rate (double spinbox, range 0.00001\u20131.0, step 0.0001)",
+        "does": "Controls step size during gradient descent; smaller values train slower but more stable. Default is 0.001."
+      },
+      {
+        "control": "Load a pretrained model (.pth) (radio button)",
+        "does": "Switches to loading an existing saved model instead of training."
+      },
+      {
+        "control": "Browse\u2026 (button)",
+        "does": "Opens a file dialog to select a .pth (PyTorch model) file; once selected, its filename appears in the label below."
+      },
+      {
+        "control": "Path label (read-only, below Browse button)",
+        "does": "Shows '(no file selected)' by default; displays the selected .pth filename after browsing."
+      },
+      {
+        "control": "Train / Load (button)",
+        "does": "Starts the selected operation (train or load) in a background thread; becomes disabled during execution."
+      },
+      {
+        "control": "Progress bar",
+        "does": "For new training: shows epoch count (e.g., 25/50). For loading: shows busy state (indeterminate). Reaches 100% when done."
+      },
+      {
+        "control": "Status label (below progress bar)",
+        "does": "Displays real-time feedback: 'Epoch X/Y \u2014 loss Z.ZZZZ' during training, 'Model ready \u2713 \u2014 continue to Step 10.' when successful, or error message if training fails."
+      }
+    ],
+    "navigation_note": "Step 9 is reachable only after completing Steps 1\u20137 (loading, preprocessing, and segmenting data). The wizard blocks navigation forward if no preprocessed data exists. Once training or loading completes (status shows 'Model ready \u2713'), proceed to Step 10 to perform wavelength band selection using the trained autoencoder.\"",
+    "pitfalls": [
+      "If training a new model: leaving Epochs too high (e.g., 2000) will take a very long time; start with the default 50 and adjust upward only if needed.",
+      "If loading a pretrained model: forgetting to click 'Browse...' and select a .pth file will cause an error message 'Choose a .pth file or switch to Train a new model.' Ensure the file path label shows the desired filename before clicking Train/Load.",
+      "If Steps 1\u20137 were skipped or data was not completed: the status message 'No preprocessed data \u2014 complete steps 1\u20137 first.' will appear; go back and complete the pipeline sequence.",
+      "The Training device is hardcoded to CPU in the background; if using a large dataset on a slow machine, training may be slow even with modest Epochs.",
+      "Clicking 'Train / Load' while a previous training is running will have no effect (button is disabled); wait for the previous operation to finish before trying again."
+    ]
+  },
+  {
+    "step_number": 10,
+    "title": "Select Bands",
+    "purpose": "This step runs a Perturbation-Based Autoencoder (AE) band selection algorithm on the trained model from Step 9. The selection algorithm identifies the most influential wavelength bands in your hyperspectral dataset. You can tune the selection parameters and run the analysis multiple times without retraining the model, making it fast to explore different configurations.",
+    "what_to_do": [
+      "Adjust the four selection parameters in the form: Bands to select (default 30), Dimension method (default variance), Normalization (default variance), and Diversity method (default mmr).",
+      "Click the 'Run selection' button to execute the band selection algorithm on your trained model.",
+      "Wait for the progress bar to complete. When finished, a table will appear showing the selected bands ranked by influence score.",
+      "Review the results table showing each selected band's rank, excitation wavelength (nm), emission wavelength (nm), and influence score.",
+      "Click 'Export results (CSV / JSON / TIFF)' to save the selected bands to your chosen output folder in multiple formats."
+    ],
+    "key_controls": [
+      {
+        "control": "Bands to select",
+        "does": "Spin box (1\u2013500) that sets how many wavelength bands to select from your dataset. Default is 30 bands."
+      },
+      {
+        "control": "Dimension method",
+        "does": "Dropdown with options: variance (default), activation, or pca. Determines how the algorithm measures band importance."
+      },
+      {
+        "control": "Normalization",
+        "does": "Dropdown with options: variance (default), max_per_excitation, or none. Controls how influence scores are normalized."
+      },
+      {
+        "control": "Diversity",
+        "does": "Dropdown with options: mmr (default), min_distance, or none. Controls whether and how the algorithm enforces diversity among selected bands."
+      },
+      {
+        "control": "Run selection",
+        "does": "Button that starts the band selection process using the parameters you set. Disabled until a model is trained or loaded in Step 9."
+      },
+      {
+        "control": "Progress bar",
+        "does": "Animated indeterminate bar shown during selection processing. Hides when complete or if an error occurs."
+      },
+      {
+        "control": "Status message",
+        "does": "Text label below the progress bar that shows the result or any error message."
+      },
+      {
+        "control": "Results table",
+        "does": "Four-column table displaying selected bands: Rank (order 1, 2, 3...), Excitation (nm), Emission (nm), and Influence (normalized score). Populated after a successful run."
+      },
+      {
+        "control": "Export results (CSV / JSON / TIFF)",
+        "does": "Button that opens a folder browser to choose an output directory. Saves the selected bands in CSV, JSON, and TIFF formats. Disabled until selection completes successfully."
+      }
+    ],
+    "navigation_note": "You can only enter this step if you have trained or loaded a model in Step 9. The 'Run selection' button is disabled and a status message will tell you to 'Train or load a model in Step 9 first' if the model is missing. You can run the selection multiple times with different parameters without retraining. Once you have exported the results (or simply reviewed them in the table), you can proceed to the next step in the wizard.",
+    "pitfalls": [
+      "If you get a 'Selection failed' error, check that a model exists from Step 9 and that your parameter choices (especially 'Bands to select') are valid for your data.",
+      "The 'Export results' button is only available after a successful selection run\u2014you must click 'Run selection' first.",
+      "Be aware that changing any selection parameter (Bands to select, Dimension method, etc.) requires you to click 'Run selection' again to see updated results.",
+      "The influence scores in the results table use scientific notation (e.g., 1.234e-03). Higher scores indicate bands with greater influence on the model.",
+      "Requesting more bands than exist in your dataset will fail; check your dataset's wavelength dimensions before increasing 'Bands to select'."
+    ]
+  }
+]

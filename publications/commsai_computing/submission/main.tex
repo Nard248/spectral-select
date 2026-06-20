@@ -1,0 +1,126 @@
+% =====================================================================
+%  Communications AI & Computing (Nature Portfolio) -- submission draft
+%  Built from the VERBATIM TPAMI-revised section sources, reordered to the
+%  Nature house structure (Methods at the end), with surgical additions for
+%  the collagen sponge dataset only. Original text and voice are preserved.
+% =====================================================================
+\documentclass[11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathptmx}                 % Times-like text + math
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{lineno}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{siunitx}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{authblk}
+\usepackage[hidelinks]{hyperref}
+\usepackage{cleveref}
+\usepackage[font=small,labelfont=bf]{caption}
+
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc, patterns}
+\pgfplotsset{compat=1.18}
+
+% --- Nature-style numeric superscript citations ---
+\usepackage[numbers,super,sort&compress]{natbib}
+
+% --- Custom macros used by the original section sources ---
+\newcommand{\lambdaex}{\lambda_{\text{ex}}}
+\newcommand{\lambdaem}{\lambda_{\text{em}}}
+\providecommand{\R}{}\renewcommand{\R}{\mathbb{R}}
+\newcommand{\vect}[1]{\mathbf{#1}}
+\newcommand{\mat}[1]{\mathbf{#1}}
+
+% --- Shim for the IEEEtran drop-cap macro used in the introduction ---
+\providecommand{\IEEEPARstart}[2]{#1#2}
+
+\doublespacing
+\linenumbers
+
+% Slightly relax float restrictions for the single-column layout
+\renewcommand{\topfraction}{0.95}
+\renewcommand{\bottomfraction}{0.95}
+\renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.85}
+
+\title{\bfseries Unsupervised deep learning for wavelength selection in multi-excitation fluorescence imaging}
+
+\author[1,2]{Narek Meloyan}
+\author[1,2,3]{Narine Sarvazyan}
+\affil[1]{American University of Armenia, Yerevan, Armenia}
+\affil[2]{L.~A.~Orbeli Institute of Physiology NAS RA, Yerevan, Armenia}
+\affil[3]{George Washington University, Washington, DC, USA}
+\date{}
+
+\begin{document}
+\maketitle
+
+% ---- Abstract (original text + one collagen sentence) ----
+\input{sections/abstract}
+
+\vspace{0.5em}
+\noindent\textbf{Keywords:} wavelength selection, convolutional autoencoder,
+perturbation analysis, spectral band selection, fluorescence imaging.
+
+% =====================================================================
+%  NARRATIVE (Nature order: Introduction -> Results -> Discussion)
+%  Section text is the original, verbatim, with surgical collagen edits.
+% =====================================================================
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/results}
+\input{sections/discussion}
+\input{sections/conclusion}
+
+% =====================================================================
+%  METHODS (placed at the end per Nature Portfolio convention).
+%  These are the original Methodology and Experimental Setup sections.
+% =====================================================================
+\input{sections/methodology}
+\input{sections/experimental_setup}
+
+% =====================================================================
+%  BACK MATTER
+% =====================================================================
+\section*{Data availability}
+The datasets analysed in this study are available from the corresponding author
+on reasonable request.
+
+\section*{Code availability}
+The implementation is available at \url{https://github.com/Nard248/spectral-select}.
+
+\section*{Acknowledgements}
+Financial support of the European Union (ERA Chair NAS-SAR award, grant
+101087403) is gratefully acknowledged. The authors thank Dr.~Arsen Gasparyan
+(Takhtajyan Institute of Botany, National Academy of Sciences of Armenia) for
+providing lichen samples, Narek Chillingaryan (L.~A.~Orbeli Institute of
+Physiology) for assistance with sample preparation and data acquisition, and
+Aleksandr Hayrapetyan (Yerevan State University) for assistance with model
+selection and benchmarking. A large-language-model assistant was used solely to
+refine grammatical clarity and to edit source files; it did not contribute to
+the conceptual design, data analysis, or intellectual content of this work.
+
+\section*{Author contributions}
+N.M. designed the framework, implemented the experiments, and drafted the
+manuscript. N.S. supervised the study, provided the imaging data and domain
+interpretation, and revised the manuscript. Both authors approved the final
+version.
+
+\section*{Competing interests}
+The authors declare no competing interests.
+
+% =====================================================================
+\bibliographystyle{naturemag}
+\bibliography{references}
+
+\end{document}

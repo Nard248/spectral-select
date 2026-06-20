@@ -1,0 +1,400 @@
+% ============================================================================
+% III. METHODOLOGY (REVISED - FINAL)
+% ============================================================================
+
+\section{Methodology}
+\label{sec:methodology}
+
+% TikZ pipeline diagram
+\begin{figure}[!t]
+\centering
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    block/.style={rectangle, draw=black, thick, fill=blue!10, text width=2.2cm, minimum height=1.2cm, align=center, rounded corners=3pt},
+    data/.style={rectangle, draw=black, thick, fill=green!10, text width=2cm, minimum height=1cm, align=center},
+    process/.style={rectangle, draw=black, thick, fill=orange!10, text width=2.2cm, minimum height=1.2cm, align=center, rounded corners=3pt},
+    output/.style={rectangle, draw=black, thick, fill=purple!10, text width=2cm, minimum height=1cm, align=center, rounded corners=3pt},
+    arrow/.style={-{Stealth[length=3mm]}, thick}
+]
+
+% Input
+\node[data] (input) {4D ME-HSI\\$(x,y,\lambdaem,\lambdaex)$};
+
+% Preprocessing
+\node[block, right=of input] (preprocess) {Preprocessing\\Normalization\\Rayleigh Cutoff};
+
+% Autoencoder
+\node[block, right=of preprocess] (encoder) {Parallel\\Encoder\\Branches};
+\node[block, right=of encoder] (latent) {Shared\\Latent Space\\$\vect{z} \in \R^{20}$};
+\node[block, right=of latent] (decoder) {Parallel\\Decoder\\Branches};
+
+% Perturbation Analysis
+\node[process, below=1.2cm of latent] (perturb) {Latent Space\\Perturbation\\Analysis};
+
+% Influence scores
+\node[process, left=of perturb] (influence) {Wavelength\\Influence\\Scores};
+
+% MMR Selection
+\node[process, left=of influence] (mmr) {MMR\\Diversity\\Selection};
+
+% Output
+\node[output, left=of mmr] (output) {Selected\\Wavelengths};
+
+% Arrows
+\draw[arrow] (input) -- (preprocess);
+\draw[arrow] (preprocess) -- (encoder);
+\draw[arrow] (encoder) -- (latent);
+\draw[arrow] (latent) -- (decoder);
+\draw[arrow] (latent) -- (perturb);
+\draw[arrow] (perturb) -- (influence);
+\draw[arrow] (influence) -- (mmr);
+\draw[arrow] (mmr) -- (output);
+
+% Labels
+\node[above=0.3cm of encoder, font=\footnotesize\itshape] {Stage 1: Representation Learning};
+\node[below=0.3cm of influence, font=\footnotesize\itshape] {Stage 2: Attribution};
+\node[below=0.3cm of mmr, font=\footnotesize\itshape] {Stage 3: Selection};
+
+% Brace for autoencoder
+\draw[decorate, decoration={brace, amplitude=8pt, mirror, raise=4pt}]
+    (encoder.south west) -- (decoder.south east) node[midway, below=14pt, font=\footnotesize] {3D CAE (Training)};
+
+\end{tikzpicture}
+\caption{Overview of the proposed wavelength selection framework. The pipeline comprises three stages: (1) a 3D CAE learns a compressed representation of 4D ME-HSI data; (2) perturbation analysis attributes latent dimensions to individual wavelengths; (3) MMR selection identifies diverse, informative band subsets.}
+\label{fig:pipeline}
+\end{figure}
+
+% ----------------------------------------------------------------------------
+\subsection{Data Preprocessing}
+\label{sec:preprocessing}
+
+Raw ME-HSI acquisitions required several preprocessing steps before autoencoder training. (Figure~\ref{fig:pipeline})
+
+\subsubsection{Intensity Normalization}
+Fluorescence intensity depends on excitation source power and exposure time, which may vary across acquisitions.
+Since the LED-based multi-excitation source operated at different power levels and exposure times for each excitation wavelength, raw intensities were normalized to ensure comparability across excitation channels:
+\begin{equation}
+I_{\text{norm}}(x, y, \lambdaem, \lambdaex) = \frac{I_{\text{raw}}(x, y, \lambdaem, \lambdaex)}{t_{\text{exp}}} \times \frac{t_{\text{ref}} \cdot P_{\text{ref}}}{P(\lambdaex)}
+\label{eq:normalization}
+\end{equation}
+where $t_{\text{exp}}$ is the exposure time and $P(\lambdaex)$ is the lamp power at excitation wavelength $\lambdaex$.
+The reference values $t_{\text{ref}}$ and $P_{\text{ref}}$ were set to the maximum exposure time and maximum lamp power, respectively, across all excitation wavelengths, ensuring that the normalization factor scales intensities upward for weaker or shorter-exposed channels.
+Global min-max normalization was then applied to scale all values to $[0, 1]$.
+
+\subsubsection{Rayleigh Scattering Removal}
+Elastic scattering produces artifacts at two spectral locations.
+First-order Rayleigh scattering occurs when emission wavelength approaches excitation wavelength ($\lambdaem \approx \lambdaex$), therefore, a spectral cutoff with offset $\Delta\lambda = 40$\, nm excluded emission bands where $\lambdaem < \lambdaex + \Delta\lambda$.
+Second-order Rayleigh scattering produces artifacts near $\lambdaem \approx 2\lambdaex$, therefore emission bands within $\pm 40$\, nm of this harmonic were also excluded.
+Together, these cutoffs resulted in variable numbers of valid emission bands per excitation, yielding 192 valid excitation-emission pairs from the original acquisition grid.
+% \begin{figure}[!t]
+% \centering
+% \begin{tikzpicture}
+% \begin{axis}[
+%     width=0.48\textwidth,
+%     height=0.38\textwidth,
+%     xlabel={Emission Wavelength (nm)},
+%     ylabel={Excitation Wavelength (nm)},
+%     xmin=400, xmax=750,
+%     ymin=305, ymax=435,
+%     ytick={310, 325, 340, 355, 370, 385, 400, 415, 430},
+%     xtick={400, 450, 500, 550, 600, 650, 700, 750},
+%     tick label style={font=\footnotesize},
+%     label style={font=\small},
+%     grid=major,
+%     grid style={dashed, gray!30},
+%     clip=true,
+% ]
+
+% % 1st order exclusion zone (Em < Ex + 40): upper-left triangle
+% \addplot[fill=red!25, draw=none] coordinates {
+%     (400, 360) (475, 435) (400, 435)
+% } -- cycle;
+
+% % 1st order cutoff line: Em = Ex + 40
+% \addplot[red, thick, dashed, samples=2, domain=355:435] ({x + 40}, {x});
+
+% % 2nd order exclusion band: |Em - 2*Ex| < 40, diagonal band
+% \addplot[fill=blue!20, draw=none] coordinates {
+%     (570, 305) (650, 305) (750, 355) (750, 395)
+% } -- cycle;
+
+% % 2nd order boundary lines
+% \addplot[blue, thick, dotted, samples=2, domain=305:395] ({2*x - 40}, {x});
+% \addplot[blue, thick, dotted, samples=2, domain=305:355] ({2*x + 40}, {x});
+
+% % Labels parallel to cutoff lines (visual angles computed from axis aspect ratio)
+% \node[red, font=\scriptsize, rotate=65, anchor=south] at (axis cs:435, 398) {1\textsuperscript{st} order cutoff};
+% \node[blue, font=\scriptsize, rotate=47, anchor=south] at (axis cs:660, 335) {2\textsuperscript{nd} order cutoff};
+% \node[font=\scriptsize] at (axis cs:550, 400) {Valid};
+
+% % Excitation wavelength tick markers
+% \foreach \ex in {310, 325, 340, 365, 385, 400, 415, 430} {
+%     \addplot[only marks, mark=|, mark size=2pt, thick, black] coordinates {(400, \ex)};
+% }
+
+% \end{axis}
+% \end{tikzpicture}
+% \caption{Rayleigh scattering cutoffs in the excitation-emission matrix (EEM) space. The first-order exclusion zone (red shading, dashed line: $\lambdaem = \lambdaex + 40$\,nm) removes emission bands too close to the excitation wavelength. The second-order exclusion band (blue shading, dotted lines: $\lambdaem = 2\lambdaex \pm 40$\,nm) removes harmonic artifacts. The unshaded region between these cutoffs contains the 192 valid excitation-emission pairs used in this study.}
+% \label{fig:rayleigh}
+% \end{figure}
+
+\subsubsection{Background Masking}
+Non-sample regions (background) provide no discriminative information and may bias the autoencoder toward reconstructing uninformative patterns.
+Binary masks $M(x, y) \in \{0, 1\}$ were generated through intensity thresholding or manual annotation, excluding background pixels from both training and evaluation.
+
+% ----------------------------------------------------------------------------
+\subsection{3D CAE}
+\label{sec:architecture}
+
+The central architectural challenge in processing 4D ME-HSI data was the variable spectral dimension across excitations.
+After the Rayleigh cutoff, each excitation wavelength $\lambdaex$ yielded a different number of valid emission bands $N_{\text{em}}(\lambdaex)$.
+A monolithic architecture would require padding and masking complexities to address the varying emission wavelength counts for each excitation; instead, a parallel-branch design was employed where each excitation is processed by a dedicated encoder branch, with features merged into a shared latent representation.
+
+\subsubsection{Encoder Architecture}
+For each excitation wavelength $\lambdaex^{(i)}$, $i = 1, \ldots, N_{\text{ex}}$, an encoder branch was defined, comprising a 3D convolutional layer that processes the spatial-spectral cube:
+\begin{equation}
+\vect{h}^{(i)} = \sigma\left(\text{Conv3D}\left(\vect{X}^{(i)}\right)\right)
+\label{eq:encoder}
+\end{equation}
+where $\vect{X}^{(i)} \in \R^{H \times W \times N_{\text{em}}^{(i)}}$ is the input cube for excitation $i$, Conv3D applies $k_1 = 20$ filters of size $5 \times 5 \times \min(5, N_{\text{em}}^{(i)})$, and $\sigma$ is the sigmoid activation function.
+The subscripts in $k_1$ and $k_3$ (introduced below) index the first and third convolutional layers; the intermediate feature-merging step has no learned parameters.
+The adaptive spectral kernel size accommodated variable band counts across excitations.
+
+After convolution, adaptive average pooling standardized the spectral dimension to 1, yielding feature maps $\vect{h}^{(i)} \in \R^{k_1 \times H \times W}$ with consistent dimensions across excitations.
+Dropout regularization (rate 0.5) was applied after pooling to prevent overfitting.
+
+\subsubsection{Feature Merging}
+The excitation-specific feature maps were combined through element-wise averaging:
+\begin{equation}
+\bar{\vect{h}} = \frac{1}{N_{\text{ex}}} \sum_{i=1}^{N_{\text{ex}}} \vect{h}^{(i)}
+\label{eq:merge}
+\end{equation}
+This merging strategy offers several advantages over alternatives.
+Concatenation would yield feature dimensionality that grows with $N_{\text{ex}}$, increasing model complexity.
+Averaging provided implicit noise reduction and was robust to intensity variations across excitations.
+The merged features $\bar{\vect{h}}$ captured cross-excitation correlations by integrating patterns from all excitation branches.
+
+\subsubsection{Shared Latent Space}
+An additional convolutional layer transformed the merged features into the latent representation:
+\begin{equation}
+\vect{z} = \sigma\left(\text{Conv3D}\left(\bar{\vect{h}}\right)\right)
+\label{eq:latent}
+\end{equation}
+where $\vect{z} \in \R^{k_3 \times 1 \times H \times W}$ with $k_3 = 20$ channels constitutes the bottleneck encoding.
+This latent space $\vect{z}$ encapsulates the essential structure of the 4D ME-HSI data in a compressed form.
+The perturbation analysis (Section~\ref{sec:perturbation}) probes this space to identify which wavelengths contribute most to the learned representation.
+
+\subsubsection{Decoder Architecture}
+The decoder mirrors the encoder with symmetric structure.
+A shared decoding layer transformed the latent representation:
+\begin{equation}
+\vect{g} = \sigma\left(\text{Conv3D}\left(\vect{z}\right)\right)
+\label{eq:decode_shared}
+\end{equation}
+yielding features $\vect{g} \in \R^{k_1 \times 1 \times H \times W}$.
+Parallel decoder branches then reconstructed each excitation's spectral cube:
+\begin{equation}
+\hat{\vect{X}}^{(i)} = \sigma\left(\text{Conv3D}^{(i)}\left(\vect{g}\right)\right)
+\label{eq:decode_branch}
+\end{equation}
+where $\text{Conv3D}^{(i)}$ maps from $k_1$ to $N_{\text{em}}^{(i)}$ channels.
+Figure~\ref{fig:architecture} illustrates the complete architecture.
+
+\begin{figure}[!t]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    scale=1,
+    transform shape,
+    block/.style={rectangle, draw, thick, fill=blue!10, minimum width=1.5cm, minimum height=0.6cm, align=center, font=\footnotesize},
+    arrow/.style={-{Stealth[length=2mm]}, thick},
+    label/.style={font=\scriptsize}
+]
+
+% Input branches
+\node[block, fill=green!20] at (0, 2) (in1) {$\vect{X}^{(1)}$};
+\node[block, fill=green!20] at (0, 1) (in2) {$\vect{X}^{(2)}$};
+\node at (0, 0.3) {$\vdots$};
+\node[block, fill=green!20] at (0, -0.5) (inN) {$\vect{X}^{(N)}$};
+
+% Encoder branches
+\node[block] at (2, 2) (enc1) {Conv3D};
+\node[block] at (2, 1) (enc2) {Conv3D};
+\node at (2, 0.3) {$\vdots$};
+\node[block] at (2, -0.5) (encN) {Conv3D};
+
+% Merge
+\node[block, fill=orange!20] at (4, 0.75) (merge) {Average};
+
+% Latent
+\node[block, fill=red!20] at (6, 0.75) (latent) {$\vect{z}$};
+
+% Shared decode
+\node[block, fill=orange!20] at (8, 0.75) (dec_shared) {Conv3D};
+
+% Decoder branches
+\node[block] at (10, 2) (dec1) {Conv3D};
+\node[block] at (10, 1) (dec2) {Conv3D};
+\node at (10, 0.3) {$\vdots$};
+\node[block] at (10, -0.5) (decN) {Conv3D};
+
+% Output branches
+\node[block, fill=green!20] at (12, 2) (out1) {$\hat{\vect{X}}^{(1)}$};
+\node[block, fill=green!20] at (12, 1) (out2) {$\hat{\vect{X}}^{(2)}$};
+\node at (12, 0.3) {$\vdots$};
+\node[block, fill=green!20] at (12, -0.5) (outN) {$\hat{\vect{X}}^{(N)}$};
+
+% Arrows
+\foreach \i in {1,2,N} {
+    \draw[arrow] (in\i) -- (enc\i);
+    \draw[arrow] (dec\i) -- (out\i);
+}
+\draw[arrow] (enc1) -- (merge);
+\draw[arrow] (enc2) -- (merge);
+\draw[arrow] (encN) -- (merge);
+\draw[arrow] (merge) -- (latent);
+\draw[arrow] (latent) -- (dec_shared);
+\draw[arrow] (dec_shared) -- (dec1);
+\draw[arrow] (dec_shared) -- (dec2);
+\draw[arrow] (dec_shared) -- (decN);
+
+% Labels
+\node[above=0.1cm of enc1, label] {Parallel Encoders};
+\node[above=0.1cm of dec1, label] {Parallel Decoders};
+\node[below=0.3cm of latent, label, text=red] {Bottleneck};
+
+\end{tikzpicture}%
+}
+\caption{3D CAE architecture with parallel branches. Each excitation is processed by a dedicated encoder branch; features are averaged into a shared latent space; parallel decoder branches reconstruct the original 4D structure.}
+\label{fig:architecture}
+\end{figure}
+
+\subsubsection{Loss Function and Training}
+The autoencoder was trained to minimize masked mean squared error:
+\begin{equation}
+\mathcal{L} = \frac{1}{N_{\text{valid}}} \sum_{i=1}^{N_{\text{ex}}} \sum_{x,y} M(x,y) \cdot \left\| \vect{X}^{(i)}_{x,y} - \hat{\vect{X}}^{(i)}_{x,y} \right\|^2
+\label{eq:loss}
+\end{equation}
+where $M(x,y)$ is the background mask, $N_{\text{valid}}$ is the number of valid pixels, and the sum runs over all excitations and spatial locations.
+Masking ensured the network focused on sample regions rather than background.
+
+Training employed the Adam optimizer~\cite{kingma2014adam} with learning rate $\eta = 0.001$, learning rate scheduling (ReduceOnPlateau with factor 0.5 and patience 5), and early stopping (patience 5 epochs).
+Large images were partitioned into $64 \times 64$ patches with 8-pixel overlap for batch training; typical convergence occurred within 25--30 epochs.
+
+% ----------------------------------------------------------------------------
+\subsection{Perturbation-Based Wavelength Attribution}
+\label{sec:perturbation}
+
+The trained autoencoder learned a compressed representation that captures the essential structure of ME-HSI data.
+Different latent dimensions encode different aspects of this structure; the goal was to attribute each latent dimension's influence back to specific excitation-emission wavelength pairs.
+If perturbing a latent dimension significantly changed the reconstruction of a particular wavelength, that wavelength must be encoded by that dimension.
+
+\subsubsection{Latent Dimension Scoring}
+Not all latent dimensions carry equal information.
+The $k_3 = 20$ latent dimensions were first ranked by importance using variance-based scoring:
+\begin{equation}
+\text{score}(d) = \text{Var}_{\text{samples}}\left(\vect{z}[\cdot, d, \cdot, \cdot, \cdot]\right)
+\label{eq:dim_score}
+\end{equation}
+where $\vect{z}[\cdot, d, \cdot, \cdot, \cdot]$ denotes dimension $d$ across all samples and spatial locations.
+Higher variance indicated that the dimension captured meaningful variation rather than constant or near-zero values.
+The top $k$ dimensions were then selected for perturbation analysis, where $k$ is treated as a hyperparameter; empirical evaluation (Section~\ref{sec:results}) revealed that $k=1$ (using only the highest-variance dimension) achieved optimal performance.
+
+Alternative scoring methods include activation magnitude (mean absolute value) and reconstruction sensitivity (MSE when dimension is zeroed).
+Variance-based scoring yielded the most consistent wavelength rankings, likely because high-variance dimensions captured the primary modes of spectral variation that distinguish different materials.
+
+\subsubsection{Systematic Perturbation}
+For each selected latent dimension $d$, the standard deviation $\sigma_d$ was computed across spatial locations and samples, and then the perturbed representations were generated:
+\begin{align}
+\vect{z}^{+}_d &= \vect{z} + \epsilon \cdot \sigma_d \cdot \vect{e}_d \label{eq:perturb_pos}\\
+\vect{z}^{-}_d &= \vect{z} - \epsilon \cdot \sigma_d \cdot \vect{e}_d \label{eq:perturb_neg}
+\end{align}
+where $\vect{e}_d$ is a one-hot vector selecting dimension $d$, and $\epsilon$ controls perturbation magnitude.
+Values of $\epsilon \in \{15, 30, 45\}$ were used, and results across scales were aggregated to ensure robustness.
+The $\sigma$-based scaling ensured perturbations were proportional to the natural variation in each dimension, avoiding both negligibly small and destructively large perturbations.
+
+\subsubsection{Sensitivity Mapping}
+Decoding the perturbed representations yielded reconstructions $\hat{\vect{X}}^{+}_d$ and $\hat{\vect{X}}^{-}_d$.
+The sensitivity of each wavelength to perturbation in dimension $d$ was computed:
+\begin{equation}
+\Delta_d(\lambdaex, \lambdaem) = \frac{\left| \hat{X}^{+}_d(\lambdaex, \lambdaem) - \hat{X}^{-}_d(\lambdaex, \lambdaem) \right|}{2\epsilon \cdot \sigma_d}
+\label{eq:sensitivity}
+\end{equation}
+where averaging was performed over spatial locations and samples.
+This finite difference approximation estimates the partial derivative of reconstruction with respect to latent dimension $d$, quantifying how strongly each wavelength's reconstruction responds to changes in that dimension.
+
+\subsubsection{Influence Accumulation}
+Sensitivity was accumulated across latent dimensions, weighted by dimension importance:
+\begin{equation}
+\text{Influence}(\lambdaex, \lambdaem) = \sum_{d \in \text{top-}k} \text{score}(d) \cdot \overline{\Delta_d(\lambdaex, \lambdaem)}
+\label{eq:influence}
+\end{equation}
+where $\overline{\Delta_d}$ denotes the mean sensitivity across perturbation magnitudes.
+The result is an influence matrix $\mat{I} \in \R^{N_{\text{ex}} \times \max(N_{\text{em}})}$ assigning importance scores to each excitation-emission pair.
+
+% ----------------------------------------------------------------------------
+\subsection{Maximum Marginal Relevance Selection}
+\label{sec:mmr}
+
+Selecting the top-$K$ wavelengths by influence score alone may yield redundant bands.
+Adjacent wavelengths often captured correlated fluorescence patterns; a diverse selection covering different spectral regions may be more informative than a concentrated selection.
+Maximum Marginal Relevance (MMR)~\cite{carbonell1998use} was adapted from information retrieval to balance relevance with diversity.
+
+\subsubsection{MMR Formulation}
+Given the set of all wavelength pairs $\mathcal{W}$ and a partial selection $\mathcal{S}$, MMR scores the next candidate as:
+\begin{equation}
+\text{MMR}(w_i) = \lambda \cdot \text{Rel}(w_i) - (1 - \lambda) \cdot \max_{w_j \in \mathcal{S}} \text{Sim}(w_i, w_j)
+\label{eq:mmr}
+\end{equation}
+where $\text{Rel}(w_i)$ is the normalized influence score, $\text{Sim}(w_i, w_j)$ is the cosine similarity between spectral profiles at wavelengths $w_i$ and $w_j$, and $\lambda \in [0, 1]$ controls the relevance-diversity trade-off.
+
+At $\lambda = 1$, MMR reduces to pure relevance ranking; at $\lambda = 0$, selection maximizes diversity without regard for informativeness.
+Empirical evaluation (Section~\ref{sec:results}) identified $\lambda = 0.5$ as optimal, providing balanced consideration of both criteria.
+
+\subsubsection{Selection Procedure}
+Algorithm~\ref{alg:mmr} presents the greedy MMR selection procedure.
+The algorithm iteratively selected the wavelength that maximized the MMR score until $K$ wavelengths were chosen.
+The output is an ordered list of excitation-emission pairs, ranked by selection order, enabling flexible thresholding based on accuracy-efficiency trade-offs.
+
+\begin{algorithm}[t]
+\caption{MMR Wavelength Selection}
+\label{alg:mmr}
+\begin{algorithmic}[1]
+\REQUIRE Wavelength set $\mathcal{W}$, influence matrix $\mat{I}$, target count $K$, trade-off parameter $\lambda$
+\ENSURE Selected wavelength set $\mathcal{S}$
+\STATE Initialize $\mathcal{S} \gets \emptyset$
+\STATE Compute $\text{Rel}(w) \gets \mat{I}(w) / \max(\mat{I})$ for all $w \in \mathcal{W}$
+\FOR{$i = 1$ to $K$}
+    \FOR{each $w \in \mathcal{W} \setminus \mathcal{S}$}
+        \IF{$\mathcal{S} = \emptyset$}
+            \STATE $\text{MMR}(w) \gets \text{Rel}(w)$
+        \ELSE
+            \STATE $\text{MMR}(w) \gets \lambda \cdot \text{Rel}(w) - (1-\lambda) \cdot \max_{w_j \in \mathcal{S}} \text{Sim}(w, w_j)$
+        \ENDIF
+    \ENDFOR
+    \STATE $w^* \gets \arg\max_{w \in \mathcal{W} \setminus \mathcal{S}} \text{MMR}(w)$
+    \STATE $\mathcal{S} \gets \mathcal{S} \cup \{w^*\}$
+\ENDFOR
+\RETURN $\mathcal{S}$
+\end{algorithmic}
+\end{algorithm}
+
+% ----------------------------------------------------------------------------
+\subsection{Validation Protocol}
+\label{sec:validation}
+
+The wavelength selection pipeline (Sections~\ref{sec:architecture}--\ref{sec:mmr}) is entirely unsupervised and operates without access to class labels.
+A supervised classification algorithm is used to quantify how much discriminative power remains in the compressed features; the classification described below serves \emph{only} to evaluate the quality of selected wavelengths---it does not influence the selection process.
+In a deployment scenario, wavelength selection would proceed identically whether or not labeled data exists.
+
+For each pixel $(x, y)$ with ground-truth labels, spectral values at the $K$ selected wavelength pairs form the feature vector:
+\begin{equation}
+\resizebox{0.88\columnwidth}{!}{$
+\vect{f}(x, y) = \left[ I(x, y, \lambda_{\mathrm{em}}^{(1)}, \lambda_{\mathrm{ex}}^{(1)}), \ldots, I(x, y, \lambda_{\mathrm{em}}^{(K)}, \lambda_{\mathrm{ex}}^{(K)}) \right]^\top$},
+\label{eq:features}
+\end{equation}
+where $(\lambdaem^{(k)}, \lambdaex^{(k)})$ is the $k$-th selected pair.
+Features were standardized (zero mean, unit variance) and classified using a $k$-nearest neighbors (KNN) classifier~\cite{cover1967nearest} with 5 neighbors and Euclidean distance.
+This non-parametric classifier was chosen to isolate the effect of wavelength selection from classifier capacity.
+A baseline using all 192 bands with the same classifier established the performance reference.
+Cohen's Kappa ($\kappa$)~\cite{cohen1960coefficient}, classification accuracy, and weighted F1-score served as primary evaluation metrics; the complete metric set is defined in Section~\ref{sec:metrics}.

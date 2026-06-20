@@ -1,0 +1,7 @@
+PAMAP2 MONSTER slice | holdout subject 5 | LOSO KNN-5
+CEILING all 27 channels: acc=0.8344 macroF1=0.8275
+K=3	ae_acc=0.4958	ae_macroF1=0.4392	var_macroF1=0.5022	random_macroF1=0.4819	[('hand', 6), ('chest', 6), ('ankle', 8)]
+K=5	ae_acc=0.6804	ae_macroF1=0.6093	var_macroF1=0.5761	random_macroF1=0.6163	[('hand', 6), ('chest', 6), ('ankle', 8), ('chest', 8), ('ankle', 1)]
+K=7	ae_acc=0.7658	ae_macroF1=0.6956	var_macroF1=0.5741	random_macroF1=0.6664	[('hand', 6), ('chest', 6), ('ankle', 8), ('chest', 8), ('ankle', 1), ('chest', 7), ('chest', 3)]
+K=10	ae_acc=0.8032	ae_macroF1=0.7430	var_macroF1=0.6590	random_macroF1=0.7218	[('hand', 6), ('chest', 6), ('ankle', 8), ('chest', 8), ('ankle', 1), ('chest', 7), ('chest', 3), ('chest', 4), ('hand', 7), ('chest', 0)]
+K=15	ae_acc=0.8076	ae_macroF1=0.7774	var_macroF1=0.7859	random_macroF1=0.7734	[('hand', 6), ('chest', 6), ('ankle', 8), ('chest', 8), ('ankle', 1), ('chest', 7), ('chest', 3), ('chest', 4), ('hand', 7), ('chest', 0), ('hand', 8), ('ankle', 3), ('ankle', 4), ('chest', 5), ('ankle', 0)]

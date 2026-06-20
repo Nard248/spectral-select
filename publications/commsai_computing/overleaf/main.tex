@@ -1,0 +1,111 @@
+% =====================================================================
+%  Communications AI & Computing (Nature Portfolio) -- submission draft
+%  Two-column layout following the ORIGINAL paper's section order:
+%  Introduction, Related Work, Methodology, Experimental Setup, Results,
+%  Discussion, Conclusion. Verbatim original text with surgical collagen
+%  additions, a grounded impersonal tone pass, and a trimmed abstract.
+%  (Nature does not require a specific format at initial submission;
+%   reformat to the journal template at acceptance.)
+% =====================================================================
+\documentclass[journal]{IEEEtran}
+
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{subcaption}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{siunitx}
+
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning, fit, backgrounds, calc, patterns}
+\pgfplotsset{compat=1.18}
+
+% --- Unified figure font: all TikZ/pgfplots visuals use sans-serif to match
+%     the matplotlib data plots (body text stays Times). ---
+\usepackage[scaled=0.92]{helvet}
+\pgfplotsset{every axis/.append style={font=\sffamily}}
+\tikzset{every picture/.style={/utils/exec=\sffamily}}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue,
+    pdftitle={Unsupervised deep learning for wavelength selection in ME-HSI},
+    pdfauthor={Narek Meloyan},
+}
+
+% --- Discourage orphan/widow lines (reviewer: no free-hanging single lines) ---
+\clubpenalty=10000
+\widowpenalty=10000
+\displaywidowpenalty=10000
+\brokenpenalty=10000
+
+% --- Custom macros used by the section sources ---
+\newcommand{\lambdaex}{\lambda_{\text{ex}}}
+\newcommand{\lambdaem}{\lambda_{\text{em}}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\vect}[1]{\mathbf{#1}}
+\newcommand{\mat}[1]{\mathbf{#1}}
+
+\begin{document}
+
+\title{Unsupervised Deep Learning for Wavelength Selection in Multi-Excitation Fluorescence Imaging}
+
+\author{\IEEEauthorblockN{Narek Meloyan\textsuperscript{1,2}, Narine Sarvazyan\textsuperscript{1,2,3}}
+\IEEEauthorblockA{\textsuperscript{1}American University of Armenia, Yerevan, Armenia\\
+\textsuperscript{2}L.A. Orbeli Institute of Physiology NAS RA, Yerevan, Armenia\\
+\textsuperscript{3}George Washington University, Washington, DC, USA\\
+Email: narek\_meloyan@edu.aua.am, phynas@gwu.edu}}
+
+\maketitle
+
+% ---- Abstract (original text + one collagen sentence) ----
+\input{sections/abstract}
+
+\begin{IEEEkeywords}
+Wavelength selection, convolutional autoencoder, perturbation analysis, spectral band selection, fluorescence imaging.
+\end{IEEEkeywords}
+
+% =====================================================================
+%  BODY -- original paper section order. Model visuals (pipeline +
+%  architecture) live in Methodology, before the Results.
+% =====================================================================
+\input{sections/introduction}
+\input{sections/related_work}
+\input{sections/methodology}
+\input{sections/experimental_setup}
+\input{sections/results}
+\input{sections/discussion}
+\input{sections/conclusion}
+
+% =====================================================================
+%  BACK MATTER
+% =====================================================================
+\section*{Data Availability}
+The collagen sponge dataset analysed in this study is openly available on Zenodo at \url{https://doi.org/10.5281/zenodo.20677504}. The lichen dataset is available from the corresponding author on reasonable request.
+
+\section*{Code Availability}
+The implementation is available at \url{https://github.com/Nard248/spectral-select}.
+
+\section*{Acknowledgment}
+Financial support of the European Union (ERA Chair NAS-SAR award, grant 101087403) is gratefully acknowledged. The authors thank Dr.~Arsen Gasparyan (Takhtajyan Institute of Botany, National Academy of Sciences of Armenia) for providing lichen samples, Narek Chillingaryan (L.A. Orbeli Institute of Physiology) for assistance with sample preparation and data acquisition, Kristina Ghahramanyan for collagen sponge data acquisition, and Aleksandr Hayrapetyan (Yerevan State University) for assistance with model selection and benchmarking. A large-language-model assistant was used solely to refine grammatical clarity and to edit source files; it did not contribute to the conceptual design, data analysis, or intellectual content of this work.
+
+\section*{Author Contributions}
+N.M. designed the framework, implemented the experiments, and drafted the manuscript. N.S. supervised the study, provided the imaging data and domain interpretation, and revised the manuscript. Both authors approved the final version.
+
+\section*{Competing Interests}
+The authors declare no competing interests.
+
+% =====================================================================
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
