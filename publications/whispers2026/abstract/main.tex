@@ -1,9 +1,11 @@
 \documentclass[10pt]{article}
-\usepackage[a4paper,margin=0.9in]{geometry}
+\usepackage[a4paper,margin=0.8in]{geometry}
 \usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
 \usepackage[hidelinks]{hyperref}
 \usepackage{parskip}
-\setlength{\parskip}{0.55em}
+\setlength{\parskip}{0.38em}
 \pagestyle{empty}
 
 \begin{document}
@@ -32,16 +34,26 @@ fluorophore model obeying the standard laws of fluorescence photophysics (Kasha,
 Franck-Condon, Stokes shift), with optional inner-filter attenuation, reabsorption, FRET,
 scatter, photon and read noise, and fixed-pattern clutter. Every cube carries perfect
 ground truth (concentration maps and true emission peaks), parametric dyes can be replaced
-by real measured spectra imported from FPbase, and an interactive workbench lets a user
-paint scenes, render, and validate a selection against ground truth. Crucially, scenes are
+by real measured spectra imported from FPbase, and an interactive workbench
+(Fig.~\ref{fig:gui}) lets a user pick and mix fluorophores, paint them as layers, render the 4D cube,
+and validate a selection against ground truth. Crucially, scenes are
 built so that band variance is decoupled from class informativeness (measured correlation
 $\approx -0.1$), which makes the benchmark an honest test rather than a trivial one, at
 difficulty controllable from a single call.
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.72\linewidth]{fig_gui.png}
+\caption{\footnotesize The SpectraForge workbench: pick and mix fluorophores into materials (left),
+paint them as layers onto a canvas (centre), then render the 4D cube and validate a band selection
+against ground truth (bottom, previewing a rendered emission band).}
+\label{fig:gui}
+\end{figure}
+
 Alongside the generator we define an evaluation protocol whose two decisive controls, a
-random-selection baseline and the full spectrum, separate genuine gains from
-self-deception, together with a classifier panel and a nonlinear-only information metric
-for regimes where linear scoring cannot credit a nonlinear-shape selection.
+random-selection baseline and the full spectrum, separate genuine gains from self-deception, with a
+classifier panel and a nonlinear-only information metric for regimes where linear scoring cannot
+credit a nonlinear-shape selection.
 
 Using SpectraForge we characterize autoencoder-plus-latent-perturbation band selection.
 The benchmark exposed a failure invisible to raw loss (a published model that selected at

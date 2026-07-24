@@ -17,8 +17,7 @@
 \title{\vspace{-1.5em}\textbf{SpectraForge}\\[0.2em]
 {\large A Physics-Grounded Synthetic Testbed for 4D Fluorescence Hyperspectral Imaging,\\
 and What It Taught Us About Autoencoder Band Selection}}
-\author{Narek Meloyan \and Narine Sarvazyan\\
-\small (with an AI research assistant on the training machine)}
+\author{Narek Meloyan \and Narine Sarvazyan}
 \date{Internal review draft, July 2026}
 
 \begin{document}
@@ -128,7 +127,18 @@ lamp/exposure/power gain $g$):
 F(x,y,\lambda_\mathrm{ex},\lambda_\mathrm{em}) = g\sum_k S_k .
 \end{equation}
 With every optional effect switched off this model is \emph{exactly linear}, and the code checks the
-invariant $\mathrm{render}(A+B) = \mathrm{render}(A) + \mathrm{render}(B)$. Everything hard about the
+invariant $\mathrm{render}(A+B) = \mathrm{render}(A) + \mathrm{render}(B)$. The excitation and emission
+profiles are Gaussian,
+\begin{equation}
+a_k(\lambda)=\exp\!\Big(\!-\tfrac{(\lambda-\lambda^{\mathrm{ex}}_k)^2}{2\sigma_k^2}\Big),
+\qquad
+e_k(\lambda)=\tfrac{1}{Z_k}\exp\!\Big(\!-\tfrac{(\lambda-\lambda^{\mathrm{em}}_k)^2}{2\tau_k^2}\Big),
+\end{equation}
+with widths $\sigma_k,\tau_k=\mathrm{FWHM}/(2\sqrt{2\ln 2})$; $a_k$ is peak-normalized and $e_k$
+area-normalized ($Z_k$ is the normalizer), and an optional red skew plus a vibronic shoulder
+$\sim\!1300\,\mathrm{cm}^{-1}$ to the red refine the emission shape. A fluorophore's brightness is the
+product $\varepsilon_k\Phi_k$, with quantum yield $\Phi_k=k_r/(k_r+k_{nr})$ (radiative over total
+decay). Everything hard about the
 benchmark is then added back in physically faithful, opt-in increments. Figure~\ref{fig:fluoro}
 shows the dye model: a few dim, overlapping discriminative dyes and a couple of bright, useless
 nuisances.
@@ -190,6 +200,18 @@ discriminative information into band shape (Figure~\ref{fig:reab}).
 energy transfers to the acceptor; the donor is quenched and the acceptor sensitized, which encodes
 dye \emph{co-localization} in a band ratio --- a genuinely nonlinear (product/XOR-like) class signal.
 \end{itemize}
+Written out, the optional physics is
+\begin{align}
+\text{inner filter:}\quad & F = F_{\mathrm{obs}}\,10^{-(A_{\mathrm{ex}}+A_{\mathrm{em}})/2},\\
+\text{reabsorption:}\quad & A_{\mathrm{em}}(\lambda)=\textstyle\sum_k \varepsilon_k c_k\,\alpha_k(\lambda),\\
+\text{Raman line:}\quad & 1/\lambda_R = 1/\lambda_{\mathrm{ex}}-\Delta\bar\nu,\ \ \Delta\bar\nu\approx 3400\,\mathrm{cm}^{-1},\\
+\text{FRET:}\quad & E = k\,c_A/(1+k\,c_A),
+\end{align}
+with Rayleigh at $\lambda_{\mathrm{em}}=\lambda_{\mathrm{ex}}$ (and a ghost at $2\lambda_{\mathrm{ex}}$); the
+primary and secondary inner filter are realized as multiplicative factors $e^{-sA_{\mathrm{ex}}}$ and
+$e^{-sA_{\mathrm{em}}(\lambda)}$; FRET scales the donor by $(1-E)$ and adds
+$E\cdot(\text{absorbed donor})\cdot\Phi_A$ to the acceptor; and each pixel receives Poisson shot noise
+(variance $=$ mean) plus Gaussian read noise.
 Finally, \textbf{fixed-pattern clutter} injects many independent class-irrelevant low-rank spatial
 fields onto random band subsets (the analogue of illumination/detector artifacts). Clutter is
 high-variance and class-irrelevant, and it turns out to be the dominant real-instrument confound
@@ -210,6 +232,44 @@ class-irrelevant low-rank spatial clutter modes. Right: sorted per-band variance
 the variance of many bands without adding any class information, which is exactly why
 variance- and reconstruction-based selection collapses to chance.}
 \label{fig:clutter}
+\end{figure}
+
+\subsection{Building a scene: what the user does}
+SpectraForge is not only equations; it is an interactive application, so building data feels like
+working in an image editor rather than writing a simulator (Figs.~\ref{fig:gui-lib}--\ref{fig:gui}):
+\begin{enumerate}[leftmargin=1.6em,itemsep=0.1em]
+\item \textbf{Pick or define the chemicals.} Choose fluorophores from a built-in library (or import
+real measured spectra from FPbase), or define a new dye by its excitation and emission peaks, band
+widths, quantum yield, and extinction (Fig.~\ref{fig:gui-lib}).
+\item \textbf{Mix them into materials.} A material is a recipe, a set of fluorophore concentrations
+(for example collagen with a little NADH), previewed live as a spectrum.
+\item \textbf{Paint the sample.} Draw each material onto the canvas with a brush, rectangle, or
+circle; the per-pixel amount you paint becomes its concentration map.
+\item \textbf{Organize in layers.} Stack materials as layers you can toggle and reorder, exactly like
+an image editor; the per-pixel dominant discriminative material sets the class label.
+\item \textbf{Acquire, render, select, validate.} Set the excitation wavelengths and emission grid,
+render the 4D cube, run a band selector, and press one button to score the selection against the
+ground truth (Fig.~\ref{fig:gui}).
+\end{enumerate}
+The whole loop, from picking chemicals to a scored band selection, runs in one window, which is what
+makes SpectraForge usable as a design tool for a real experiment and not only as a benchmark.
+
+\begin{figure}[H]\centering
+\includegraphics[width=0.60\linewidth]{fig_gui_library.png}
+\caption{Picking and defining chemicals. The fluorophore library (top list) and the editor for a
+fluorophore's photophysical parameters: excitation and emission peak and width, quantum yield, and
+extinction. New dyes are added here, or imported from FPbase.}
+\label{fig:gui-lib}
+\end{figure}
+
+\begin{figure}[H]\centering
+\includegraphics[width=\linewidth]{fig_gui.png}
+\caption{The SpectraForge workbench: one window for the whole workflow. Left: materials (fluorophore
+recipes) with a live spectrum preview. Centre: the painted canvas (a collagen+NADH patch, an FAD
+spot, an EGFP stripe), whose colours are the class labels. Right: the layer stack. Bottom: acquire,
+render, and validate, here previewing a rendered emission band at 340\,nm with the one-click
+``Validate selection vs ground truth''.}
+\label{fig:gui}
 \end{figure}
 
 \subsection{Regimes, ground truth, and how you actually use it}
@@ -241,7 +301,16 @@ methodological failure of ours that raw training loss had hidden completely.
 The method we wanted to validate is \textbf{autoencoder + latent-perturbation} selection: train an
 AE to reconstruct the cube; perturb each latent dimension and measure how strongly each input band's
 reconstruction responds; accumulate those per-band sensitivities into an influence score; keep the
-top-$k$ (with a diversity constraint). It is appealing because it is fully unsupervised yet, being
+top-$k$ (with a diversity constraint). Concretely, for a per-pixel latent code $z$ the per-band
+influence accumulates the reconstruction change under a perturbation $\delta$ of each retained latent
+coordinate $j$,
+\begin{equation}
+I_b=\sum_{j}\sum_{\delta} w_j\;\frac{1}{NP}\sum_{n=1}^{N}\sum_{p=1}^{P}
+\big|[\,D(z_n+\delta e_j)-D(z_n)\,]_{p,b}\big|,
+\end{equation}
+where $D$ is the decoder, $N$ the number of samples, $P$ the pixels, $e_j$ the $j$-th unit vector, and
+$w_j$ a per-coordinate weight; bands are chosen greedily from $I_b$ with a redundancy penalty. It is
+appealing because it is fully unsupervised yet, being
 nonlinear, could in principle catch structure PCA cannot. Run on SpectraForge and scored honestly,
 the published convolutional version \textbf{selected at chance} (macro-F1 $\approx 0.33$ on a 3-class
 scene) and reconstructed almost nothing. Either the pipeline was corrupting pixels, the training was

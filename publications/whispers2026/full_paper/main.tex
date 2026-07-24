@@ -116,6 +116,9 @@ F(x,y,\lambda_\mathrm{ex},\lambda_\mathrm{em}) = g \sum_k
 c_k(x,y)\,\varepsilon_k\,\Phi_k\,a_k(\lambda_\mathrm{ex})\,e_k(\lambda_\mathrm{em}),
 \end{equation}
 where $g$ folds lamp, exposure, and power. This is Kasha's rule written as algebra.
+The profiles are Gaussian, $a_k$ peak-normalized and $e_k$ area-normalized with widths
+$\mathrm{FWHM}/(2\sqrt{2\ln 2})$, and a fluorophore's brightness is the product
+$\varepsilon_k\Phi_k$.
 With all optional physics and artifacts off the model is \emph{exactly linear},
 $\mathrm{render}(A{+}B)=\mathrm{render}(A){+}\mathrm{render}(B)$, an invariant the
 implementation tests; difficulty is then added in physically faithful, opt-in
@@ -168,7 +171,14 @@ concentration nonlinearity: a primary inner filter $\exp(-s A_\mathrm{ex})$;
 \emph{reabsorption} $\exp(-s A_\mathrm{em}(\lambda))$, whose overlap with the blue edge
 of emission reshapes the band and relocates discriminative information into band shape;
 and FRET, where a saturating fraction $E=k c_A/(1+k c_A)$ of donor energy is transferred
-to a co-localized acceptor, encoding dye co-localization in a band ratio. Finally,
+to a co-localized acceptor, encoding dye co-localization in a band ratio. Compactly,
+the inner filter and transfer are
+\begin{equation}
+F = F_{\mathrm{obs}}\,10^{-(A_{\mathrm{ex}}+A_{\mathrm{em}})/2},
+\qquad E=\frac{k\,c_A}{1+k\,c_A},
+\end{equation}
+with reabsorption $A_{\mathrm{em}}(\lambda)=\sum_k \varepsilon_k c_k\,\alpha_k(\lambda)$ and a
+Raman line at $1/\lambda_R=1/\lambda_{\mathrm{ex}}-\Delta\bar\nu$. Finally,
 fixed-pattern clutter injects many class-irrelevant low-rank spatial fields on random
 band subsets, the analogue of illumination and detector artifacts and the dominant
 real-instrument confound. By dialing these knobs the generator spans \emph{clean}
@@ -186,7 +196,21 @@ re-runs every simulation and records exact parameters, so figures and numbers ar
 reproducible. Parametric dyes can be replaced by real measured spectra imported from
 FPbase, and an interactive workbench lets a user paint concentration maps, render, and
 validate a selection against ground truth. This makes SpectraForge usable both as a
-controlled benchmark and as a design tool for real 4D fluorescence experiments.
+controlled benchmark and as a design tool for real 4D fluorescence experiments. As an
+interactive application (Fig.~\ref{fig:gui}), a user picks or defines fluorophores in a library
+(excitation and emission peaks and widths, quantum yield, extinction), mixes them into materials that
+are concentration recipes, paints those materials onto a canvas as layers, then acquires, renders the
+4D cube, selects bands, and validates against ground truth, all in one window.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.84\textwidth]{fig_gui.png}
+\caption{The SpectraForge workbench. Left: fluorophore recipes (materials) with a live spectrum.
+Centre: the painted canvas (a collagen and NADH patch, an FAD spot, an EGFP stripe), coloured by
+class label. Right: the layer stack. Bottom: acquire, render, and one-click validation against
+ground truth, here previewing a rendered emission band at 340\,nm.}
+\label{fig:gui}
+\end{figure*}
 
 \section{Evaluation Protocol}
 Selection quality is the accuracy of a downstream classifier trained on the selected
