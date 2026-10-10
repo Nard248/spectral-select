@@ -126,10 +126,11 @@ export function Sel<T extends string | number>({ value, options, onChange, disab
   )
 }
 
-export function Toggle({ value, onChange, label, tip, title }: { value: boolean; onChange: (v: boolean) => void; label?: ReactNode; tip?: string; title?: string }) {
+export function Toggle({ value, onChange, label, tip, title, disabled }: { value: boolean; onChange: (v: boolean) => void; label?: ReactNode; tip?: string; title?: string; disabled?: boolean }) {
   const el = (
-    <span className={`tog${value ? ' on' : ''}`} role="switch" aria-checked={value} tabIndex={0}
-      onClick={() => onChange(!value)} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); onChange(!value) } }}>
+    <span className={`tog${value ? ' on' : ''}`} role="switch" aria-checked={value} aria-disabled={disabled || undefined} tabIndex={disabled ? -1 : 0}
+      style={disabled ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
+      onClick={() => { if (!disabled) onChange(!value) }} onKeyDown={(e) => { if (!disabled && (e.key === ' ' || e.key === 'Enter')) { e.preventDefault(); onChange(!value) } }}>
       <span className="track" />{label != null && <span>{label}</span>}
     </span>
   )

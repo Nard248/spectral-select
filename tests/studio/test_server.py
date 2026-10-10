@@ -14,6 +14,8 @@ from spectraforge.studio.presets import PRESETS, preset
 from spectraforge.studio.schema import Experiment
 from spectraforge.studio.server import create_app
 
+BASE = "http://127.0.0.1:8765"
+
 H, W, B = 12, 16, 5
 
 
@@ -77,7 +79,7 @@ def fakes():
 def client(fakes):
     app = create_app(capture_fn=fakes.capture, preview_fn=fakes.preview, explain_fn=fakes.explain,
                      trace_fn=fakes.trace, dist_dir="/nonexistent")
-    with TestClient(app) as c:
+    with TestClient(app, base_url=BASE) as c:
         yield c
 
 
@@ -127,7 +129,7 @@ def test_validate_ok_and_errors(client):
     assert all(isinstance(e["loc"], list) and isinstance(e["msg"], str) for e in r["errors"])
     assert client.post("/api/validate", json={"junk": 1}).json()["ok"] is False
     assert client.post("/api/validate", json=[1, 2]).json()["ok"] is False
-    assert client.post("/api/validate", content=b"not json").status_code == 400
+    assert client.post("/api/validate", content=b"not json", headers={"Content-Type": "application/json"}).status_code == 400
 
 
 def test_validate_warnings(client):
@@ -151,13 +153,13 @@ def test_validate_trace_warnings():
     P = 40
     hit = NS(object_index=np.full((4, P), -1), irradiance_per_mW=np.zeros((4, P)), depth_mm=np.full(P, np.inf),
              glint_per_mW=np.zeros(P), focus_depth_mm=300.0)
-    with TestClient(create_app(trace_fn=lambda e, s: hit, dist_dir="/x")) as c:
+    with TestClient(create_app(trace_fn=lambda e, s: hit, dist_dir="/x"), base_url=BASE) as c:
         r = c.post("/api/validate", json=EXP).json()
     assert any(w["code"] == "camera_sees_no_objects" for w in r["warnings"])
     hit.object_index = np.zeros((4, P), int)
     hit.depth_mm = np.full(P, 5000.0)
     hit.glint_per_mW = np.ones(P)
-    with TestClient(create_app(trace_fn=lambda e, s: hit, dist_dir="/x")) as c:
+    with TestClient(create_app(trace_fn=lambda e, s: hit, dist_dir="/x"), base_url=BASE) as c:
         codes = {w["code"] for w in c.post("/api/validate", json=EXP).json()["warnings"]}
     assert {"beam_misses_objects", "out_of_depth_of_field", "glint_in_view"} <= codes
 
@@ -165,7 +167,7 @@ def test_validate_trace_warnings():
 def test_validate_survives_tracer_crash():
     def bad(e, s):
         raise RuntimeError("boom")
-    with TestClient(create_app(trace_fn=bad, dist_dir="/x")) as c:
+    with TestClient(create_app(trace_fn=bad, dist_dir="/x"), base_url=BASE) as c:
         r = c.post("/api/validate", json=EXP).json()
     assert r["ok"] and any(w["code"] == "trace_failed" for w in r["warnings"])
 
@@ -200,7 +202,7 @@ def test_websocket_progress(client, fakes):
     fakes.gate.clear()
     jid, _ = run_capture(client, wait=False)
     fakes.gate.set()
-    with client.websocket_connect(f"/api/jobs/{jid}") as ws:
+    with client.websocket_connect(f"ws://127.0.0.1:8765/api/jobs/{jid}") as ws:
         events = []
         while True:
             ev = ws.receive_json()
@@ -210,7 +212,7 @@ def test_websocket_progress(client, fakes):
     assert events[-1]["type"] == "done" and events[-1]["capture_id"]
     prog = [e["fraction"] for e in events if e["type"] == "progress"]
     assert prog and prog == sorted(prog)
-    with client.websocket_connect(f"/api/jobs/{jid}") as ws:      # late subscriber gets the history
+    with client.websocket_connect(f"ws://127.0.0.1:8765/api/jobs/{jid}") as ws:      # late subscriber gets the history
         assert ws.receive_json()["type"] == "progress"
 
 
@@ -219,7 +221,7 @@ def test_cancel_and_queue(client, fakes):
     j1, _ = run_capture(client, wait=False)
     j2, _ = run_capture(client, wait=False)       # queued behind j1
     assert client.get(f"/api/jobs/{j2}").json()["state"] == "queued"
-    assert client.post(f"/api/jobs/{j1}/cancel").status_code == 200
+    assert client.post(f"/api/jobs/{j1}/cancel", headers={"Content-Type": "application/json"}).status_code == 200
     fakes.gate.set()
     for j in (j1, j2):
         for _ in range(300):
@@ -229,20 +231,20 @@ def test_cancel_and_queue(client, fakes):
     assert client.get(f"/api/jobs/{j1}").json()["state"] == "cancelled"
     assert client.get(f"/api/jobs/{j2}").json()["state"] == "done"
     assert client.get("/api/captures").json().__len__() == 1       # cancelled capture is not stored
-    with client.websocket_connect(f"/api/jobs/{j1}") as ws:
+    with client.websocket_connect(f"ws://127.0.0.1:8765/api/jobs/{j1}") as ws:
         while True:
             ev = ws.receive_json()
             if ev["type"] != "progress":
                 break
     assert ev["type"] == "cancelled"
-    assert client.post("/api/jobs/zzz/cancel").status_code == 404
+    assert client.post("/api/jobs/zzz/cancel", headers={"Content-Type": "application/json"}).status_code == 404
 
 
 def test_cancel_queued_job_never_runs(client, fakes):
     fakes.gate.clear()
     j1, _ = run_capture(client, wait=False)
     j2, _ = run_capture(client, wait=False)
-    client.post(f"/api/jobs/{j2}/cancel")
+    client.post(f"/api/jobs/{j2}/cancel", headers={"Content-Type": "application/json"})
     fakes.gate.set()
     for _ in range(300):
         if client.get(f"/api/jobs/{j2}").json()["state"] == "cancelled":
@@ -255,11 +257,11 @@ def test_cancel_queued_job_never_runs(client, fakes):
 def test_job_error():
     def boom(exp, **kw):
         raise RuntimeError("kaboom")
-    with TestClient(create_app(capture_fn=boom, dist_dir="/x")) as c:
+    with TestClient(create_app(capture_fn=boom, dist_dir="/x"), base_url=BASE) as c:
         _, st = run_capture(c)
         assert st["state"] == "error" and "kaboom" in st["error"]
         jid = c.post("/api/captures", json={"experiment": EXP}).json()["job_id"]
-        with c.websocket_connect(f"/api/jobs/{jid}") as ws:
+        with c.websocket_connect(f"ws://127.0.0.1:8765/api/jobs/{jid}") as ws:
             ev = ws.receive_json()
         assert ev["type"] == "error" and "kaboom" in ev["message"]
 
@@ -325,7 +327,7 @@ def test_lru_store():
     fk = Fakes()
     app = create_app(capture_fn=fk.capture, preview_fn=fk.preview, explain_fn=fk.explain,
                      trace_fn=fk.trace, dist_dir="/x", store_size=3)
-    with TestClient(app) as c:
+    with TestClient(app, base_url=BASE) as c:
         ids = [c.post("/api/preview", json={"experiment": EXP}).json()["id"] for _ in range(5)]
         assert [m["id"] for m in c.get("/api/captures").json()] == ids[:1:-1]   # newest first, last three
         assert c.get(f"/api/captures/{ids[0]}").status_code == 404
@@ -335,7 +337,8 @@ def test_cors_and_spa(tmp_path, fakes):
     (tmp_path / "index.html").write_text("<html>app</html>")
     (tmp_path / "a.js").write_text("1")
     with TestClient(create_app(trace_fn=fakes.trace, dist_dir=tmp_path, warmup_start_fn=lambda: None,
-                               warmup_status_fn=lambda: {"state": "idle"})) as c:
+                               warmup_status_fn=lambda: {"state": "idle"}),
+                    base_url=BASE) as c:
         assert c.get("/").text == "<html>app</html>"
         assert c.get("/a.js").text == "1"
         assert c.get("/some/route").text == "<html>app</html>"
@@ -351,7 +354,7 @@ def test_health_exposes_warmup_and_starts_it_non_blocking(fakes):
     app = create_app(capture_fn=fakes.capture, preview_fn=fakes.preview, explain_fn=fakes.explain,
                      trace_fn=fakes.trace, dist_dir="/nonexistent",
                      warmup_start_fn=lambda: calls.append("start"), warmup_status_fn=lambda: dict(state))
-    with TestClient(app) as c:
+    with TestClient(app, base_url=BASE) as c:
         assert calls == ["start"]                      # started once, from the lifespan hook
         h = c.get("/api/health").json()
         assert h["ok"] and h["warmup"]["state"] == "running" and h["warmup"]["fraction"] == 0.4

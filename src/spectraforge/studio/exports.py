@@ -13,6 +13,7 @@ import json
 import pickle
 import re
 import zipfile
+from urllib.parse import quote
 
 import numpy as np
 
@@ -25,9 +26,27 @@ FORMATS = {
 }
 
 
+_SAFE_RE = re.compile(r"[^A-Za-z0-9._@:+-]")
+
+
+def safe_name(text: object, maxlen: int = 80, default: str = "item") -> str:
+    """Whitelist ``[A-Za-z0-9._@:+-]`` (everything else, incl. path separators and non-ASCII, -> ``_``).
+
+    Never returns an empty string, a name containing ``..`` or with leading dots (hidden files) or one longer than
+    ``maxlen``; safe as a zip member stem and as a download filename component."""
+    s = re.sub(r"\.{2,}", "_", _SAFE_RE.sub("_", str(text))).lstrip(".")
+    s = s[:maxlen].rstrip(".")
+    return s if s.strip("_") else default
+
+
 def slug(text: str) -> str:
-    s = re.sub(r"[^A-Za-z0-9._-]+", "_", text).strip("_")
-    return s[:60] or "capture"
+    return safe_name(text, 60, "capture")
+
+
+def content_disposition(filename: str) -> str:
+    """RFC 6266 ``attachment`` header value with a sanitized ASCII filename (no CR/LF/quotes/backslashes)."""
+    fn = safe_name(filename, 120, "download")
+    return f'attachment; filename="{fn}"; filename*=UTF-8\'\'{quote(fn, safe="")}'
 
 
 def _ex_key(ex: float) -> str:
@@ -92,7 +111,7 @@ def to_npz(result) -> bytes:
         arrs[f"radiance_{k}"] = np.asarray(result.radiance[ex], dtype=np.float32)
         arrs[f"emission_nm_{k}"] = np.asarray(result.emission_nm[ex], dtype=np.float64)
     for name, g in result.ground_truth.items():
-        arrs[f"gt_{name}"] = np.asarray(g)
+        arrs[f"gt_{safe_name(name, 100, 'layer')}"] = np.asarray(g)
     arrs["excitations_nm"] = np.asarray(result.excitations_nm, dtype=np.float64)
     arrs["experiment_json"] = np.asarray(result.experiment_json)
     buf = io.BytesIO()
@@ -112,7 +131,7 @@ def to_tiff_zip(result) -> bytes:
                                "mode": result.mode, "unit": "ADU"})
             buf = io.BytesIO()
             tifffile.imwrite(buf, pages, photometric="minisblack", description=desc)
-            zf.writestr(f"adu_ex{_ex_key(ex)}nm.tif", buf.getvalue())
+            zf.writestr(f"adu_ex{safe_name(_ex_key(ex), 20, 'x')}nm.tif", buf.getvalue())
         zf.writestr("experiment.json", result.experiment_json)
     return out.getvalue()
 
@@ -121,12 +140,19 @@ def to_ground_truth_zip(result) -> bytes:
     out = io.BytesIO()
     index = {}
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
+        used: set[str] = set()
         for name, g in result.ground_truth.items():
             a = np.asarray(g)
             b = io.BytesIO()
             np.save(b, a, allow_pickle=False)
-            zf.writestr(f"{name}.npy", b.getvalue())
-            index[name] = {"shape": list(a.shape), "dtype": str(a.dtype)}
+            stem = safe_name(name, 100, "layer")
+            n, i = stem, 1
+            while n in used or n == "ground_truth":          # keep members unique after sanitizing
+                i += 1
+                n = f"{stem}_{i}"
+            used.add(n)
+            zf.writestr(f"{n}.npy", b.getvalue())
+            index[name] = {"file": f"{n}.npy", "shape": list(a.shape), "dtype": str(a.dtype)}
         zf.writestr("ground_truth.json", json.dumps(index, indent=1))
     return out.getvalue()
 
@@ -136,7 +162,7 @@ def build_export(result, capture_id: str, name: str, fmt: str) -> tuple[bytes, s
     if fmt not in FORMATS:
         raise KeyError(fmt)
     ext, media = FORMATS[fmt]
-    base = f"{slug(name)}_{capture_id}"
+    base = f"{slug(name)}_{safe_name(capture_id, 32, 'id')}"
     if fmt == "spectradata_pkl":
         payload = to_spectradata_pkl(result, name)
     elif fmt == "npz":

@@ -240,13 +240,95 @@ def _default_trace(experiment, scale):
                        max(8, round(cam.sensor.height_px * scale)))
 
 
+
+# --------------------------------------------------------------------------------------------
+# Browser-origin hardening (CSRF, cross-origin reads, DNS rebinding)
+# --------------------------------------------------------------------------------------------
+DEV_ORIGINS = ("http://localhost:5173", "http://127.0.0.1:5173")
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "[::1]", "::1")
+_STATE_CHANGING = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def _host_only(hostport: str) -> str:
+    h = hostport.strip().lower()
+    if h.startswith("["):                       # [::1]:8765
+        return h.split("]")[0] + "]"
+    return h.rsplit(":", 1)[0] if h.count(":") == 1 else h
+
+
+class SecurityMiddleware:
+    """Pure-ASGI guard for HTTP *and* WebSocket scopes.
+
+    * ``Host`` must be a loopback name (or one explicitly allowed) -> blocks DNS rebinding.
+    * ``Origin`` (``Referer`` fallback) on state-changing requests and on WebSocket handshakes must be the
+      served app itself (Origin host:port == Host) or a configured dev origin.  A request with neither header
+      (curl, scripts) is a non-browser client and is allowed.  Any request that *does* carry a disallowed
+      ``Origin`` is refused, whatever its method.
+    * State-changing requests must be ``Content-Type: application/json`` (415 otherwise), so "simple"
+      cross-origin form / text/plain posts cannot reach a handler.
+    """
+
+    def __init__(self, app, allowed_origins=DEV_ORIGINS, allowed_hosts=LOOPBACK_HOSTS):
+        self.app = app
+        self.origins = {o.lower().rstrip("/") for o in allowed_origins}
+        self.hosts = {h.lower() for h in allowed_hosts}
+
+    @staticmethod
+    def _hdr(scope, name: bytes) -> str | None:
+        for k, v in scope.get("headers", ()):
+            if k == name:
+                return v.decode("latin-1")
+        return None
+
+    def _origin_ok(self, scope, host: str | None) -> bool:
+        origin = self._hdr(scope, b"origin")
+        if origin is None or origin == "":
+            referer = self._hdr(scope, b"referer")
+            if not referer:
+                return True                      # non-browser client (curl, python): nothing to forge
+            from urllib.parse import urlsplit
+            try:
+                u = urlsplit(referer)
+                origin = f"{u.scheme}://{u.netloc}"
+            except ValueError:
+                return False
+        origin = origin.lower().rstrip("/")
+        if origin in self.origins:
+            return True
+        scheme, sep, netloc = origin.partition("://")
+        return bool(sep and scheme in ("http", "https") and host is not None and netloc == host.lower())
+
+    async def _deny(self, scope, receive, send, status: int, msg: str):
+        if scope["type"] == "websocket":
+            await receive()                      # consume websocket.connect, then refuse the handshake
+            await send({"type": "websocket.close", "code": 1008})
+            return
+        await JSONResponse({"detail": msg}, status_code=status)(scope, receive, send)
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] not in ("http", "websocket"):
+            return await self.app(scope, receive, send)
+        host = self._hdr(scope, b"host")
+        if host is None or _host_only(host) not in self.hosts:
+            return await self._deny(scope, receive, send, 403, "forbidden host")
+        method = scope.get("method", "GET")
+        guarded = scope["type"] == "websocket" or method in _STATE_CHANGING or self._hdr(scope, b"origin")
+        if guarded and not self._origin_ok(scope, host):
+            return await self._deny(scope, receive, send, 403, "forbidden origin")
+        if scope["type"] == "http" and method in _STATE_CHANGING:
+            ctype = (self._hdr(scope, b"content-type") or "").split(";")[0].strip().lower()
+            if ctype != "application/json":
+                return await self._deny(scope, receive, send, 415, "Content-Type must be application/json")
+        return await self.app(scope, receive, send)
+
 # --------------------------------------------------------------------------------------------
 # App factory
 # --------------------------------------------------------------------------------------------
 def create_app(capture_fn: Callable | None = None, preview_fn: Callable | None = None,
                explain_fn: Callable | None = None, trace_fn: Callable | None = None,
                dist_dir: Path | str | None = None, store_size: int = 10,
-               warmup_start_fn: Callable | None = None, warmup_status_fn: Callable | None = None) -> FastAPI:
+               warmup_start_fn: Callable | None = None, warmup_status_fn: Callable | None = None,
+               allowed_hosts: tuple[str, ...] = ()) -> FastAPI:
     """``warmup_start_fn`` / ``warmup_status_fn``: the transport warm-up hooks (``transport.start_warmup`` /
     ``transport.warmup_status``).  Off by default (so tests never trigger Monte Carlo bakes); ``main()``
     passes the real ones, and ``/api/health`` then carries an extra ``warmup`` field."""
@@ -269,8 +351,10 @@ def create_app(capture_fn: Callable | None = None, preview_fn: Callable | None =
 
     app = FastAPI(title="SpectralForge Studio engine", version=ENGINE_VERSION, lifespan=lifespan)
     app.state.store, app.state.jobs = store, jobs
-    app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-                       allow_methods=["*"], allow_headers=["*"], expose_headers=_EXPOSE.split(", "))
+    app.add_middleware(CORSMiddleware, allow_origins=list(DEV_ORIGINS), allow_methods=["GET", "POST"],
+                       allow_headers=["Content-Type"], expose_headers=_EXPOSE.split(", "))
+    app.add_middleware(SecurityMiddleware, allowed_origins=DEV_ORIGINS,   # added last = outermost: runs first
+                       allowed_hosts=LOOPBACK_HOSTS + tuple(allowed_hosts))
 
     async def _json(request: Request) -> Any:
         try:
@@ -524,7 +608,7 @@ def create_app(capture_fn: Callable | None = None, preview_fn: Callable | None =
         except KeyError:
             raise HTTPException(422, f"format must be one of {sorted(exports.FORMATS)}")
         return Response(payload, media_type=media, headers={
-            "Content-Disposition": f'attachment; filename="{fname}"', "Access-Control-Expose-Headers": _EXPOSE})
+            "Content-Disposition": exports.content_disposition(fname), "Access-Control-Expose-Headers": _EXPOSE})
 
     # ------------------------------------------------------------------ SPA
     dist = Path(dist_dir) if dist_dir is not None else DEFAULT_DIST
@@ -553,11 +637,19 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--port", type=int, default=8765)
     p.add_argument("--open", action="store_true", help="open the browser once the server is up")
     a = p.parse_args(argv)
+    extra_hosts: tuple[str, ...] = ()
+    if a.host not in LOOPBACK_HOSTS:
+        print(f"\n*** SECURITY WARNING: binding to {a.host!r}, which is not loopback. The engine has no "
+              "authentication: anyone who can reach this port can run captures and download data. "
+              "Use only on a trusted network, or keep the default 127.0.0.1. ***\n", flush=True)
+        if a.host not in ("0.0.0.0", "::"):
+            extra_hosts = (a.host.lower(),)
     if a.open:
         url = f"http://{'127.0.0.1' if a.host in ('0.0.0.0', '::') else a.host}:{a.port}/"
         threading.Timer(1.2, lambda: webbrowser.open(url)).start()
     from spectraforge.studio import transport
-    app = create_app(warmup_start_fn=transport.start_warmup, warmup_status_fn=transport.warmup_status)
+    app = create_app(warmup_start_fn=transport.start_warmup, warmup_status_fn=transport.warmup_status,
+                     allowed_hosts=extra_hosts)
     uvicorn.run(app, host=a.host, port=a.port, log_level="info")
 
 

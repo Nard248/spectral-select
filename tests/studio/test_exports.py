@@ -11,7 +11,7 @@ from spectraforge.studio import exports, render_png
 from spectraforge.studio.presets import preset
 from spectraforge.studio.server import create_app
 
-from .test_server import B, H, W, Fakes, fake_result, run_capture
+from .test_server import BASE, B, H, W, Fakes, fake_result, run_capture
 
 
 @pytest.fixture
@@ -76,7 +76,7 @@ def test_experiment_json_and_unknown(result):
 
 def test_download_endpoint_all_formats():
     fk = Fakes()
-    with TestClient(create_app(capture_fn=fk.capture, trace_fn=fk.trace, dist_dir="/x")) as c:
+    with TestClient(create_app(capture_fn=fk.capture, trace_fn=fk.trace, dist_dir="/x"), base_url=BASE) as c:
         _, st = run_capture(c)
         cid = st["capture_id"]
         for fmt in exports.FORMATS:

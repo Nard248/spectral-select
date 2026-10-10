@@ -41,7 +41,7 @@ const GROUPS: Group[] = [
     ['specular_glints', 'Specular glints', 'GGX microfacet highlights from the source reflected toward the camera.'],
     ['shadows', 'Shadows', 'Objects shadow each other from the source.'],
     ['subsurface_spread', 'Subsurface spread', 'Lateral light spread under the surface (radial kernel): blurs edges of turbid samples.'],
-    ['indirect_bounce', 'Indirect bounce', 'One diffuse bounce between objects and the table (costly).'],
+    ['indirect_bounce', 'Indirect bounce', 'Not yet implemented (v1): the engine does not read this switch. Planned: one diffuse bounce between objects and the table.'],
   ] },
   { title: 'Photophysics', items: [
     ['secondary_emission', 'Secondary emission', 'Re-emission of fluorescence that was reabsorbed by another dye in the same medium.'],
@@ -86,7 +86,7 @@ export function AcquisitionInspector() {
       {GROUPS.map((g) => (
         <Section key={g.title} title={g.title} defaultOpen={g.title !== 'Detector'} extra={<span className="tag">{g.items.filter(([k]) => acq.physics[k]).length}/{g.items.length}</span>}>
           <div className="toggles">
-            {g.items.map(([k, label, tip]) => <Toggle key={k} value={acq.physics[k]} label={label} title={label} tip={tip} onChange={(v) => upd((a) => { a.physics[k] = v })} />)}
+            {g.items.map(([k, label, tip]) => <Toggle key={k} disabled={k === 'indirect_bounce'} value={acq.physics[k]} label={label} title={label} tip={tip} onChange={(v) => upd((a) => { a.physics[k] = v })} />)}
           </div>
         </Section>
       ))}
