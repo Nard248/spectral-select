@@ -10,7 +10,7 @@ npm run build                 # tsc -b && vite build
 node scripts/screenshots.mjs  # Playwright screenshots (dev server running) -> screenshots/
 node scripts/smoke.mjs        # UI smoke test against the mock engine
 node scripts/tour-shots.mjs [url] [WxH]  # walks the guided tour, screenshots every step -> screenshots/tour/
-node scripts/check-framing.mjs           # engine preview vs viewport/PiP projection (needs the engine) - must report < 1 px
+node scripts/check-framing.mjs           # engine preview vs viewport/PiP projection (needs the engine) - measured worst case 1.11 px (about 1 px)
 ```
 
 Engine: `PYTHONPATH=src python -m spectraforge.studio` (port 8765). If `/api/health` is unreachable the app falls back

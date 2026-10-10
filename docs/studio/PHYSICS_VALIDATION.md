@@ -150,6 +150,9 @@ cuvette is attenuated by the ones before it (Beer–Lambert through the earlier 
 
 ## 12. Approximations and limitations (honest list)
 
+* **`indirect_bounce` is not implemented (v1).**  The toggle exists in the schema but no engine code reads it; the
+  web inspector shows it disabled ("not yet implemented (v1)").  There are no diffuse interreflections between
+  objects and the table.
 * **Spectra are parametric.**  Absorption and emission bands are Gaussians (emission with skew and an optional
   vibronic shoulder).  Consequences: no S₀→S₂ absorption band, so fluorescein absorbs *nothing* at 405 nm in the
   model (real ε(405) ≈ 3 % of the 490 nm peak); absorption and emission are not exact mirror images; solvent

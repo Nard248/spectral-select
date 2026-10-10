@@ -10,5 +10,6 @@ One technical guide per component of the repository, written for someone who has
 | 4 | [selection_core](04-selection-core.md) | `src/selection_core/` | the shared perturbation-influence algorithm, step by step |
 | 5 | [channel_select](05-channel-select.md) | `src/channel_select/` | domain-agnostic DL selection: grouped-channel data, bottleneck autoencoders, adapters, synthetic benchmark |
 | 6 | [Experiments, results and publications](06-experiments-and-results.md) | `experiments/`, `results/`, `reports/`, `publications/` | how the paper numbers are produced, which scripts are canonical, where outputs go |
+| 7 | [SpectralForge Studio](07-spectralforge-studio.md) | `src/spectraforge/studio/`, `apps/studio-web/`, `docs/studio/` | the 3D experiment designer and physical HSI simulator (successor of the 2D painter GUI); this page is a map into `docs/studio/` |
 
-Suggested order for a new developer: 3 (the data types everything else uses), 2, 4, 5, 1, 6. For a new data analyst: 2, 3, 6.
+Suggested order for a new developer: 3 (the data types everything else uses), 2, 4, 5, 1, 6, then 7 if you will touch the simulator. For a new data analyst: 2, 3, 6, and 7 to understand where simulated cubes come from.
