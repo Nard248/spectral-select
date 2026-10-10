@@ -61,6 +61,11 @@ gui = [
 im3 = [
     "pyimagej>=1.4",
 ]
+studio = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.6",
+]
 all = [
     "spectral-select[dev,gui,im3]",
 ]
@@ -73,6 +78,7 @@ Repository = "https://github.com/narekmeloyan/spectral-select"
 spectral-select-gui = "mehsi_preprocessor.app:main"
 spectraforge-demo = "spectraforge.demo:main"
 spectraforge-gui = "spectraforge.gui.app:main"
+spectralforge-studio = "spectraforge.studio.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
