@@ -41,6 +41,7 @@ dependencies = [
     "Pillow>=10.0",
     "h5py>=3.0",
     "tqdm>=4.60",
+    "einops>=0.7",
     "kneed>=0.8",
     "pyyaml>=6.0",
 ]
