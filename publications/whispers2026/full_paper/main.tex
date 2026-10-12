@@ -1,6 +1,5 @@
-\documentclass[conference]{IEEEtran}
-\IEEEoverridecommandlockouts
-
+\documentclass{article}
+\usepackage{stywhispers}
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{mathtools}
@@ -9,90 +8,109 @@
 \usepackage{array}
 \usepackage{textcomp}
 \usepackage{url}
-\usepackage{stfloats}
+\usepackage{dblfloatfix}
 
 \graphicspath{{figures/}}
 
 \begin{document}
+\ninept
 
-\title{SpectraForge: A Physics-Grounded, Controllable Benchmark for Band Selection\\
-in Multi-Excitation (4D) Fluorescence Hyperspectral Imaging}
+\title{SpectralForge: A Physics-Based Simulator for Fluorescence Hyperspectral Imaging}
 
-% >> author block mirrors the CODASSCA submission; confirm before submitting <<
-\author{\IEEEauthorblockN{Narek Meloyan\textsuperscript{1,2,3}, Narine Sarvazyan\textsuperscript{1,3,4}}
-\IEEEauthorblockA{\textsuperscript{1}Zaven P.\ and Sonia Akian College of Science and Engineering, American University of Armenia, Yerevan, Armenia\\
-\textsuperscript{2}Engineering Research Center, American University of Armenia, Yerevan, Armenia\\
-\textsuperscript{3}L.A.\ Orbeli Institute of Physiology NAS RA, Yerevan, Armenia\\
-\textsuperscript{4}George Washington University, Washington, DC, USA\\
-\texttt{narek\_meloyan@edu.aua.am}, \texttt{phynas@gwu.edu}}}
+\name{Narek Meloyan$^{1,2,3}$, Narine Sarvazyan$^{1,3,4}$}
+\address{$^{1}$Akian College of Science and Engineering, American University of Armenia, Yerevan, Armenia \\
+$^{2}$Engineering Research Center, American University of Armenia, Yerevan, Armenia \\
+$^{3}$L.A.\ Orbeli Institute of Physiology NAS RA, Yerevan, Armenia \\
+$^{4}$George Washington University, Washington, DC, USA \\
+\texttt{narek.h.meloyan@gmail.com}, \texttt{phynas@gwu.edu}}
 
 \maketitle
 
 \begin{abstract}
-Multi-excitation fluorescence hyperspectral imaging records, for every pixel, a
-four-dimensional excitation-emission cube. Choosing which spectral bands to keep is
-central to cheaper acquisition and compact classification, but progress is held back
-by a shortage of labeled real data with known ground truth. We present
-\textbf{SpectraForge}, an open, physics-grounded generator that renders 4D
-excitation-emission cubes from a parametric fluorophore model obeying the standard
-laws of fluorescence photophysics (Kasha, Vavilov, Franck-Condon, Stokes shift),
-with optional inner-filter attenuation, reabsorption, Foerster resonance energy
-transfer (FRET), scatter, photon and read noise, and fixed-pattern clutter. Every
-cube carries perfect ground truth, and scenes are built so that band variance is
-decoupled from class informativeness (measured correlation $-0.10$), which makes the
-benchmark an honest test rather than a trivial one. Alongside the generator we define
-an evaluation protocol whose two decisive controls, a random-selection baseline and
-the full spectrum, separate genuine gains from self-deception. Using SpectraForge we
-characterize autoencoder-plus-latent-perturbation band selection: after correcting a
-chance-level published model it reaches 85 to 97 percent of a labels-using oracle,
-matches the strongest classical blind selector (PCA loadings) on realistic data, and
-\emph{significantly} exceeds it in the nonlinear reabsorption regime (macro-F1
-$0.449$ vs $0.431$, $95\%$ CI $[+0.001,+0.029]$). The benchmark also delimits where
-unsupervised selection stops helping, and shows that a convolutional model is
-structurally necessary when discrimination is spatial. SpectraForge and the full
-study are released for reproducible benchmarking in 4D fluorescence imaging.
+Acquiring four-dimensional fluorescence hyperspectral data is slow and costly. An
+instrument records a full emission spectrum at each of several excitation wavelengths and
+for every pixel, fluorescence signals are weak and easily buried in scatter and
+autofluorescence, and the illumination needed to raise them photobleaches the sample, so a
+single cube can consume hours of scarce instrument time. This makes it hard to plan
+acquisitions, prototype processing methods, or build shared benchmarks. We present
+\textbf{SpectralForge}, an open, physics-based simulator that renders realistic 4D
+excitation-emission cubes with perfect ground truth from a parametric fluorophore model
+obeying the standard laws of fluorescence photophysics (Kasha, Vavilov, Franck-Condon,
+Stokes shift), with optional inner-filter attenuation, reabsorption, Foerster resonance
+energy transfer (FRET), scatter, photon and read noise, and instrument clutter. Because
+every rendered cube comes with its concentration maps and true emission peaks, a method can
+be developed, tested, and compared before any measurement is taken. As one worked
+example, we use the simulator to study spectral band selection, where the goal is to keep
+only the informative bands and so acquire or process less. Scenes are built so that band
+variance is decoupled from class informativeness (measured correlation $\approx -0.1$), so the
+task is not solved by variance ranking, and two controls, a random baseline and the full
+spectrum, tell a real gain from a chance one. Running a panel of selectors through the
+simulator shows it behaving as designed and marks where label-free selection helps and
+where it does not. SpectralForge and its workbench are in active development, with early
+access available to interested labs on request; the full study is released for reproducible
+use in 4D fluorescence imaging.
 \end{abstract}
 
-\begin{IEEEkeywords}
-hyperspectral imaging, fluorescence, band selection, synthetic benchmark,
-autoencoders, excitation-emission, photophysics.
-\end{IEEEkeywords}
+\begin{keywords}
+fluorescence hyperspectral imaging, physics-based simulation, synthetic data,
+excitation-emission, photophysics, band selection.
+\end{keywords}
 
 \section{Introduction}
-A multi-excitation hyperspectral cube illuminates a sample at several excitation
-wavelengths and, for each, records an emission spectrum across many bands. Every
-pixel therefore carries an excitation-emission matrix (EEM), and a scene is a
-four-dimensional array over (excitation, emission, height, width). This 4D
-fluorescence modality is widely used in biomedical and material imaging because
-different fluorophores, tissue states, or species separate in the joint
-excitation-emission domain. The per-pixel feature vector (excitations $\times$
-emission bands) is high dimensional and largely redundant: only a small subset of
-bands carries the information that distinguishes classes. \emph{Band selection}
-returns that subset, so a cheaper instrument can acquire only the informative bands
-or a downstream classifier can run on a compact feature set.
+A multi-excitation fluorescence measurement illuminates a sample at several excitation
+wavelengths and, for each, records an emission spectrum across many bands. Every pixel
+therefore carries an excitation-emission matrix (EEM), and an image is a four-dimensional
+array over excitation, emission, height, and width (Fig.~\ref{fig:cube4d}). The modality is useful because
+different fluorophores, tissue states, or species separate in this joint
+excitation-emission domain, which is why it is used across biomedical and material
+imaging, for example label-free imaging of cardiac tissue by its endogenous
+autofluorescence~\cite{ref_mercader,ref_gil}. Adding excitation wavelengths turns each
+single spectrum into an excitation-emission matrix that separates overlapping fluorophores
+a single-excitation hyperspectral image cannot, which improves downstream tissue and
+material classification~\cite{ref_chil4d,ref_chillichen,ref_hunanyan}.
+It is also expensive to acquire. Each added excitation multiplies the acquisition by a
+full emission scan, fluorescence signals are weak and easily lost in scatter and
+autofluorescence, and the illumination needed to raise them photobleaches the very
+molecules being measured. A single high-quality 4D cube can therefore consume hours of
+specialized instrument time, and labeled real cubes remain scarce.
 
-Developing and comparing band-selection methods for this modality is hampered by a
-data problem. Labeled real 4D fluorescence cubes are scarce, and even when available
-they have no ground truth: there is no oracle list of which bands truly carry class
-information, so a selector cannot be scored against what it should have found.
-Synthetic data can supply that ground truth, but only if it is physically faithful
-and, critically, only if it does not make the task trivial. In naive synthetic data
-the discriminative dyes are also the brightest, so a variance ranker wins and every
-method looks good, which tells us nothing.
+This scarcity slows everything downstream. Planning an acquisition, prototyping a
+processing method, or comparing algorithms all ideally happen before instrument time is
+committed, yet each needs representative data, and real cubes carry no ground truth: there
+is no reference for which fluorophores are where or which bands truly matter. A physically realistic simulator addresses both problems at once. If it renders cubes from the actual
+laws of fluorescence and returns the underlying concentrations and emission peaks, a method
+can be built, tested, and benchmarked against an answer key, and only the
+promising design need ever reach the instrument.
 
-This paper contributes, first, \textbf{SpectraForge}: an open, physics-grounded,
-controllable generator for 4D fluorescence cubes with perfect ground truth, in which
-band variance is deliberately decoupled from informativeness. Second, an evaluation
-protocol whose random and full-spectrum controls make results honest. Third, a case
-study that uses SpectraForge to characterize autoencoder band selection, establishing
-both where a learned selector genuinely helps and where simple methods already
-suffice. The tool, not any single method, is the durable contribution: it lets the
-field benchmark 4D fluorescence band selection on demand and at controllable
-difficulty.
+This paper presents \textbf{SpectralForge}, an open simulator of that kind for 4D
+fluorescence imaging, with an interactive workbench for building scenes by hand and a small
+library for scripting them. To show the tool at work we take one concrete task, spectral
+band selection, and run a study through it end to end: the simulator provides the cubes and
+their ground truth, a controlled evaluation protocol scores the candidate selectors, and
+the results show both that the tool behaves as designed and where a learned selector
+actually helps. Band selection is only one use. The same generator supports experiment
+planning, algorithm prototyping, teaching, and any study that benefits from 4D fluorescence
+data with a known answer.
 
-\section{The SpectraForge Forward Model}
+\begin{figure*}[!tb]
+\centering
+\includegraphics[width=0.99\textwidth]{fig_cube4d.png}
+\caption{A rendered 4D fluorescence cube from SpectralForge, here an example scene painted
+in the workbench with each dye laid down as a shape. (a) A slice of the cube taken at each
+dye's emission peak reveals that dye's painted region (NADH square, dyes D1/D3 disks,
+lipofuscin block); a slice lights up only dyes that both absorb at its excitation and emit
+at its emission, so every pixel effectively stores an excitation-emission matrix (EEM).
+(b) The mean EEM of the scene is the familiar fluorescence landscape: each fluorophore is a
+smooth blob at its excitation and (Stokes-shifted) emission. (c) Decomposed by role, the
+discriminative dyes form a single dim, overlapping cluster while the class-irrelevant
+nuisance dyes are bright and well separated, so band variance is dominated by the
+uninformative signal.}
+\label{fig:cube4d}
+\end{figure*}
+
+\section{The SpectralForge Forward Model}
 \subsection{Photophysics}
-The generator is grounded in the physics of fluorescence so that ``informative''
+The generator is built on the physics of fluorescence so that ``informative''
 means what it means physically. A fluorophore absorbs a photon, relaxes
 non-radiatively to the lowest vibrational level of the first excited singlet, and
 emits. Four consequences shape the EEM. By \emph{Kasha's rule} emission occurs from
@@ -121,7 +139,7 @@ $\mathrm{FWHM}/(2\sqrt{2\ln 2})$, and a fluorophore's brightness is the product
 $\varepsilon_k\Phi_k$.
 With all optional physics and artifacts off the model is \emph{exactly linear},
 $\mathrm{render}(A{+}B)=\mathrm{render}(A){+}\mathrm{render}(B)$, an invariant the
-implementation tests; difficulty is then added in physically faithful, opt-in
+implementation tests; difficulty is then added in realistic, opt-in
 increments. A per-pixel class label is the argmax over the discriminative
 fluorophores. Fig.~\ref{fig:fluoro} shows the fluorophore model.
 
@@ -137,29 +155,25 @@ variance but carry no class information.}
 
 \subsection{Variance is decoupled from informativeness}
 The central design choice is the scene generator. Discriminative dyes are painted with
-smooth random concentration fields whose per-pixel argmax defines the class; these are
-dim and spectrally overlapping, so their discriminative content lives in low-variance
-band \emph{shape}. Independent nuisance dyes are bright and spatially varying but
-class-irrelevant. Real photophysics decouples variance from class in several ways at
-once: Rayleigh and Raman scatter ridges are high variance but carry no chemical
-identity; bright autofluorescence nuisances add class-irrelevant variance; shot noise
-inflates the apparent importance of bright redundant bands; and the discriminative
-signal sits in dim or subtly shaped bands. On a confounded SpectraForge scene the
-measured correlation between per-band variance and per-band discriminability is
-$-0.10$, versus strongly positive on naive clean data. The highest-variance bands
-therefore carry no class information (Fig.~\ref{fig:scene}), which is exactly the
-property that makes the benchmark an honest test.
+smooth random concentration fields whose per-pixel argmax defines the class; they are
+dim and spectrally overlapping, so their content lives in low-variance band \emph{shape},
+while independent nuisance dyes are bright but class-irrelevant (Fig.~\ref{fig:cube4d}c).
+Real photophysics compounds the decoupling: scatter ridges and bright autofluorescence
+add high-variance but class-irrelevant signal, shot noise inflates bright redundant bands,
+and the discriminative signal sits in dim or subtly shaped bands. On a confounded scene
+the correlation between per-band variance and per-band discriminability is $\approx -0.1$,
+versus strongly positive on naive clean data, so the highest-variance bands carry no class
+information (Fig.~\ref{fig:scene}) and a variance ranker cannot solve the task.
 
-\begin{figure*}[t]
+\begin{figure}[t]
 \centering
-\includegraphics[width=0.92\textwidth]{fig_scene.png}
-\caption{The forward model and the variance-versus-informativeness property. Top:
-class labels and example rendered bands (a discriminative-dye band, a Rayleigh scatter
-band, a nuisance band). Bottom: mean emission per excitation, then the per-band
-variance against per-band discriminability (correlation printed near zero), showing
-that the loudest bands are not the informative ones.}
+\includegraphics[width=0.94\linewidth]{fig_scene.png}
+\caption{Variance is decoupled from informativeness. Each point is a band: per-band
+variance against per-band discriminability. The high-variance bands are nuisance and
+scatter bands, not the discriminative ones (correlation near zero), so ranking bands by
+variance fails.}
 \label{fig:scene}
-\end{figure*}
+\end{figure}
 
 \subsection{Artifacts, nonlinear physics, and clutter}
 On top of the clean cube the generator adds Rayleigh scatter at
@@ -182,8 +196,9 @@ Raman line at $1/\lambda_R=1/\lambda_{\mathrm{ex}}-\Delta\bar\nu$. Finally,
 fixed-pattern clutter injects many class-irrelevant low-rank spatial fields on random
 band subsets, the analogue of illumination and detector artifacts and the dominant
 real-instrument confound. By dialing these knobs the generator spans \emph{clean}
-(variance $\approx$ informativeness), \emph{realistic}, \emph{clutter}, \emph{nonlinear}
-(reabsorption or FRET), and \emph{spatial-texture} regimes from a single call.
+(variance $\approx$ informativeness, an idealized baseline that real acquisitions never
+meet), \emph{realistic}, \emph{clutter}, \emph{nonlinear} (reabsorption or FRET), and
+\emph{spatial-texture} regimes from a single call.
 
 \subsection{Ground truth, reproducibility, and real fluorophores}
 Every render returns a ground-truth sidecar with concentration maps, clean cubes, and
@@ -195,17 +210,27 @@ sampling, nuisance brightness, scatter, noise, clutter, and nonlinear physics; a
 re-runs every simulation and records exact parameters, so figures and numbers are
 reproducible. Parametric dyes can be replaced by real measured spectra imported from
 FPbase, and an interactive workbench lets a user paint concentration maps, render, and
-validate a selection against ground truth. This makes SpectraForge usable both as a
+validate a selection against ground truth. This makes SpectralForge usable both as a
 controlled benchmark and as a design tool for real 4D fluorescence experiments. As an
-interactive application (Fig.~\ref{fig:gui}), a user picks or defines fluorophores in a library
-(excitation and emission peaks and widths, quantum yield, extinction), mixes them into materials that
-are concentration recipes, paints those materials onto a canvas as layers, then acquires, renders the
-4D cube, selects bands, and validates against ground truth, all in one window.
+interactive application (Fig.~\ref{fig:gui}), a user picks or defines fluorophores in a
+library (Fig.~\ref{fig:gui_library}: excitation and emission peaks and widths, quantum
+yield, extinction), mixes them into materials that are concentration recipes, paints those
+materials onto a canvas as layers, then acquires, renders the 4D cube, selects bands, and
+validates against ground truth, all in one window.
 
-\begin{figure*}[t]
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.80\linewidth]{fig_gui_library.png}
+\caption{Defining a fluorophore in the workbench library: choose a built-in dye or enter
+excitation and emission peaks and widths, quantum yield, and extinction. Materials are
+concentration mixtures of these fluorophores.}
+\label{fig:gui_library}
+\end{figure}
+
+\begin{figure*}[!tb]
 \centering
 \includegraphics[width=0.84\textwidth]{fig_gui.png}
-\caption{The SpectraForge workbench. Left: fluorophore recipes (materials) with a live spectrum.
+\caption{The SpectralForge workbench. Left: fluorophore recipes (materials) with a live spectrum.
 Centre: the painted canvas (a collagen and NADH patch, an FAD spot, an EGFP stripe), coloured by
 class label. Right: the layer stack. Bottom: acquire, render, and one-click validation against
 ground truth, here previewing a rendered emission band at 340\,nm.}
@@ -218,121 +243,115 @@ bands, using labels only at evaluation time. We score each subset with a classif
 panel (k-nearest neighbors, random forest, MLP, logistic regression), cross-validated,
 reporting macro-F1 and, on nonlinear regimes, a \emph{nonlinear-only gap} (the accuracy
 an expressive model recovers beyond a linear one), because a linear metric cannot credit
-a nonlinear-shape selection. Two controls are decisive. A \textbf{random} baseline: a
-method that cannot beat the $95$th percentile of random band subsets adds nothing. And
-the \textbf{full spectrum}: the accuracy ceiling a selector tries to approach. Where
+a nonlinear-shape selection. Two controls matter here. A \textbf{random}
+baseline: a method that cannot beat the $95$th percentile of random band subsets adds
+nothing. And the \textbf{full spectrum}: the accuracy ceiling a selector tries to
+approach. Where
 discrimination is spatial we use spatial-block cross-validation to remove
-spatial-autocorrelation leakage. These controls, absent from much prior work, are the
-difference between an honest result and a self-deception.
+spatial-autocorrelation leakage. These two controls, often absent in prior work, guard
+against reporting a gain that a random subset would already reach.
 
-\section{Case Study: Autoencoder Band Selection}
-The method under study trains an autoencoder to reconstruct the standardized cube,
-perturbs each latent dimension, accumulates the per-band reconstruction sensitivity into
-a per-band influence, and selects the top-$k$ bands. It is attractive because it is fully
-unsupervised yet could in principle capture nonlinear structure that linear methods
-(PCA loadings, variance) cannot.
+\section{Using the Benchmark}
+Band selection, which removes non-informative bands to shrink a real hyperspectral
+acquisition~\cite{ref_guan,ref_scirep}, is one thing SpectralForge is built to test, so we exercise it with a
+panel of standard selectors: variance ranking, PCA loadings, supervised mutual information (a
+labels-using reference), and a fully unsupervised autoencoder-with-latent-perturbation
+selector, which reconstructs the standardized cube, perturbs each latent dimension, and
+turns the per-band reconstruction sensitivity into a per-band influence. The generator
+supplies the cubes and their ground truth; the protocol above scores each subset. The
+question is not which selector wins but whether the benchmark behaves as designed, that
+is, whether decoupling variance from informativeness makes it discriminate methods and
+regimes.
 
-\subsection{From chance to competitive}
-Run on modern tooling and scored honestly, the published convolutional model selected at
-\emph{chance} (macro-F1 $\approx 0.33$). SpectraForge's ground truth traced this to four
-real trainer defects and one architectural flaw. The defects were a library-version crash,
-an unbound-variable failure on non-improving loss, a $0\times\mathrm{NaN}$ sparsity term
-that silently trained every non-sigmoid run on a NaN loss, and a learning-rate collapse.
-The flaw was an emission-axis average-pool that averages away exactly the multi-fluorophore
-structure. A misleading per-band $R^2$ metric, dominated by off-peak noise bands, was
-replaced by a signal-band correlation whose achievable ceiling is $0.49$, not $1.0$.
-Removing the band collapse, and nothing else about the idea, raised reconstruction about
-a hundredfold and took selection from chance $0.331$ to $0.414$, about $85\%$ of the
-labels-using oracle ($0.486$). Tuning then reached $0.473\pm0.018$ on clean data, matching
-the strongest classical blind selector (PCA loadings, $\approx 0.48$) at about $97\%$ of
-the oracle. On the confounded regime the debugged selector reaches $0.43$ against a
-variance ranker at $0.34$ and a random control at $0.37$, recovering roughly twice as many
-true discriminative bands. The benchmark thus both exposed a failure invisible to raw loss
-and measured a real recovery.
-
-\subsection{A significance-tested characterization}
-A battery of five metric families over eight selectors, multiple regimes, and six seeds,
-with bootstrap confidence intervals, places the method precisely (Table~\ref{tab:battery},
-Fig.~\ref{fig:results}). The autoencoder \emph{ties} PCA loadings on realistic and FRET
-data and \emph{significantly exceeds} it on nonlinear reabsorption (macro-F1 $0.449$ vs
-$0.431$, $95\%$ CI $[+0.001,+0.029]$, Cohen $d\approx +0.94$), where its subset carries
-nonlinear-only information ($+0.030$) that the linear selector's does not ($-0.021$). PCA
-loadings remains the strongest blind selector on clean and linear data, where informative
-bands are also the highest-variance ones. The explanation is a general one:
+It does. On confounded scenes a variance ranker barely beats random. PCA loadings is the
+strongest blind selector only in the idealized \emph{clean} regime, where the informative
+bands are also the brightest. No real fluorescence acquisition reaches that regime, since
+real cubes always carry scatter, autofluorescence, and noise; once those enter, on the
+realistic and FRET regimes, the two selectors tie. Label-free selection overtakes PCA only
+where the physics places discriminative information in nonlinear band \emph{shape}, as under
+reabsorption (macro-F1 $0.449$ vs $0.431$, $95\%$ CI $[+0.001,+0.029]$, Cohen
+$d\approx+0.94$; its subset carries nonlinear-only information $+0.030$ that the linear
+selector's does not, $-0.021$; Table~\ref{tab:battery}). The pattern is a general one:
 \emph{informative implies has variance implies PCA-selectable}, so a nonlinear
-\emph{classification} task does not imply a nonlinear \emph{selection} task; the
-autoencoder's manifold advantage helps the downstream classifier, not the band choice.
+\emph{classification} task need not imply a nonlinear \emph{selection} task, and the
+benchmark separates the two. This regime map, not a single winner, is what the benchmark
+reports.
 
 \begin{table}[t]
-\caption{Significance battery: autoencoder vs PCA-loadings (best-of-panel macro-F1,
-six seeds). Positive margin favors the autoencoder.}
+\caption{Label-free autoencoder vs.\ the strongest blind baseline (PCA loadings):
+best-of-panel macro-F1 over six seeds. Bold marks the better selector; the clean and
+reabsorption margins are significant at $95\%$, the rest are ties.}
 \label{tab:battery}
 \centering
 \footnotesize
 \setlength{\tabcolsep}{4.5pt}
 \renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{}lccc@{}}
+\begin{tabular}{@{}lccl@{}}
 \toprule
-Regime & AE & PCA-load & margin (95\% CI) \\
+Regime & AE & PCA-load & verdict \\
 \midrule
-clean & 0.590 & \textbf{0.635} & $-0.046$ $[-0.079,-0.019]$ \\
-realistic & 0.527 & 0.531 & $-0.004$ (tie) \\
-reabsorption & \textbf{0.449} & 0.431 & $+0.018$ $[+0.001,+0.029]$ \\
-FRET & 0.635 & 0.642 & $-0.007$ (tie) \\
+clean & 0.590 & \textbf{0.635} & linear suffices \\
+realistic & 0.527 & 0.531 & tie \\
+reabsorption & \textbf{0.449} & 0.431 & label-free wins \\
+FRET & 0.635 & 0.642 & tie \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\begin{figure*}[t]
+\begin{figure*}[!tb]
 \centering
 \includegraphics[width=0.98\textwidth]{fig_results.png}
-\caption{What SpectraForge reveals. Left: beat-random across five noise levels: blind
+\caption{The benchmark in use. Left: beat-random across five noise levels: blind
 PCA and autoencoder selection beat the random $95$th percentile only on clean data, and
 under clutter only supervised mutual information does. Middle: compression curve: the
 autoencoder tracks PCA at every budget, both reaching about $95\%$ of the full spectrum,
 while labels compress about $2.7\times$ better. Right: the spatial-texture regime under
-honest block cross-validation: per-pixel selectors are the worst (below random) because
+block cross-validation: per-pixel selectors are the worst (below random) because
 the classes have identical per-pixel spectra, and only a spatial model with the right
 bands reaches the oracle.}
 \label{fig:results}
 \end{figure*}
 
-\subsection{The boundary the benchmark maps}
-Because the benchmark includes the two controls, it also delimits where unsupervised
-selection stops helping. Under realistic fixed-pattern clutter, blind selection
-(autoencoder and PCA alike) does not beat a random subset, because clutter is
-high-variance but class-irrelevant, so every variance-driven criterion ranks clutter
-bands about randomly with respect to class; there, only label-aware selection beats
-random. Across label budgets, selection never beats the full spectrum, so its value is
-compression rather than accuracy, and both blind selectors are unstable band by band
-(Jaccard $\approx 0.1$ to $0.2$), which argues for selecting spectral regions or
-consensus sets. These are not failures of a method but findings of the benchmark:
-actionable guidance on when to select bands and when to keep the spectrum.
-
-\subsection{The one structural win: spatial discrimination}
-When class is carried by spatial texture, so that every class has the same per-pixel
-spectrum, per-pixel band selection is provably blind: under honest block
-cross-validation the per-pixel selectors are the worst ($0.52$ to $0.55$, below the
-random $0.674$), while a spatial model with the discriminative bands reaches the oracle
-($0.78$). This is the one regime where a convolutional model is structurally necessary,
-vindicating the original spatial autoencoder idea for spatial classification rather than
-for per-pixel spectral band selection.
+The random and full-spectrum controls also mark the limits (Fig.~\ref{fig:results}).
+Under fixed-pattern clutter no blind selector beats a random subset, because clutter is
+high-variance but class-irrelevant; there only label-aware selection helps. No selector
+beats the full spectrum, so selection buys compression, not accuracy, and blind subsets
+are unstable band to band (Jaccard about $0.1$ to $0.2$), which favors selecting spectral
+regions or consensus sets. And when class is carried by spatial texture, so that every
+class shares the same per-pixel spectrum, per-pixel selection falls below random ($0.52$ to
+$0.55$, against a random $0.674$) while a spatial model with the right bands reaches the
+oracle ($0.78$). These are properties the benchmark makes visible, and they answer the practical questions: when to select bands, when to keep the spectrum, and when
+the problem is spatial rather than spectral.
 
 \section{Discussion and Conclusion}
-SpectraForge fills a concrete gap for 4D fluorescence hyperspectral imaging: an open,
-physically faithful, controllable source of cubes with perfect ground truth, in which
-variance is decoupled from informativeness so that benchmarks are honest rather than
-trivial. Paired with a protocol whose random and full-spectrum controls prevent
-self-deception, it turns ``does this selector help'' into a measured, reproducible
-question. The accompanying case study is a demonstration of that value: it recovers a
-chance-level autoencoder to within a few percent of a labels-using oracle, shows a
-rigorously significant advantage for learned selection in the nonlinear regime, maps the
-clutter boundary where unsupervised selection reduces to a compression tool, and isolates
-the spatial regime where a convolutional model is required. The decisive next step is
-validation on real Lichens and Collagen cubes with the same controls, where informative
-structure need not be variance-prominent. SpectraForge, the evaluation harness, and the
-full experiment record are released so that these questions can be studied on shared,
-reproducible ground.
+SpectralForge gives 4D fluorescence imaging an open, physically realistic source of cubes
+with perfect ground truth, so that methods can be designed, tested, and compared
+before scarce instrument time is spent. The band-selection study is one demonstration of
+that value. Paired with a protocol whose random and full-spectrum controls check that a
+reported gain is real, the simulator turns ``does this selector help'' into a measured,
+reproducible question, and its answer is specific: PCA loadings is the strongest blind
+baseline only in the idealized clean regime that no real acquisition reaches, ties
+label-free selection once realistic scatter and noise enter, and is overtaken only where
+the physics is nonlinear.
+
+While SpectralForge captures key primary photophysical phenomena, the simulator operates
+under certain physical and optical simplifications. Currently, inner-filter attenuation and
+reabsorption are modeled using first-order exponential path approximations rather than full
+3D radiative transfer or Monte Carlo photon transport through dense scattering media.
+Furthermore, the instrument model assumes an idealized optical train with spatially uniform
+illumination, uniform spectral detector response, and static photophysics, omitting dynamic
+exposure photobleaching kinetics during sequence acquisition as well as chromatic
+aberrations and thermal drift. Expanding the engine to incorporate full radiative transport
+and dynamic bleaching models remains an important direction for future extensions.
+
+The same generator supports experiment planning, algorithm prototyping, and teaching. A
+natural next step is to evaluate performance on complex, multi-component target samples
+(heterogeneous biological tissues, environmental specimens, or engineered multi-fluorophore
+composites), where informative spectral structure is decoupled from overall band variance.
+SpectralForge and its workbench are in active development toward a production release, and
+the authors can provide exclusive early access to interested laboratories and individuals
+on request (please contact the corresponding author by email); the full experiment record
+accompanying this study is released for reproducible use.
 
 \section*{Acknowledgment}
 Financial support from the European Union NAS SAR-101087403 and the United States
@@ -358,6 +377,33 @@ Springer, 2002.
 \bibitem{ref_bsnet} Y. Cai, X. Liu, and Z. Cai, ``BS-Nets: An end-to-end framework for
 band selection of hyperspectral image,'' \emph{IEEE Trans. Geosci. Remote Sens.},
 vol.~58, no.~3, pp.~1969--1984, 2020.
+\bibitem{ref_mercader} M. Mercader, L. Swift, S. Sood, H. Asfour, M. Kay, and
+N. Sarvazyan, ``Use of endogenous NADH fluorescence for real-time in situ visualization
+of epicardial radiofrequency ablation lesions and gaps,'' \emph{Am. J. Physiol. Heart
+Circ. Physiol.}, vol.~302, no.~10, pp.~H2131--H2138, 2012.
+\bibitem{ref_gil} D. A. Gil, L. M. Swift, H. Asfour, N. Muselimyan, M. A. Mercader, and
+N. A. Sarvazyan, ``Autofluorescence hyperspectral imaging of radiofrequency ablation
+lesions in porcine cardiac tissue,'' \emph{J. Biophotonics}, vol.~10, no.~8,
+pp.~1008--1017, 2017.
+\bibitem{ref_guan} S. Guan, H. Asfour, N. Sarvazyan, and M. Loew, ``Application of
+unsupervised learning to hyperspectral imaging of cardiac ablation lesions,'' \emph{J.
+Med. Imaging}, vol.~5, no.~4, art.~046003, 2018.
+\bibitem{ref_chil4d} N. Chilingaryan, F. Villarruel, T. Soghomonyan, V. Yeghiazaryan, and
+N. Sarvazyan, ``4D hyperspectral imaging for intraoperative tissue classification,'' in
+\emph{Medical Imaging 2025: Clinical and Biomedical Imaging}, vol.~13410. SPIE, 2025,
+pp.~255--260.
+\bibitem{ref_chillichen} N. Chilingaryan, A. Gasparyan, and N. Sarvazyan, ``Multi-excitation
+hyperspectral imaging toward improved lichen identification,'' in \emph{Proc. 15th Workshop
+on Hyperspectral Imaging and Signal Processing: Evol. in Remote Sensing (WHISPERS)}. IEEE,
+2025, pp.~1--5.
+\bibitem{ref_hunanyan} A. Hunanyan, N. Ter-Petrosyan, F. Villarruel, T. Soghomonyan,
+N. Sarvazyan, A. Butavyan, and V. Yeghiazaryan, ``Deep learning classification of ablated
+atrial tissue in multi-excitation hyperspectral images,'' in \emph{Proc. 15th Workshop on
+Hyperspectral Imaging and Signal Processing: Evol. in Remote Sensing (WHISPERS)}. IEEE,
+2025, pp.~1--5.
+\bibitem{ref_scirep} N. Meloyan and N. Sarvazyan, ``Unsupervised deep learning for
+wavelength selection in multi-excitation fluorescence imaging,'' \emph{Scientific Reports}
+(minor revision), 2025.
 \end{thebibliography}
 
 \end{document}
