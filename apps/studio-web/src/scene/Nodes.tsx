@@ -1,4 +1,8 @@
 import { useMemo } from 'react'
+import type { Experiment, MaterialSpec } from '../generated/experiment'
+import type { LayerGlow } from '../three/types'
+import { useLayerView } from '../state/layerView'
+import { useLightField } from './lightfield'
 import type { ThreeEvent } from '@react-three/fiber'
 import { useStudio, activeSource, type Selection } from '../state/store'
 import { fluorophoreMap, materialMap } from '../state/presets'
@@ -31,11 +35,27 @@ export function ObjectNodes() {
   const power = src?.sequence.find((x) => x.enabled && x.wavelength_nm === nm)?.power_mW ?? 3
   return <>{exp.objects.filter((o) => o.visible).map((o) => {
     const g = objectGlow(exp, o, mats[o.material_id], src, fl, nm, power)
-    return <ObjectNode key={o.id} id={o.id} glowColor={g.color} glowIntensity={g.intensity} />
+    const layerGlows = o.shape.kind === 'layered_block' ? o.shape.layers.map((l) => objectGlow(exp, o, mats[l.material_id], src, fl, nm, power)) : undefined
+    return <ObjectNode key={o.id} id={o.id} glowColor={g.color} glowIntensity={g.intensity} layerGlows={layerGlows} />
   })}</>
 }
 
-function ObjectNode({ id, glowColor, glowIntensity }: { id: string; glowColor: string | null; glowIntensity: number }) {
+/** Stable identity for per-layer glows so the block geometry is not rebuilt on unrelated re-renders. */
+function useStableGlows(glows: LayerGlow[] | undefined): LayerGlow[] | undefined {
+  const key = glows ? glows.map((g) => `${g.color ?? ''}:${g.intensity.toFixed(3)}`).join('|') : ''
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => glows, [key])
+}
+function useLayerMaterials(exp: Experiment, obj: Experiment['objects'][number]): MaterialSpec[] | undefined {
+  return useMemo(() => {
+    if (obj.shape.kind !== 'layered_block') return undefined
+    const m = materialMap(exp)
+    const out = obj.shape.layers.map((l) => m[l.material_id])
+    return out.every(Boolean) ? out : undefined
+  }, [exp, obj])
+}
+
+function ObjectNode({ id, glowColor, glowIntensity, layerGlows }: { id: string; glowColor: string | null; glowIntensity: number; layerGlows?: LayerGlow[] }) {
   const exp = useStudio((s) => s.exp)
   const obj = exp.objects.find((o) => o.id === id)!
   const selected = useStudio((s) => s.selection?.kind === 'object' && s.selection.id === id)
@@ -43,11 +63,22 @@ function ObjectNode({ id, glowColor, glowIntensity }: { id: string; glowColor: s
   const h = useSelectHandlers({ kind: 'object', id })
   const mats = materialMap(exp)
   const material = mats[obj.material_id]
-  if (!material) return null
+  const layerMaterials = useLayerMaterials(exp, obj)
+  const glows = useStableGlows(layerGlows)
+  const sectionState = useLayerView((s) => s.sections[id])
+  const lfOn = useLayerView((s) => s.lf.on)
+  const isBlock = obj.shape.kind === 'layered_block'
+  const section = isBlock && sectionState?.on ? { axis: sectionState.axis, position_mm: sectionState.position_mm, keep: sectionState.keep } : null
+  const cut = useMemo(() => (section ? { axis: section.axis, position_mm: section.position_mm } : null), [section?.axis, section?.position_mm]) // eslint-disable-line react-hooks/exhaustive-deps
+  const demoMus = useMemo(() => (layerMaterials ? { mus: layerMaterials.map((m) => (m.scattering.model === 'none' ? 0 : m.scattering.mus_prime_500_per_mm)), mua: layerMaterials.map(() => 0.02) } : undefined), [layerMaterials])
+  const lf = useLightField(id, obj.shape.kind === 'layered_block' ? obj.shape : null, isBlock && lfOn && !!section, cut, demoMus)
+  // a block draws its own layer materials, so a dangling `material_id` (ignored by the engine for blocks) must not hide it
+  if (!material && !(isBlock && layerMaterials)) return null
   return (
     <group {...h}>
-      <SampleMesh object={obj} material={material} vesselMaterial={obj.vessel_material_id ? mats[obj.vessel_material_id] : undefined}
-        selected={selected} hovered={hovered} glowColor={glowColor} glowIntensity={glowIntensity} />
+      <SampleMesh object={obj} material={material ?? layerMaterials![0]} vesselMaterial={obj.vessel_material_id ? mats[obj.vessel_material_id] : undefined}
+        selected={selected} hovered={hovered} glowColor={glowColor} glowIntensity={glowIntensity}
+        layerMaterials={layerMaterials} layerGlows={glows} section={section} sectionLabels={!!sectionState?.labels} lightField={lf.texture} />
     </group>
   )
 }

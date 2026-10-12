@@ -43,6 +43,8 @@ PYTHONPATH=src python -m spectraforge.studio              # http://127.0.0.1:876
 cd apps/studio-web && npm run dev                          # http://localhost:5173
 ```
 
+**Port 5173 only.** The engine's CSRF / origin guard (`SecurityMiddleware`, `DEV_ORIGINS` in `server.py`) accepts, besides its own origin, exactly `http://localhost:5173` and `http://127.0.0.1:5173`. If 5173 is taken Vite silently moves to 5174 and every POST and WebSocket from the page is then refused with 403 (the app shows the engine as offline or captures fail); start Vite with `npm run dev -- --port 5173 --strictPort` so it fails loudly instead. The Playwright scripts rely on the same port. The built app served by the engine itself needs no setting (same origin).
+
 Open `http://localhost:5173/`. The top bar shows a green "engine online" badge; if the engine is not running the app falls back to the in-browser mock engine and shows "engine offline — mock data" (click it to retry). Add `?tour=1` to the URL for the guided tour.
 
 **Without the dev server** (what a user runs): build once and let the engine serve the app.
@@ -74,7 +76,7 @@ PYTHONPATH=src python -m pytest tests/studio -q -o addopts="" -m "not slow"
 PYTHONPATH=src python -m pytest tests/studio -q -o addopts="" -m slow
 ```
 
-`-o addopts=""` neutralises any `addopts` of the repository's pytest configuration. Measured here: 203 tests, 11 of them `slow`; the fast run gives `191 passed, 1 xfailed` in about 30 s, the slow run `11 passed` in about 2 minutes. The one `xfail` (`tests/studio/test_qa_findings.py`) documents a known, optional tracer enhancement (see HOW_IT_WORKS §13).
+`-o addopts=""` neutralises any `addopts` of the repository's pytest configuration. Measured at v1.1 (`tests/studio tests/spectraforge`, with `QT_QPA_PLATFORM=offscreen` for the Qt GUI tests of `tests/spectraforge/gui`, which abort headless otherwise): the fast run gives `425 passed, 1 xfailed` (22 `slow` deselected) in about 4 minutes on a loaded machine; the slow run (22 tests) gives `22 passed` in about 14 minutes on a loaded machine. The one `xfail` (`tests/studio/test_qa_findings.py`) documents a known, optional tracer enhancement (see HOW_IT_WORKS §13).
 
 Layout: one test module per engine module (`test_geometry.py`, `test_surface.py`, `test_source.py`, `test_optics.py`, `test_spectra.py`, `test_tracer.py`, `test_transport.py`, `test_sensor.py`, `test_capture.py`, `test_server.py`, `test_exports.py`) plus `test_qa_findings.py` for minimal reproductions of past bugs. Geometry and surface tests use `hypothesis`. The server tests inject fake engine callables into `create_app(...)`, so they run in seconds.
 
@@ -82,8 +84,15 @@ Layout: one test module per engine module (`test_geometry.py`, `test_surface.py`
 
 ```bash
 cd apps/studio-web
-npm test                      # vitest run: 6 files, 40 tests (store, spectral maths, progress parser, mock engine, explorer rendering)
+npm test                      # vitest run: 14 files, 122 tests (store, spectral maths, progress parser, mock engine incl. v1.1 endpoints, explorer rendering, analysis workspace)
 ```
+
+### v1.1 test map
+
+* `test_transport3d*.py`: the 3D Monte Carlo (energy balance, MCML agreement, peel-off versus cone, bottom boundary).
+* `test_block_capture.py`: layered-block captures through the real tracer and transport.
+* `test_analysis.py`, `test_sweeps.py`, `test_server_analysis.py`: normalisation modes (hand-computed, incl. `irradiance_normalized`), ROI / EEM / line / response / volumes, `load_npz_capture` round trip, the notebook snippet of USER_GUIDE section 14 (executed verbatim), endpoints with fake engines (`fakes_v11.py` builds a fake block `CaptureResult`).
+* Web: `src/analysis/*.test.ts` (ROI geometry, norm modes, layered defaults), `src/api/mock*.test.ts` (the mock engine implements every v1.1 endpoint, so the UI is testable offline).
 
 ### Playwright scripts (need the dev server; most need the engine)
 
@@ -91,7 +100,9 @@ npm test                      # vitest run: 6 files, 40 tests (store, spectral m
 |---|---|---|
 | `node scripts/smoke.mjs [url]` | prints `SMOKE OK` | exercises library, typing, physics toggles, capture, explore, back; fails on console errors |
 | `node scripts/screenshots.mjs [url]` | `screenshots/01-design.png` ... `04-explore.png` | overwrites the reference screenshots; 1440×900 |
-| `node scripts/tour-shots.mjs [url] [WxH]` | `screenshots/tour/step-N.png` (or `tour-WxH/`) | walks all 8 tour steps; overwrites |
+| `node scripts/tour-shots.mjs [url] [WxH]` | `screenshots/tour/step-N.png` (or `tour-WxH/`) | walks the tour steps; overwrites |
+| `node scripts/shoot-final.mjs [wedge\|pencil\|all]` | `screenshots/v11/f0*.png` | v1.1 real-engine QA: layered-block defaults in Response / Sweep, pencil-beam light field, line profile, cutaway; needs the engine on 8765 and Vite on 5173; a pencil capture takes ~90 s |
+| `node scripts/shoot-v11.mjs`, `node scripts/shoot-analysis.mjs` | `screenshots/v11/` | layer editor, cutaway and analysis workspace shots |
 | `node scripts/shoot-three.mjs [view ...]` | `screenshots/three/<view>.png` | screenshots of `showcase.html` (standalone 3D models); expects a dev server on port **5199** |
 | `node scripts/check-framing.mjs [preset]` | per-object pixel errors | compares the engine's object centroids with the browser's projection; the engine must be on 8765 |
 
@@ -106,6 +117,14 @@ PYTHONPATH=src python scripts/export_studio_contract.py && (cd apps/studio-web &
 ```
 
 This rewrites `apps/studio-web/src/generated/{experiment.schema.json, presets.json, experiment.ts}`. Never edit them by hand. Then `npm run build` (the type-check shows what the schema change broke in the UI) and `npm test`. On an unchanged tree the command reproduces the committed files exactly (checked), so a diff in `generated/` after you touched only the UI means something is wrong. `tests/studio/test_server.py::test_presets_json_in_sync` fails if `presets.json` and `GET /api/presets` disagree, which catches a forgotten regeneration.
+
+### Regenerating the validation figures
+
+```bash
+PYTHONPATH=src python scripts/studio_validation_figures.py --only blk_validation,blk_bottom,blk_peel,blk_wedge,blk_field   # PHYSICS_VALIDATION section 12 (about 10 min)
+```
+
+The numbers quoted in PHYSICS_VALIDATION section 12 come from `docs/studio/figures/validation_numbers.json`, which the script rewrites (it merges into the existing file). Re-check the quoted numbers after every run, and after any change to a preset's fluorophores (the buried-signal figures depend on fluorescein's emission shape).
 
 ## 5. Recipes
 
@@ -179,6 +198,14 @@ The browser could not reach `/api/health` within 1.2 s. Check that the engine is
 ### Port conflicts
 
 The engine defaults to 8765 and the Vite proxy is hard-wired to it (`apps/studio-web/vite.config.ts`). If 8765 is busy (`lsof -i :8765`) you can start the engine elsewhere, `python -m spectraforge.studio --port 8799`, and open it directly at `http://127.0.0.1:8799/` (it serves the built app if `dist/` exists). For the dev server, change the proxy target in `vite.config.ts`. Note that `check-framing.mjs` also assumes 8765. If the browser shows an older UI than your code, you are probably looking at a stale `dist/` served by the engine: rebuild with `npm run build`.
+
+### Fatal Python error: Aborted / "Concurrent access has been detected" / `OMP: Info #276`
+
+Three distinct things, diagnosed in 2026-10:
+
+1. **Out-of-bounds write in a numba kernel (the real cause of the test-suite aborts).** numba does no bounds checking, so an overrun silently corrupts the heap and the process dies later, somewhere unrelated (`np.linalg.norm`, a Qt widget constructor), and only for some import orders or heap layouts. The peel-off scratch array `pres` in `transport3d_mc._run_batch` had 6 slots but `_peel_top` writes 7; fixed. To hunt such bugs, run with `NUMBA_BOUNDSCHECK=1` (and, for a traceback in a `prange` kernel, `NUMBA_DISABLE_JIT=1` on a tiny input or call the serial `_run_batch` directly); the whole `tests/studio` suite is clean under `NUMBA_BOUNDSCHECK=1`.
+2. **Threading layer.** numba's default priority is `tbb > omp > workqueue`. `tbb` is not installed; numba's `omp` pool is linked against `@rpath/libomp.dylib` without an rpath, so it loads only if torch's LLVM `libomp` is already in the process (it always is, via `spectraforge -> spectral_select -> torch`), alongside the separate copies in scikit-learn and scikit-image: two or three OpenMP runtimes in one process, and the `OMP: Info #276` banner. Without torch it silently fell back to `workqueue`, which **aborts when two Python threads enter parallel kernels at once** (server preview in the thread pool while the job worker captures; Jupyter plus a background thread).
+3. **Decision** (`src/spectraforge/studio/_numba_env.py`, imported by `spectraforge.studio.__init__`): the layer priority is `tbb` (if importable) > `workqueue` > `omp`, so the Studio never auto-selects OpenMP and cannot clash with torch, PyQt6, scikit-learn or Accelerate; and **all** parallel kernels are declared with `parallel_njit` and entered under one re-entrant lock, so concurrent previews and captures are safe on any layer. `workqueue` and `omp` measured equal on `layered_wedge_phantom` (preview about 2.2 s, full capture about 38 s on 14 cores). Do not use `KMP_DUPLICATE_LIB_OK=TRUE`: it only hides the duplicate runtime. A user-set `NUMBA_THREADING_LAYER` is respected (then the lock still applies). New `parallel=True` kernels must use `parallel_njit` and must not be called from other jitted code. `tests/studio/test_threading.py` runs concurrent block previews and a preview during a capture; it aborts the interpreter if the lock is removed.
 
 ### numba cache problems
 

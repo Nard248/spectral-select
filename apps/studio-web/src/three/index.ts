@@ -8,3 +8,6 @@ export { StudioEnvironment, Effects, type Quality, type StudioEnvironmentProps }
 export { Showcase, SHOWCASE_VIEWS } from './Showcase'
 export { lookAtQuaternion } from './pose'
 export type * from './types'
+export { LayeredBlockMesh, type LayeredBlockMeshProps } from './LayeredBlockMesh'
+export * from './layers/profile'
+export { buildBlockMesh, cutRegion, cutSide, buildSectionStrips } from './layers/blockGeometry'

@@ -61,6 +61,11 @@ _EXTINCTION_MCM = {"fluorescein": 76_900.0, "mCherry": 72_000.0, "mKate2": 62_50
                    "EBFP2": 31_000.0, "NADH": 6_220.0, "FAD": 11_300.0}
 
 
+# Emission-shape refinements over the 2D library's pure Gaussians (studio only): real fluorescein
+# keeps ~35 % of its peak at 550 nm (red tail + vibronic shoulder); a pure Gaussian gives 4 %.
+_EM_SHAPE = {"fluorescein": (0.4, 0.2)}
+
+
 def builtin_fluorophores() -> list[FluorophoreSpec]:
     from spectraforge.studio.schema import EXTINCTION_REFERENCE_M_CM
     out = []
@@ -69,7 +74,9 @@ def builtin_fluorophores() -> list[FluorophoreSpec]:
         out.append(FluorophoreSpec(
             name=f.name, ex_peak_nm=f.ex_peak_nm, ex_fwhm_nm=f.ex_fwhm_nm, em_peak_nm=f.em_peak_nm,
             em_fwhm_nm=f.em_fwhm_nm, quantum_yield=f.quantum_yield, extinction=ext,
-            em_skew=f.em_skew, vibronic=f.vibronic, bleach_quantum_yield=_BLEACH.get(f.name, 1e-6),
+            em_skew=_EM_SHAPE.get(f.name, (f.em_skew, f.vibronic))[0],
+            vibronic=_EM_SHAPE.get(f.name, (f.em_skew, f.vibronic))[1],
+            bleach_quantum_yield=_BLEACH.get(f.name, 1e-6),
             display_color=_DYE_COLORS.get(f.name)))
     for f in _EXTRA_FLUOROPHORES:
         out.append(f.model_copy(update={"display_color": _DYE_COLORS.get(f.name)}))
@@ -82,6 +89,43 @@ def _mat(id_, name, color, dyes=(), **kw) -> MaterialSpec:
 
 
 def builtin_materials() -> list[MaterialSpec]:
+    return _base_materials() + _layered_materials()
+
+
+def _layered_materials() -> list[MaterialSpec]:
+    """Layer materials for layered blocks (substrate / fluorescent layer / cover)."""
+    water = AbsorberSpec(preset="water", scale=1.0)
+    return [
+        _mat("tissue_substrate", "Tissue substrate (turbid, weakly fluorescent)", "#c98f86",
+             dyes=[("NADH", 8.0), ("collagen", 80.0)], refractive_index=1.38,
+             scattering=ScatteringSpec(model="power_law", mus_prime_500_per_mm=1.5, power_b=1.2, g=0.85),
+             background_absorption=AbsorberSpec(preset="hemoglobin", scale=0.05), surface_roughness=0.3),
+        _mat("tissue_fluor_layer", "Tissue layer (NADH/FAD-rich)", "#f2b35c",
+             dyes=[("NADH", 120.0), ("FAD", 60.0)], refractive_index=1.38,
+             scattering=ScatteringSpec(model="power_law", mus_prime_500_per_mm=1.2, power_b=1.2, g=0.85),
+             background_absorption=AbsorberSpec(preset="hemoglobin", scale=0.02), surface_roughness=0.3),
+        _mat("fluorescein_agarose_layer", "Fluorescein agarose layer (5 µM)", "#6cff7a",
+             dyes=[("fluorescein", 5.0)], refractive_index=1.335,
+             scattering=ScatteringSpec(model="power_law", mus_prime_500_per_mm=0.3, power_b=1.0, g=0.9),
+             background_absorption=water, aqueous=True, surface_roughness=0.05),
+        _mat("collagen_cover", "Collagen cover (dense, autofluorescent)", "#b8a9ff",
+             dyes=[("collagen", 600.0), ("elastin", 60.0)], refractive_index=1.41,
+             scattering=ScatteringSpec(model="power_law", mus_prime_500_per_mm=2.0, power_b=1.2, g=0.9),
+             background_absorption=water, surface_roughness=0.25),
+        _mat("intralipid_cover", "Turbid cover (intralipid-like, non-fluorescent)", "#f3f1ea",
+             refractive_index=1.36,
+             scattering=ScatteringSpec(model="power_law", mus_prime_500_per_mm=1.5, power_b=1.0, g=0.8),
+             background_absorption=water, aqueous=True, surface_roughness=0.1),
+        _mat("absorbing_cover", "Absorbing cover (blood-tinted, turbid)", "#a33a3a",
+             refractive_index=1.38,
+             scattering=ScatteringSpec(model="power_law", mus_prime_500_per_mm=1.0, power_b=1.2, g=0.85),
+             background_absorption=AbsorberSpec(preset="hemoglobin", scale=0.4), surface_roughness=0.2),
+        _mat("clear_cover", "Clear cover (transparent gel)", "#d8f0ff", refractive_index=1.40,
+             background_absorption=water, surface_roughness=0.02),
+    ]
+
+
+def _base_materials() -> list[MaterialSpec]:
     water = AbsorberSpec(preset="water", scale=1.0)
     return [
         # ---- optics / stage --------------------------------------------------------------
@@ -305,11 +349,93 @@ def laser_line() -> Experiment:
     )
 
 
+def _layer(name, material, t0, t1=None, axis="x"):
+    from spectraforge.studio.schema import BlockLayer, ThicknessProfile
+    prof = (ThicknessProfile(kind="uniform", thickness_mm=t0, end_thickness_mm=t0) if t1 is None else
+            ThicknessProfile(kind="linear", thickness_mm=t0, end_thickness_mm=t1, axis=axis))
+    return BlockLayer(name=name, material_id=material, thickness=prof)
+
+
+def layered_wedge_phantom() -> Experiment:
+    """Generic study scene: a fluorescent layer buried under a turbid cover whose thickness falls
+    linearly from 2 mm (−x edge) to 0 (+x edge) — read the attenuation / spectral distortion of the
+    buried fluorophore against the local cover thickness with the Explore analysis tools."""
+    from spectraforge.studio.schema import LayeredBlockShape
+    block = LayeredBlockShape(footprint_mm=(40.0, 40.0), layers=[
+        _layer("substrate", "tissue_substrate", 4.0),
+        _layer("fluorescent layer", "fluorescein_agarose_layer", 0.5),
+        _layer("cover", "intralipid_cover", 2.0, 0.0, "x"),
+    ])
+    return Experiment(
+        name="Layered wedge phantom",
+        description="Fluorescein layer (0.5 mm) on a turbid substrate, under a turbid cover that thins "
+                    "linearly from 2 mm to 0 across the block. Solved with the 3D layered Monte Carlo.",
+        materials=builtin_materials(),
+        objects=[_obj("block", "Layered block (cover wedge)", block, "intralipid_cover", (0.0, 0.0, 0.0))],
+        background=Background(kind="plane", material_id="black_anodized"),
+        sources=[tunable_lamp(target=(0.0, 3.0, 0.0), sequence=[
+            (340, 1.3, 400), (380, 3.6, 120), (420, 4.4, 80), (450, 4.6, 60), (470, 4.7, 60),
+            (490, 4.8, 60)])],
+        cameras=[nuance_camera(target=(0.0, 3.0, 0.0))],
+        active_source_id="src_tls", active_camera_id="cam_nuance",
+    )
+
+
+def tissue_under_collagen() -> Experiment:
+    """The target scenario: an NADH/FAD tissue layer under a collagen cover of varying thickness,
+    imaged with the lab's TLS (310–430 nm) + Nuance hardware."""
+    from spectraforge.studio.schema import LayeredBlockShape
+    block = LayeredBlockShape(footprint_mm=(40.0, 40.0), layers=[
+        _layer("substrate", "tissue_substrate", 5.0),
+        _layer("tissue", "tissue_fluor_layer", 1.0),
+        _layer("collagen", "collagen_cover", 1.5, 0.05, "x"),
+    ])
+    exp = mehsi_lab_replica()
+    return exp.model_copy(update={
+        "name": "Tissue under collagen (wedge)",
+        "description": "NADH/FAD tissue layer under a collagen cover thinning from 1.5 mm to 50 µm, "
+                       "on a turbid substrate; lab TLS + Nuance hardware. 3D layered Monte Carlo.",
+        "objects": [_obj("block", "Tissue / collagen block", block, "collagen_cover", (0.0, 0.0, 0.0))],
+    })
+
+
+def pencil_beam_penetration() -> Experiment:
+    """Spatially resolved light transport: a 1 mm laser beam hits a tissue block under a uniform
+    collagen cover at 45°. The excitation fluence inside spreads into the classic banana-shaped
+    penetration volume and the surface fluorescence spot is broadened by subsurface scattering —
+    inspect it with the cutaway light field (cut along z = 0, through the beam) and line profiles."""
+    from spectraforge.studio.schema import LayeredBlockShape
+    block = LayeredBlockShape(footprint_mm=(30.0, 30.0), layers=[
+        _layer("substrate", "tissue_substrate", 5.0),
+        _layer("tissue", "tissue_fluor_layer", 1.0),
+        _layer("collagen", "collagen_cover", 0.5),
+    ])
+    laser = LightSourceSpec(
+        id="src_pencil", name="Pencil-beam laser (405/450/488)", kind="laser",
+        position_mm=(-140.0, 146.5, 0.0), target_mm=(0.0, 6.5, 0.0), line_fwhm_nm=1.0, lamp_curve="flat",
+        excitation_filter_od=6.0,
+        beam=BeamSpec(profile="gaussian", aperture_diameter_mm=1.0, divergence_half_angle_deg=0.1),
+        sequence=[ExcitationStep(wavelength_nm=w, power_mW=2.0, exposure_ms=e)
+                  for w, e in ((405, 100.0), (450, 50.0), (488, 50.0))])
+    exp = mehsi_lab_replica()
+    return exp.model_copy(update={
+        "name": "Pencil-beam penetration (tissue + collagen)",
+        "description": "1 mm laser beam at 45° into a tissue block under 0.5 mm of collagen: visualise "
+                       "the banana-shaped 3D light field and the scattering-broadened fluorescence spot.",
+        "objects": [_obj("block", "Tissue / collagen block", block, "collagen_cover", (0.0, 0.0, 0.0))],
+        "sources": [laser], "active_source_id": "src_pencil",
+        "cameras": [nuance_camera(target=(0.0, 6.5, 0.0))],
+    })
+
+
 PRESETS = {
     "generic_macro_bench": generic_macro_bench,
     "mehsi_lab_replica": mehsi_lab_replica,
     "led_multispectral": led_multispectral,
     "laser_line": laser_line,
+    "layered_wedge_phantom": layered_wedge_phantom,
+    "tissue_under_collagen": tissue_under_collagen,
+    "pencil_beam_penetration": pencil_beam_penetration,
 }
 
 

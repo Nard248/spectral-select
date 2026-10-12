@@ -15,6 +15,9 @@ A walkthrough of the interface for people who will use Studio to design virtual 
 9. [The guided tour](#9-the-guided-tour)
 10. [Offline (mock) mode](#10-offline-mock-mode)
 11. [Tips for demos and projectors](#11-tips-for-demos-and-projectors)
+12. [Layered blocks (v1.1)](#12-layered-blocks-v11)
+13. [The analysis workspace (v1.1)](#13-the-analysis-workspace-v11)
+14. [Using a capture in a notebook](#14-using-a-capture-in-a-notebook)
 
 ---
 
@@ -267,3 +270,99 @@ If the Python engine cannot be reached, the app does not stop: it falls back to 
 * **Tour with auto-play** (`/?tour=auto`) is a self-running demo: about a minute of captions plus whatever time the engine needs for the preview and the capture in steps 5 and 6.
 * **Back-up plan.** Keep a saved `.sfx.json` of the demo experiment and an exported `spectradata pkl` of a finished capture; both are a double-click away.
 * **Do not edit during a capture.** The capture uses the experiment as it was when you pressed the button, but the Explorer shows it next to your edited scene; wait for it to finish.
+
+---
+
+## 12. Layered blocks (v1.1)
+
+A **layered block** is a rectangular stack of layers, bottom to top, for example *substrate / fluorescent layer / cover*. Use it when what matters is how light travels **inside** a sample: a fluorophore buried under a scattering, absorbing cover (tissue under collagen, a dye layer under an intralipid film). Every layer has its own material (any material of the library, so the tool is not tied to tissue) and a **thickness profile**.
+
+![A layered wedge phantom on the bench](images/v11-block-design.png)
+
+**Adding and editing.** Drag *Layered block* from the Library (or load a preset, below). Select it: the Inspector shows the **Layer stack** editor with a live cross-section drawing. For each layer you set the name, the material (or *new material* to create one), and the thickness:
+
+* **uniform**: one thickness everywhere;
+* **linear wedge**: thickness runs linearly along the block's local `x` or `z` axis from a start value (at the negative edge) to an end value (at the positive edge), for example a cover thinning from 2 mm to 0. *Flip* swaps the two ends. Because every profile is linear, every interface is an exact plane (the engine relies on that).
+
+Layers can be added, duplicated, deleted and reordered by drag and drop (at most 8). The footprint (x by z, mm) is set above the stack. The editor warns about missing materials and zero total thickness.
+
+![Layer stack editor](images/v11-layer-stack.png)
+
+**Cutaway.** *Cutaway & light field* (Inspector, or `X`) removes half of the block with an exact planar cut, normal to `x` or `z`, at any position; the cut face is capped and shows the layers (and any wedge) in cross-section with thickness callouts. *Flip side* keeps the other half. The cutaway is a view setting, it is not saved in the experiment.
+
+![Cutaway of the wedge phantom](images/v11-cutaway-wedge.png)
+
+**Light field.** After a capture of a block, switching *Light field* on paints the 3D Monte Carlo result on the cut plane: **fluence** (excitation light, mW/mm²), **absorbed** power per volume, or the fluorescence **source** of one (layer, dye) channel, on a log colour scale (range in decades). You can see the cover scatter and absorb the beam and the buried layer light up. The same field is available, with sections and depth profiles, in the Explorer (section 13).
+
+**3D Monte Carlo settings.** Select the *Acquisition* object: the *3D Monte Carlo* section sets the photon count per pass, the voxel grid (cells per layer and sublayers), the emission-node spacing and the acceptance cone. The defaults are tuned so that a preview takes a few seconds and a full capture about a minute; raise the photon count for smoother images. The cost estimate in the Acquire bar includes the blocks.
+
+**Presets with blocks.**
+
+| Preset | What it shows |
+|---|---|
+| *Layered wedge phantom* | fluorescein layer under an intralipid-like cover thinning 2 to 0 mm: the buried signal falls with cover thickness |
+| *Tissue under collagen* | NADH/FAD tissue under a collagen cover (1.5 to 0.05 mm): attenuation, spectral filtering and the cover's own autofluorescence |
+| *Pencil-beam penetration* | a 1 mm laser (405 / 450 / 488 nm) at 45 degrees into tissue under 0.5 mm of collagen, built to show the light plume spreading under the entry point and a fluorescence spot broadened by scattering |
+
+![Pencil-beam light field](images/v11-pencil-lightfield.png)
+
+![Pencil-beam cutaway with the light field on the cut plane](images/v11-pencil-cutaway.png)
+
+The *Pencil-beam* tip: choose the 450 nm excitation, open *Light field*, set the section at `z = 0` (the beam plane) and use a 4 to 5 decade range. With the preset's tissue scattering (reduced scattering about 1.2 to 2 per mm) the photons lose their direction within 2 to 3 mm, so the plume is a teardrop that leans only slightly along the beam, not a pronounced banana; the broadening is obvious in the line profile below (the spot is about 3.4 mm wide at half maximum for a 1 mm beam). The first emission band next to the excitation line (ex + 20 nm) is saturated by the laser's elastic light on this preset; read the bands at ex + 40 nm and beyond.
+
+The guided tour has four extra steps (*Layered block*, *Cutaway and the wedge*, *3D capture*, *The light field*).
+
+## 13. The analysis workspace (v1.1)
+
+Explore mode has three workspaces (tabs above the image column): **Image**, **Light field** and **Sweep**, and a four-tab analysis panel: **Pixel**, **EEM**, **Profile**, **Response**. Every result exports to CSV (with a self-describing `#` header: units, ROI, normalisation, capture, experiment) and JSON.
+
+**ROI tools** (above the image): `V` select, `P` point, `D` disk, `R` rectangle, `E` ellipse, `G` polygon (Enter or double-click closes, Backspace removes a vertex, Esc cancels), `L` line. Regions are named, coloured and listed on the left (rename, hide with `H`, delete with `Del`); drag a region or its handles to edit it.
+
+**Units bar (normalisation).** Every analysis tab has one. It decides what a "value" is:
+
+| Mode | Value | Use it for |
+|---|---|---|
+| Raw ADU | counts as recorded | looking at the detector |
+| Radiance | calibrated radiance | physics comparisons |
+| Electrons | photo-electrons | noise work |
+| Dark-subtracted | ADU minus a *Dark* capture | removing offset and fixed pattern |
+| Exposure x power | (ADU - offset) / (exposure x power) | comparing excitations (the lab pipeline) |
+| White-normalised | (sample - dark) / (white - dark) | dividing out illumination and optics with a *White ref* capture |
+| **Irradiance-normalised** | (ADU - offset) / (exposure x E_ex), E_ex = the ground-truth surface irradiance at the pixel (mW/mm²) | **signal versus structure on obliquely lit samples**: it divides out the lamp's spatial gradient, so a trend with cover thickness is not confused with the lamp falling off across the block. Pixels with E_ex = 0 or below 1e-3 of its maximum are blank (a narrow beam’s tail). |
+
+Dark and white captures must have the same size, excitations and bands; the bar picks the newest compatible one and says why one does not fit. Hovering the mode shows the explanation.
+
+* **EEM**: the excitation-emission matrix of the selected region (a pixel, a disk or any ROI), as a heatmap with contours, a log option and hover read-out, plus the emission spectrum per excitation and the excitation spectrum per band, with the mean or median and the standard deviation. Modes: *Single*, *Overlay*, *A - B*, *A / B* (two regions, or the same region in two captures). Optional averaged component decomposition.
+* **Profile**: the bands of one excitation along a line (width in pixels), with a ground-truth trace on a second axis (for example layer thickness); the x axis is in millimetres where the geometry is known. Across a fluorescence spot it shows the spot's width directly.
+* **Response**: a metric (one band, a band ratio, a band-range sum or the peak wavelength) against a ground-truth map (layer thickness, depth, origin depth...), as a binned mean with standard deviation over a faint scatter, with the correlation and first-to-last change. The headline plot is fluorescence versus cover thickness.
+
+![Response of the buried signal versus cover thickness](images/v11-wedge-response.png)
+
+**Defaults for layered blocks.** The first camera band after the excitation line (ex + 20 nm) is dominated by scattered excitation light that leaks through the filter, and it rises with cover thickness while the fluorescence falls. When a capture contains a layered block the Response panel and the Sweep metric therefore start with: the excitation closest to the absorption peak of the buried fluorophore, the band at about ex + 40 nm (clean fluorescence) and *Irradiance-normalised* units. A small hint ("first band near the excitation contains scattered excitation light") appears under the metric whenever a near-excitation band is chosen. You can change all three; the choice is made once per capture.
+
+* **Light field** workspace: fluence, absorbed power or a fluorescence source per layer and dye, as an **XZ section** (depth versus x at a chosen z, in physical coordinates so wedges look like wedges, layer interfaces drawn) and an **XY plan** at a chosen height, plus the lateral-average depth profile per layer. For a beam in the `x`-`y` plane, put the section at `z = 0`.
+* **Sweep**: pick any numeric experiment parameter (searchable: layer thicknesses, dye concentrations, scattering, source power, camera...), a range or a list, *Preview* (one excitation, fast) or *Full*. Each point is a capture; the ROI-averaged metric is plotted as the points arrive, and clicking a point opens its capture. Typical use: cover thickness 0 to 2 mm.
+
+![Sweep over cover thickness](images/v11-wedge-sweep.png)
+
+![Line profile across the pencil-beam fluorescence spot](images/v11-pencil-line-profile.png)
+
+## 14. Using a capture in a notebook
+
+Download a capture as **npz** (Explorer, *Export capture*) and analyse it offline with exactly the functions the UI uses; no server is needed.
+
+<!-- notebook-snippet -->
+```python
+from spectraforge.studio import analysis as an
+
+cap = an.load_npz_capture("my_capture.npz")            # CaptureResult incl. ground truth and 3D volumes
+norm = {"mode": "irradiance_normalized"}                # (ADU - offset) / (exposure x surface irradiance)
+roi = {"shape": "disk", "x": 12, "y": 8, "radius_px": 3}
+eem = an.eem(cap, roi, norm)                            # mean EEM of the disk
+print(eem.unit, eem.excitations_nm)
+curve = an.response_curve(cap, "layer_thickness:cover",
+                          {"kind": "band", "ex": 365, "band_nm": 460}, bins=8, norm=norm)
+print(curve.bin_centres, curve.mean)                    # signal versus local cover thickness
+```
+
+Other functions: `an.roi_stats` (adds ground-truth statistics), `an.line_profile`, `an.normalize` (whole normalised cubes), `an.volume` (3D light-field arrays) and `an.volume_infos`. Dark and white references are passed as `dark=` and `white=` (also loaded with `load_npz_capture`). The snippet above is executed by the test suite (`tests/studio/test_analysis.py`).

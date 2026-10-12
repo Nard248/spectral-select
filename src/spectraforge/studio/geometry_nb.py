@@ -16,6 +16,8 @@ from __future__ import annotations
 import numpy as np
 from numba import njit, prange
 
+from spectraforge.studio._numba_env import parallel_njit
+
 _INF = np.inf
 PT_BOX, PT_SPHERE, PT_CYL, PT_HALF = 0, 1, 2, 3
 MODE_SINGLE, MODE_AND, MODE_DIFF = 0, 1, 2
@@ -291,7 +293,7 @@ def _locate_one(x, y, z, R, P, centers, radius, mode, pkind, pparam):
     return -1
 
 
-@njit(cache=True, parallel=True)
+@parallel_njit(cache=True)
 def first_hit_nb(origins, dirs, t_min, exclude, R, P, centers, radius, mode, pkind, pparam):
     n = origins.shape[0]
     best_t = np.empty(n)
@@ -311,7 +313,7 @@ def first_hit_nb(origins, dirs, t_min, exclude, R, P, centers, radius, mode, pki
     return best_t, best_n, best_s, best_e, best_x
 
 
-@njit(cache=True, parallel=True)
+@parallel_njit(cache=True)
 def locate_nb(points, R, P, centers, radius, mode, pkind, pparam):
     n = points.shape[0]
     res = np.empty(n, np.int64)
@@ -360,7 +362,7 @@ def _refract(dx, dy, dz, nx, ny, nz, n1, n2):
     return tx, ty, tz
 
 
-@njit(cache=True, parallel=True)
+@parallel_njit(cache=True)
 def volume_shadow_nb(pts, u, dist, lit, start, solid_n, solid_clear, fresnel, shadows, eps_t, probe,
                      max_cross, R, P, centers, radius, mode, pkind, pparam):
     """Per sample point: ``T`` (product of Fresnel T from the light-entry face outward, 0 if occluded),

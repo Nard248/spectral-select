@@ -194,3 +194,128 @@ class CaptureResult:
     warnings: list[str] = field(default_factory=list)
     timings_s: dict[str, float] = field(default_factory=dict)
     engine_version: str = "studio-1.0"
+    # ---- v1.1: layered blocks (3D Monte Carlo) --------------------------------------------
+    blocks: list[dict] = field(default_factory=list)
+    #   [{"object_id", "layer_names", "footprint_mm", "world_from_local" (4x4 list)}]
+    volumes: dict[str, dict] = field(default_factory=dict)
+    #   object_id -> {"grid": VoxelGrid, "layer_names": [...],
+    #                 "fluence": {ex: (nx, nz, L, S)}, "absorbed": {ex: (nx, nz, L, S)},
+    #                 "source": {(ex, channel): (nx, nz, L, S)}, "units": {kind: str}}
+
+
+# ============================================================================================
+# 3D layered-block Monte Carlo (transport3d) — contracts
+# ============================================================================================
+# A ``layered_block`` object is solved by an explicit 3D photon-transport simulation instead of
+# the per-pixel transport kernel G. All quantities below are in the block's LOCAL frame: origin at
+# the centre of the bottom face, x ∈ [−X/2, X/2], z ∈ [−Z/2, Z/2], y up. Layer i (0 = bottom) is
+# bounded by the planes y = h_{i−1}(x,z) and y = h_i(x,z) with h_i = a_i + b_i·x + c_i·z
+# (h_{−1} ≡ 0) and by the four vertical side planes. Outside the block is air (n = 1).
+#
+# Two passes per capture:
+#   1. excitation pass (one per excitation step): photons from the source beam enter the block,
+#      scatter / refract / are absorbed; tallies = absorbed power and fluence per voxel, plus the
+#      elastic (excitation-wavelength) radiance leaving each face toward the camera.
+#   2. emission pass (one per emission wavelength node): photons are launched isotropically from
+#      the fluorescence SOURCE volumes (built by capture.py from the absorbed power, quantum
+#      yields, FRET, quenching and bleaching) and carry one weight per source channel; tallies =
+#      radiance leaving each face toward the camera per source channel.
+# Voxels are LAYER-CONFORMING: (ix, iz, layer, sub) with ``sublayers`` cells across each layer's
+# local thickness, so thin and wedge-shaped layers keep full depth resolution.
+
+@dataclass
+class BlockGeometry:
+    """Planar-interface description of one layered block (local frame)."""
+
+    object_index: int                       # index into experiment.objects
+    footprint_mm: tuple[float, float]       # (X, Z)
+    layer_names: list[str]
+    layer_material: list[int]               # index into experiment.materials, bottom → top
+    plane_coeffs: np.ndarray                # (L, 3) [a, b, c] of the TOP interface of each layer
+    world_from_local: np.ndarray            # (4, 4) homogeneous transform (rotation + translation)
+
+    def top_height(self, layer: int, x, z):
+        a, b, c = self.plane_coeffs[layer]
+        return a + b * np.asarray(x) + c * np.asarray(z)
+
+
+@dataclass
+class VoxelGrid:
+    """Layer-conforming tally grid."""
+
+    nx: int
+    nz: int
+    n_layers: int
+    sublayers: int
+    x_edges_mm: np.ndarray                  # (nx+1,)
+    z_edges_mm: np.ndarray                  # (nz+1,)
+
+    @property
+    def shape(self) -> tuple[int, int, int, int]:
+        return (self.nx, self.nz, self.n_layers, self.sublayers)
+
+
+@dataclass
+class FaceGrid:
+    """Exit-radiance tally grid on one block face. Faces: 'top' (the top interface plane), '+x',
+    '-x', '+z', '-z' (vertical sides). (u, v) are face-local coordinates: for 'top' u = x, v = z;
+    for ±x faces u = z, v = y; for ±z faces u = x, v = y (all mm, local frame)."""
+
+    face: str
+    u_edges_mm: np.ndarray
+    v_edges_mm: np.ndarray
+
+
+@dataclass
+class BlockLaunch:
+    """Excitation photons entering a block for one excitation step (sampled by capture.py from the
+    source beam, the block's faces and shadowing by other objects)."""
+
+    ex_nm: float
+    points_local: np.ndarray                # (N, 3) points on the block surface
+    dirs_local: np.ndarray                  # (N, 3) unit propagation directions (into the block)
+    power_mW: np.ndarray                    # (N,) power carried by each launch sample (sum =
+                                            #   power incident on the block, before Fresnel)
+    line_weights: np.ndarray | None = None  # optional (n_lambda,) excitation line shape samples
+
+
+@dataclass
+class RegionOptics:
+    """Optics of every layer at ONE wavelength (arrays of length L)."""
+
+    lambda_nm: float
+    mua_per_mm: np.ndarray                  # (L,)
+    mus_per_mm: np.ndarray                  # (L,)
+    g: np.ndarray                           # (L,)
+    n: np.ndarray                           # (L,)
+
+
+@dataclass
+class ExcitationTallies:
+    ex_nm: float
+    grid: VoxelGrid
+    absorbed_mW: np.ndarray                 # (nx, nz, L, S) power absorbed per voxel (all absorbers)
+    fluence_mW_mm2: np.ndarray              # (nx, nz, L, S) fluence rate (track-length estimator)
+    elastic_radiance: dict[str, np.ndarray]  # face -> (nu, nv) mW/(mm²·sr) toward the camera
+    faces: dict[str, FaceGrid]
+    diffuse_reflectance: float              # total remitted / incident (diagnostic)
+    transmittance: float                    # left through bottom / sides (diagnostic)
+    absorbed_fraction: float                # (diagnostic; R + T + A ≈ 1 − specular)
+    n_photons: int = 0
+    info: dict = field(default_factory=dict)
+
+
+@dataclass
+class EmissionTallies:
+    em_nodes_nm: np.ndarray                 # (Ne,)
+    channels: list[str]                     # source channel labels, e.g. "365|tissue|NADH"
+    radiance: dict[str, np.ndarray]         # face -> (nu, nv, Ne, C) radiance toward the camera
+                                            #   per unit emitted spectral density: mW/(mm²·sr) per
+                                            #   (mW/nm) → multiply by e_k(λ) [1/nm] and the channel
+                                            #   source power to get mW/(mm²·sr·nm)
+    faces: dict[str, FaceGrid]
+    origin_depth_mm: dict[str, np.ndarray] | None = None  # face -> (nu, nv) mean source depth
+                                            #   below the top surface of escaping light (diagnostic)
+    origin_layer_fraction: dict[str, np.ndarray] | None = None  # face -> (nu, nv, L)
+    n_photons: int = 0
+    info: dict = field(default_factory=dict)

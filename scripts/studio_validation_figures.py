@@ -632,8 +632,493 @@ def fig_laser():
     save(fig, "fig11_laser_line_demo.png")
 
 
+# ================================================================ 12-17. layered blocks (3D Monte Carlo)
+def _blk_geom(layers, fp):
+    from spectraforge.studio import transport3d as T3
+    from spectraforge.studio.contracts import BlockGeometry
+    return BlockGeometry(0, tuple(map(float, fp)), [f"l{i}" for i in range(len(layers))], list(range(len(layers))),
+                         T3.planes_from_layers(fp, layers), np.eye(4))
+
+
+def _blk_opt(mua, mus, g, n, lam=500.0):
+    from spectraforge.studio.contracts import RegionOptics
+    a = lambda v: np.atleast_1d(np.asarray(v, float))
+    return RegionOptics(lam, a(mua), a(mus), a(g), a(n))
+
+
+def _blk_cfg(lateral, exit, sub=4, ang=12.0):
+    from spectraforge.studio.schema import VolumeMCSettings
+    return VolumeMCSettings(lateral_cell_mm=lateral, exit_cell_mm=exit, sublayers=sub, acceptance_half_angle_deg=ang)
+
+
+def _blk_exp(name, ex_nm, photons, cell=0.5):
+    """A layered-block preset reduced to one excitation, noise-free sensor, bleaching off, full photon
+    fraction at the half-resolution scale used by the figures."""
+    exp = presets.preset(name)
+    src = exp.source()
+    seq = [s for s in src.sequence if s.enabled and abs(s.wavelength_nm - ex_nm) < 1e-6]
+    tg = exp.acquisition.physics.model_copy(update=dict(
+        power_drift=False, shot_noise=False, read_noise=False, dark_current=False, fixed_pattern_noise=False,
+        photobleaching=False))
+    vs = exp.acquisition.volume_mc.model_copy(update=dict(
+        excitation_photons=photons, emission_photons=photons, preview_fraction=1.0, lateral_cell_mm=cell,
+        exit_cell_mm=cell))
+    acq = exp.acquisition.model_copy(update=dict(physics=tg, volume_mc=vs))
+    return exp.model_copy(update=dict(
+        sources=[src.model_copy(update=dict(sequence=seq)) if s.id == src.id else s for s in exp.sources],
+        acquisition=acq))
+
+
+# ---------------------------------------------------------------- (a) 3D vs MCML / 1-D
+def fig_blk_validation():
+    from spectraforge.studio import transport3d as T3
+    from spectraforge.studio.contracts import MaterialOptics
+    from spectraforge.studio.schema import ThicknessProfile as TP
+    npho = 600_000 if QUICK else 4_000_000
+    rows = []
+    # 1. homogeneous slab R/T/A vs MCML
+    for lab, (mua, mus, g, n, d) in {"benchmark (n=1)": (1.0, 9.0, 0.75, 1.0, 0.2), "index mismatch n=1.4": (1.0, 9.0, 0.75, 1.4, 0.2),
+                                    "tissue-like": (0.1, 20.0, 0.9, 1.38, 1.0)}.items():
+        G = _blk_geom([TP(thickness_mm=d)], (200.0, 200.0))
+        launch = T3.uniform_beam_launch(G, 500.0, 1.0, 200_000)
+        r = T3.excitation_pass(G, _blk_opt(mua, mus, g, n), launch, [0, 1, 0], _blk_cfg(100, 100), n_photons=npho, seed=1)
+        ref = mc.mcml_slab(mua, mus, g, n, 1.0, d, n_photons=npho, seed=3)
+        for q, v, rf in (("R", r.diffuse_reflectance, ref["Rd"]), ("T", r.transmittance, ref["Tt"]), ("A", r.absorbed_fraction, ref["A"])):
+            rows.append((f"slab {lab}", q, v, rf, "MCML (transport_mc.mcml_slab)"))
+        rows.append((f"slab {lab}", "R+T+A+spec", r.info["energy_balance"], 1.0, "energy balance"))
+    # 2. fluorescent layer vs the 1-D kernels
+    EX, EM = 405.0, 520.0
+    mua_ex, mus_ex, mua_em, mus_em, g, n = 0.30, 12.0, 0.10, 9.0, 0.8, 1.4
+    mua_dye, phi, d = 0.20, 0.5, 2.0
+    G = _blk_geom([TP(thickness_mm=d)], (60.0, 60.0))
+    s = _blk_cfg(20, 20, sub=64)
+    launch = T3.uniform_beam_launch(G, EX, 1.0, 400_000)
+    ex = T3.excitation_pass(G, _blk_opt(mua_ex, mus_ex, g, n, EX), launch, [0, 1, 0], s, n_photons=npho * 2, seed=1)
+    src = np.zeros((1,) + ex.absorbed_mW.shape)
+    src[0, :, :, 0, :] = ex.absorbed_mW[:, :, 0, :] * (mua_dye / mua_ex) * phi
+    em = T3.emission_pass(G, [_blk_opt(mua_em, mus_em, g, n, EM)], src, ["dye"], [0, 1, 0], s, n_photons=npho * 2, seed=2)
+    lo = GRID <= EX + 1e-9
+    m1 = MaterialOptics("m", GRID, np.where(lo, mua_ex, mua_em).astype(float), {}, np.where(lo, mus_ex, mus_em).astype(float), g, n, False, {}, {})
+    k = T.get_transport_model().kernels(m1, EX, np.array([1.0]), np.array([1.0]), np.array([d]), 1.0)
+    E = 1.0 / (60.0 * 60.0)
+    L3, L1 = em.radiance["top"][1, 1, 0, 0], E * mua_dye * phi * k.fluorescence_G[0, int(np.argmin(abs(GRID - EM)))]
+    rows += [("fluorescent layer, 2 mm, 60 mm footprint", "fluorescence radiance", L3, L1, "1-D kernel E mu_a,d Phi e G"),
+             ("", "elastic radiance / E", ex.elastic_radiance["top"][1, 1] / E, k.elastic_rho[0], "1-D kernel rho")]
+    # 3. stacked identical layers == one layer
+    G1 = _blk_geom([TP(thickness_mm=1.0)], (100.0, 100.0))
+    G2 = _blk_geom([TP(thickness_mm=0.4), TP(thickness_mm=0.6)], (100.0, 100.0))
+    o1, o2 = _blk_opt(0.3, 12.0, 0.8, 1.4), _blk_opt([0.3, 0.3], [12.0, 12.0], [0.8, 0.8], [1.4, 1.4])
+    l1 = T3.uniform_beam_launch(G1, 500.0, 1.0, 200_000)
+    a = T3.excitation_pass(G1, o1, l1, [0, 1, 0], _blk_cfg(100, 100), n_photons=npho, seed=1)
+    b = T3.excitation_pass(G2, o2, l1, [0, 1, 0], _blk_cfg(100, 100), n_photons=npho, seed=2)
+    rows += [("two identical layers (0.4+0.6 mm) vs one (1.0 mm)", "R", b.diffuse_reflectance, a.diffuse_reflectance, "single layer"),
+             ("", "T", b.transmittance, a.transmittance, ""), ("", "A", b.absorbed_fraction, a.absorbed_fraction, "")]
+    NUM["blk_validation"] = [dict(case=c, quantity=q, engine=float(v), reference=float(rf), note=nt, rel_err=float(v / rf - 1))
+                             for c, q, v, rf, nt in rows]
+    fig, ax = plt.subplots(1, 2, figsize=(13.2, 0.36 * len(rows) + 1.5), gridspec_kw=dict(width_ratios=[1.55, 1]))
+    ax[0].axis("off")
+    import textwrap
+    cells = [[textwrap.fill(c, 24), textwrap.fill(q, 14), f"{v:.4g}", f"{rf:.4g}", f"{100 * (v / rf - 1):+.2f} %", textwrap.fill(nt, 24)] for c, q, v, rf, nt in rows]
+    tb = ax[0].table(cellText=cells, colLabels=["case", "quantity", "3D", "reference", "diff.", "reference"],
+                     loc="center", cellLoc="left", colWidths=[0.30, 0.15, 0.10, 0.11, 0.10, 0.24])
+    tb.auto_set_font_size(False)
+    tb.set_fontsize(7.0)
+    tb.scale(1, 2.0)
+    for (i, j), cell in tb.get_celld().items():
+        cell.set_edgecolor("#cccccc")
+        if i == 0:
+            cell.set_facecolor("#e8eef5")
+            cell.set_text_props(weight="bold")
+    diffs = [100 * (v / rf - 1) for c, q, v, rf, nt in rows]
+    ax[1].barh(np.arange(len(rows))[::-1], diffs, color=[C["a"] if abs(x) < 1.0 else C["b"] for x in diffs])
+    ax[1].axvspan(-1, 1, color=C["g"], alpha=0.2)
+    ax[1].set_yticks([])
+    ax[1].set_xlabel("3D engine vs reference (%)   [grey band: ±1 %]")
+    ax[1].set_title("deviation from the reference")
+    save(fig, "fig12_blk_3d_vs_reference.png")
+
+
+# ---------------------------------------------------------------- (b) bottom boundary
+def _slab_capture_pair(th, photons):
+    """Block vs 1-D box capture of the same fluorescent single-layer slab (secondary emission off in both)."""
+    from spectraforge.studio.schema import BlockLayer, BoxShape, LayeredBlockShape, ThicknessProfile, Transform
+    base = _blk_exp("layered_wedge_phantom", 490.0, photons, cell=1.5)
+    tg = base.acquisition.physics.model_copy(update=dict(specular_glints=False, secondary_emission=False))
+    mat = "fluorescein_agarose_layer"
+
+    def build(shape, y):
+        o = base.objects[0].model_copy(update=dict(shape=shape, material_id=mat, transform=Transform(position_mm=(0, y, 0), rotation_deg=(0, 0, 0))))
+        return base.model_copy(update=dict(objects=[o], acquisition=base.acquisition.model_copy(update=dict(physics=tg))))
+
+    blk = LayeredBlockShape(footprint_mm=(60, 60), layers=[BlockLayer(name="slab", material_id=mat, thickness=ThicknessProfile(thickness_mm=th))])
+    rb = cap.capture(build(blk, 0.5), scale=0.5)          # slab standing above the stage plane (see the page text)
+    rx = cap.capture(build(BoxShape(size_mm=(60, th, 60)), 0.5 + th / 2), scale=0.5)
+    ex = rb.excitations_nm[0]
+    H, W = rb.radiance[ex].shape[:2]
+    sl = (slice(H // 2 - 6, H // 2 + 6), slice(W // 2 - 6, W // 2 + 6))
+    return rb.emission_nm[ex], rb.radiance[ex][sl].mean(axis=(0, 1)), rx.radiance[ex][sl].mean(axis=(0, 1))
+
+
+def fig_blk_bottom():
+    from spectraforge.studio import transport3d as T3
+    from spectraforge.studio.schema import ThicknessProfile as TP
+    fig, ax = plt.subplots(1, 3, figsize=(14.0, 4.2), layout="constrained")
+    # (i) clear slab: closed form with a Fresnel bottom (reflected part stays in the block)
+    cases = [(1.33, 0.2, 2.0), (1.5, 0.5, 1.0), (2.0, 1.0, 0.5)]
+    labels, mcT, anT, mcR, anR, sinkT = [], [], [], [], [], []
+    G_cache = {}
+    for n, mua, d in cases:
+        G = _blk_geom([TP(thickness_mm=d)], (400.0, 400.0))
+        launch = T3.uniform_beam_launch(G, 500.0, 1.0, 5000, beam_half_size_mm=(50.0, 50.0))
+        r = T3.excitation_pass(G, _blk_opt(mua, 0.0, 0.0, n), launch, [0, 1, 0], _blk_cfg(200, 200, 2), n_photons=100_000, seed=2)
+        R0 = ((n - 1) / (n + 1)) ** 2
+        e = np.exp(-mua * d)
+        den = 1 - R0 ** 2 * e ** 2
+        labels.append(f"n={n}\nμa d={mua * d:.1f}")
+        mcT.append(r.info["T_bottom"]); anT.append((1 - R0) ** 2 * e / den)
+        mcR.append(r.info["R_top"]); anR.append((1 - R0) ** 2 * R0 * e ** 2 / den)
+        sinkT.append((1 - R0) * e)
+    x = np.arange(len(cases))
+    ax[0].bar(x - 0.2, mcT, 0.38, color=C["a"], label="3D engine: light lost through the bottom, $T_{bot}$")
+    ax[0].plot(x - 0.2, anT, "k_", ms=18, mew=2, label="closed form (Fresnel bottom)")
+    ax[0].plot(x - 0.2, sinkT, "v", color=C["b"], label="perfect sink bottom (rejected)")
+    ax[0].bar(x + 0.2, mcR, 0.38, color=C["c"], label="3D: diffuse reflectance, $R_{top}$")
+    ax[0].plot(x + 0.2, anR, "k_", ms=18, mew=2)
+    ax[0].set_xticks(x, labels)
+    ax[0].set_ylabel("fraction of the incident power")
+    ax[0].set_title("Clear slab, wide normal beam: bottom = Fresnel interface")
+    ax[0].legend(fontsize=7, loc="upper right")
+    ax[0].set_ylim(0, 0.95)
+    NUM["blk_bottom_clear"] = [dict(n=c[0], mua=c[1], d=c[2], T_mc=float(a), T_ref=float(b), R_mc=float(cc), R_ref=float(dd))
+                               for c, a, b, cc, dd in zip(cases, mcT, anT, mcR, anR)]
+    # (ii) 6 mm and 1 mm turbid fluorescent slab, block vs 1-D engine, capture level
+    NUM["blk_bottom_slab"] = {}
+    for a_, th in zip(ax[1:], (6.0, 1.0)):
+        em, b, xx = _slab_capture_pair(th, 400_000 if QUICK else 2_000_000)
+        sel = (em >= 495) & (em <= 625) & (xx > 1e-3 * xx.max())
+        ratio = float(b[sel].sum() / xx[sel].sum())
+        a_.plot(em, xx / xx.max(), color=C["k"], label="1-D engine (box)")
+        a_.plot(em, b / xx.max(), color=C["b"], ls="--", label="3D block engine")
+        a_.set_xlabel("emission (nm)")
+        a_.set_ylabel("radiance (normalised to 1-D peak)")
+        a_.set_title(f"{th:g} mm turbid fluorescent slab: block / 1-D = {ratio:.3f}")
+        a_.legend(fontsize=8)
+        NUM["blk_bottom_slab"][f"{th:g}mm"] = ratio
+    fig.suptitle("Bottom-boundary consistency of the 3D block engine with the 1-D slab engine (secondary emission off in both)", fontsize=10)
+    save(fig, "fig13_blk_bottom_boundary.png")
+
+
+# ---------------------------------------------------------------- (c) peel-off vs cone
+def fig_blk_peel():
+    from spectraforge.studio import transport3d as T3
+    from spectraforge.studio.schema import ThicknessProfile as TP
+    WED = lambda t0, t1, ax_="x": TP(kind="linear", thickness_mm=t0, end_thickness_mm=t1, axis=ax_)
+    cases = {
+        "single layer, n=1.4": ([TP(thickness_mm=1.0)], _blk_opt(0.3, 12.0, 0.8, 1.4), _blk_opt(0.1, 9.0, 0.8, 1.4), (0, 1, 0), (0, -1, 0)),
+        "single layer, n=1": ([TP(thickness_mm=1.0)], _blk_opt(0.3, 12.0, 0.8, 1.0), _blk_opt(0.1, 9.0, 0.8, 1.0), (0, 1, 0), (0, -1, 0)),
+        "wedge, oblique cam+beam": ([TP(thickness_mm=1.5), WED(2.0, 0.0)], _blk_opt([0.2, 0.3], [10.0, 15.0], [0.8, 0.9], [1.4, 1.36]),
+                                    _blk_opt([0.1, 0.2], [9.0, 12.0], [0.8, 0.9], [1.4, 1.36]), (0.5, 0.8, -0.3), (0.3, -0.9, 0.1)),
+        "clear cover, mismatch": ([TP(thickness_mm=1.0), TP(thickness_mm=0.8)], _blk_opt([0.2, 0.05], [10.0, 0.0], [0.8, 0.9], [1.4, 1.5]),
+                                  _blk_opt([0.1, 0.05], [9.0, 0.0], [0.8, 0.9], [1.4, 1.5]), (0.2, 1, 0.1), (0, -1, 0)),
+    }
+    npho = 500_000 if QUICK else 3_000_000
+    s = _blk_cfg(5.0, 5.0, 2)
+    rat = {}
+    for name, (layers, ex_o, em_o, cam, dirn) in cases.items():
+        G = _blk_geom(layers, (30.0, 30.0))
+        cam = tuple(np.asarray(cam, float) / np.linalg.norm(cam))
+        launch = T3.uniform_beam_launch(G, 500.0, 1.0, 50_000, direction=dirn, seed=1)
+        vals = {}
+        for peel in (False, True):
+            vv = []
+            for sd in (1, 2):
+                e = T3.excitation_pass(G, ex_o, launch, cam, s, n_photons=npho, seed=sd, peel_off=peel)
+                em = T3.emission_pass(G, [em_o], e.absorbed_mW[None].copy(), ["a"], cam, s, n_photons=npho, seed=sd + 10, peel_off=peel)
+                vv.append((e.elastic_radiance["top"][1:5, 1:5].sum(), em.radiance["top"][1:5, 1:5, 0, 0].sum()))
+            vals[peel] = np.array(vv)
+        r_el = vals[True][:, 0] / vals[False][:, 0]
+        r_fl = vals[True][:, 1] / vals[False][:, 1]
+        rat[name] = (r_el.mean(), abs(np.diff(r_el))[0] / 2 + 1e-9, r_fl.mean(), abs(np.diff(r_fl))[0] / 2 + 1e-9)
+    NUM["blk_peel_ratio"] = {k: dict(elastic=float(v[0]), fluorescence=float(v[2])) for k, v in rat.items()}
+    # noise vs photons on a uniform field (1 mm exit cells) and a lateral profile across a wedge
+    G = _blk_geom([TP(thickness_mm=1.0)], (30.0, 30.0))
+    o = _blk_opt(0.3, 12.0, 0.8, 1.4)
+    launch = T3.uniform_beam_launch(G, 500.0, 1.0, 50_000, seed=1)
+    s1 = _blk_cfg(5.0, 1.0, 2)
+    ns = [100_000, 300_000, 1_000_000] if QUICK else [100_000, 300_000, 1_000_000, 3_000_000]
+    cv = {False: [], True: []}
+    for peel in (False, True):
+        for nn in ns:
+            r = T3.excitation_pass(G, o, launch, [0, 1, 0], s1, n_photons=nn, seed=1, peel_off=peel)
+            a_ = r.elastic_radiance["top"][8:22, 8:22]
+            cv[peel].append(float(a_.std() / a_.mean()))
+    NUM["blk_peel_noise"] = dict(photons=ns, cv_cone=cv[False], cv_peel=cv[True],
+                                 std_reduction_at_equal_photons=[a / b for a, b in zip(cv[False], cv[True])])
+    Gw = _blk_geom([TP(thickness_mm=1.5), WED(2.0, 0.0)], (30.0, 30.0))
+    ow = _blk_opt([0.2, 0.3], [10.0, 15.0], [0.8, 0.9], [1.4, 1.36])
+    lw = T3.uniform_beam_launch(Gw, 500.0, 1.0, 50_000, seed=1)
+    sw = _blk_cfg(5.0, 0.75, 2)
+    prof = {}
+    for peel in (False, True):
+        r = T3.excitation_pass(Gw, ow, lw, [0, 1, 0], sw, n_photons=ns[-2], seed=3, peel_off=peel)
+        prof[peel] = r.elastic_radiance["top"]
+    fg = r.faces["top"]
+    xc = 0.5 * (fg.u_edges_mm[1:] + fg.u_edges_mm[:-1])
+    fig, ax = plt.subplots(1, 3, figsize=(14.2, 4.2), layout="constrained")
+    names = list(rat)
+    yy = np.arange(len(names))
+    ax[0].errorbar([rat[n][0] for n in names], yy + 0.12, xerr=[rat[n][1] for n in names], fmt="o", color=C["a"], label="elastic")
+    ax[0].errorbar([rat[n][2] for n in names], yy - 0.12, xerr=[rat[n][3] for n in names], fmt="s", color=C["b"], label="fluorescence")
+    ax[0].axvline(1, color=C["k"], lw=1)
+    ax[0].axvspan(0.98, 1.02, color=C["g"], alpha=0.2)
+    ax[0].set_yticks(yy, names, fontsize=8)
+    ax[0].set_xlabel("peel-off / cone estimator (region sum)  [grey: ±2 %]")
+    ax[0].set_title("Two estimators, same answer")
+    ax[0].legend(fontsize=8, loc="lower left")
+    ax[1].plot(xc, prof[False][:, 20:30].mean(1), color=C["g"], label=f"cone estimator, {ns[-2]:.0e} photons")
+    ax[1].plot(xc, prof[True][:, 20:30].mean(1), color=C["b"], label="peel-off, same photons")
+    ax[1].set_xlabel("x across the wedge (mm)")
+    ax[1].set_ylabel("elastic radiance (mW mm⁻² sr⁻¹ per mW)")
+    ax[1].set_title("0.75 mm cells, row-averaged over 7 cells in z")
+    ax[1].legend(fontsize=8)
+    ax[2].loglog(ns, cv[False], "o-", color=C["g"], label="cone")
+    ax[2].loglog(ns, cv[True], "s-", color=C["b"], label="peel-off")
+    ax[2].loglog(ns, cv[False][0] * np.sqrt(ns[0] / np.array(ns)), ":", color=C["k"], lw=1, label="$1/\\sqrt{N}$")
+    ax[2].set_xlabel("photons")
+    ax[2].set_ylabel("cell-to-cell noise (CV, 1 mm cells)")
+    ax[2].set_title(f"Noise at equal photons: ×{cv[False][-1] / cv[True][-1]:.1f} lower")
+    ax[2].legend(fontsize=8, loc="lower left")
+    save(fig, "fig14_blk_peel_vs_cone.png")
+
+
+# ---------------------------------------------------------------- (d) wedge response and (f) collagen
+def _bin_components(exp, res, gt_name, edges, keys, per_bin=8, margin=0.12, scale=0.5):
+    """explain_pixel components of pixels in thickness bins (cached 3D Monte Carlo => fast). Returns per-bin
+    {key-group: spectrum / irradiance} on the band axis, bin centres and counts. Pixels near the block edge are skipped."""
+    ex = res.excitations_nm[0]
+    gt = res.ground_truth[gt_name]
+    fin = np.isfinite(gt)
+    ys, xs = np.nonzero(fin)
+    y0, y1 = np.percentile(ys, [25, 75])
+    x0, x1 = np.percentile(xs, [margin * 100, 100 - margin * 100])
+    ok = fin & (np.arange(gt.shape[0])[:, None] >= y0) & (np.arange(gt.shape[0])[:, None] <= y1) \
+        & (np.arange(gt.shape[1])[None, :] >= x0) & (np.arange(gt.shape[1])[None, :] <= x1)
+    out = []
+    for a, b in zip(edges[:-1], edges[1:]):
+        yy, xx = np.nonzero(ok & (gt >= a) & (gt < b))
+        if yy.size == 0:
+            out.append(None)
+            continue
+        pick = np.linspace(0, yy.size - 1, min(per_bin, yy.size)).astype(int)
+        acc = {g: 0.0 for g in keys}
+        n = 0
+        for i in pick:
+            e = cap.explain_pixel(exp, int(xx[i]), int(yy[i]), scale=scale)
+            E = e["ground_truth"][f"irradiance@{ex:g}"]
+            comp = e["components"][f"{ex:g}"]
+            for g, pred in keys.items():
+                tot = np.zeros(len(e["emission_nm"][f"{ex:g}"]))
+                for k, v in comp.items():
+                    if pred(k):
+                        tot += np.array(v)
+                acc[g] = acc[g] + tot / E
+            n += 1
+        out.append({g: v / n for g, v in acc.items()})
+    return out, 0.5 * (edges[:-1] + edges[1:]), np.array(res.emission_nm[ex])
+
+
+def _band_curves(res, gt_name, edges, margin=0.12, waves=None):
+    """Band radiance binned by local cover thickness: raw and divided by the ground-truth surface irradiance,
+    for the first band behind the excitation line (ex+20 nm, where the elastic leak competes) and for ex+40 nm."""
+    ex = res.excitations_nm[0]
+    em = np.array(res.emission_nm[ex])
+    gt = res.ground_truth[gt_name]
+    E = res.ground_truth[f"irradiance@{ex:g}"]
+    img = res.radiance[ex]
+    fin = np.isfinite(gt)
+    ys, xs = np.nonzero(fin)
+    rows = (np.arange(gt.shape[0])[:, None] > np.percentile(ys, 30)) & (np.arange(gt.shape[0])[:, None] < np.percentile(ys, 70))
+    cols = (np.arange(gt.shape[1])[None, :] > np.percentile(xs, margin * 100)) & (np.arange(gt.shape[1])[None, :] < np.percentile(xs, 100 - margin * 100))
+    ok = fin & rows & cols & (E > 0)
+    out = {}
+    for lab, w in zip(("first", "second"), waves or (ex + 20, ex + 40)):
+        b = int(np.argmin(abs(em - w)))
+        raw, nrm = [], []
+        for a, c in zip(edges[:-1], edges[1:]):
+            m = ok & (gt >= a) & (gt < c)
+            raw.append(img[:, :, b][m].mean() if m.any() else np.nan)
+            nrm.append((img[:, :, b] / np.where(E > 0, E, np.nan))[m].mean() if m.any() else np.nan)
+        out[lab] = (float(em[b]), np.array(raw), np.array(nrm))
+    return out
+
+
+def _plot_band_curves(a_, ctr, cur, title):
+    for lab, col in (("first", C["b"]), ("second", C["c"])):
+        wl, raw, nrm = cur[lab]
+        a_.plot(ctr, raw / raw[-1], "--", color=col, alpha=0.6, label=f"{wl:.0f} nm band, raw radiance")
+        a_.plot(ctr, nrm / nrm[-1], "-o", color=col, label=f"{wl:.0f} nm band, ÷ surface irradiance")
+    a_.axhline(1, color=C["g"], lw=0.6)
+    a_.set_xlabel("local cover thickness (mm)")
+    a_.set_ylabel("band radiance (norm. to the thickest bin)")
+    a_.set_title(title, fontsize=9)
+    a_.legend(fontsize=7)
+
+
+def fig_blk_wedge():
+    photons = 1_000_000 if QUICK else 5_000_000
+    fig, ax = plt.subplots(2, 3, figsize=(16.0, 7.6), layout="constrained")
+    NUM["blk_wedge"] = {}
+    # ---- layered_wedge_phantom: buried fluorescein under a turbid cover (0 -> 2 mm)
+    exp = _blk_exp("layered_wedge_phantom", 490.0, photons)
+    res = cap.capture(exp, scale=0.5)
+    edges = np.linspace(0.15, 1.85, 9)
+    cur = _band_curves(res, "layer_thickness:cover", edges)
+    _plot_band_curves(ax[0, 2], 0.5 * (edges[:-1] + edges[1:]), cur, "band curves: the first band is elastic-contaminated;\nx = pick ex+40 nm and divide by the surface irradiance")
+    NUM["blk_wedge_band_curves"] = {k: dict(band_nm=v[0], raw=v[1].tolist(), per_irradiance=v[2].tolist()) for k, v in cur.items()}
+    dat, ctr, em = _bin_components(exp, res, "layer_thickness:cover", edges, {"fl": lambda k: k.startswith("dye:fluorescein")})
+    sig = np.array([d["fl"].sum() if d else np.nan for d in dat])
+    blue, red = (em >= 495) & (em < 525), (em >= 535) & (em < 560)
+    ratio = np.array([d["fl"][blue].sum() / d["fl"][red].sum() if d else np.nan for d in dat])
+    ax[0, 0].semilogy(ctr, sig / sig[0], "o-", color=C["c"], label="3D Monte Carlo")
+    mu = -np.polyfit(ctr[np.isfinite(sig)], np.log(sig[np.isfinite(sig)] / sig[0]), 1)[0]
+    ax[0, 0].semilogy(ctr, np.exp(-mu * (ctr - ctr[0])) , "--", color=C["k"], lw=1, label=f"exp(−{mu:.2f} t) fit: effective attenuation of the cover")
+    ax[0, 0].set_xlabel("local cover thickness (mm)")
+    ax[0, 0].set_ylabel("buried fluorescein signal / irradiance\n(norm. to thinnest bin)")
+    ax[0, 0].set_title("layered_wedge_phantom (cover: intralipid-like, 490 nm)")
+    ax[0, 0].legend(fontsize=8)
+    ax[0, 1].plot(ctr, ratio, "o-", color=C["d"])
+    ax[0, 1].set_xlabel("local cover thickness (mm)")
+    ax[0, 1].set_ylabel("blue (495–525 nm) / red (535–560 nm)")
+    ax[0, 1].set_title("spectral distortion of the buried emission by the cover")
+    ax[0, 1].set_ylim(0, 1.25 * np.nanmax(ratio))        # full scale: a 2 % wobble must not look like a trend
+    NUM["blk_wedge"]["wedge"] = dict(thickness=ctr.tolist(), signal=sig.tolist(), blue_red=ratio.tolist(), mu_eff_fit_per_mm=float(mu))
+    # ---- tissue_under_collagen: buried NADH/FAD tissue under a collagen cover (1.5 -> 0.05 mm)
+    exp2 = _blk_exp("tissue_under_collagen", 365.0, photons)
+    res2 = cap.capture(exp2, scale=0.5)
+    edges2 = np.linspace(0.12, 1.45, 9)
+    dat2, ctr2, em2 = _bin_components(exp2, res2, "layer_thickness:collagen", edges2, {
+        "tissue": lambda k: k.endswith("@tissue"), "collagen": lambda k: k.endswith("@collagen")})
+    cur2 = _band_curves(res2, "layer_thickness:collagen", edges2, waves=(440.0, 520.0))
+    _plot_band_curves(ax[1, 2], 0.5 * (edges2[:-1] + edges2[1:]), cur2, "tissue_under_collagen band curves")
+    sig2 = np.array([d["tissue"].sum() if d else np.nan for d in dat2])
+    b2, r2 = (em2 >= 420) & (em2 < 480), (em2 >= 520) & (em2 < 600)
+    ratio2 = np.array([d["tissue"][b2].sum() / d["tissue"][r2].sum() if d else np.nan for d in dat2])
+    ax[1, 0].semilogy(ctr2, sig2 / sig2[0], "o-", color=C["c"])
+    ax[1, 0].set_xlabel("local collagen thickness (mm)")
+    ax[1, 0].set_ylabel("buried tissue (NADH+FAD) signal / irradiance\n(norm. to thinnest bin)")
+    ax[1, 0].set_title("tissue_under_collagen (365 nm)")
+    ax[1, 1].plot(ctr2, ratio2, "o-", color=C["d"])
+    ax[1, 1].set_xlabel("local collagen thickness (mm)")
+    ax[1, 1].set_ylabel("blue (420–480 nm) / green-red (520–600 nm)")
+    ax[1, 1].set_title("spectral distortion of the tissue emission (noisy: 8 px/bin)")
+    ax[1, 1].set_ylim(0, 1.25 * np.nanmax(ratio2))
+    NUM["blk_wedge"]["tissue"] = dict(thickness=ctr2.tolist(), signal=sig2.tolist(), blue_red=ratio2.tolist())
+    fig.suptitle("Buried-fluorophore signal and spectral distortion vs local cover thickness (noise-free sensor; 8 pixels per bin; "
+                 "pixels ≥ 12 % of the block width from the edges)", fontsize=9.5)
+    save(fig, "fig15_blk_wedge_response.png")
+    # ---- (f) collagen autofluorescence vs collagen thickness
+    col = np.array([d["collagen"].sum() if d else np.nan for d in dat2])
+    fig, ax = plt.subplots(1, 2, figsize=(11.2, 4.2), layout="constrained")
+    ax[0].plot(ctr2, col / np.nanmax(col), "o-", color=C["b"], label="collagen + elastin autofluorescence")
+    ax[0].plot(ctr2, sig2 / np.nanmax(sig2), "s-", color=C["a"], label="buried tissue (NADH + FAD)")
+    # saturating law  A (1 - exp(-t/ell))  for the cover's own emission (excitation attenuated both ways)
+    ok = np.isfinite(col)
+    from scipy.optimize import curve_fit
+    try:
+        popt, _ = curve_fit(lambda t, A, ell: A * (1 - np.exp(-t / ell)), ctr2[ok], col[ok] / np.nanmax(col), p0=[1.5, 0.8])
+        tt = np.linspace(ctr2[ok][0], ctr2[ok][-1], 50)
+        ax[0].plot(tt, popt[0] * (1 - np.exp(-tt / popt[1])), ":", color=C["k"], label=f"A(1−e^(−t/ℓ)), ℓ = {popt[1]:.2f} mm")
+        NUM["blk_wedge"]["collagen_ell_mm"] = float(popt[1])
+    except Exception:
+        pass
+    ax[0].set_xlabel("local collagen thickness (mm)")
+    ax[0].set_ylabel("signal / irradiance (norm. to its maximum)")
+    ax[0].set_title("Cover autofluorescence grows, the buried signal falls")
+    ax[0].legend(fontsize=8)
+    for d, c_, lab in ((dat2[1], C["a"], f"{ctr2[1]:.2f} mm"), (dat2[-2], C["b"], f"{ctr2[-2]:.2f} mm")):
+        if d:
+            ax[1].plot(em2, d["tissue"] + d["collagen"], color=c_, label=f"total, collagen {lab}")
+            ax[1].plot(em2, d["collagen"], color=c_, ls="--", lw=1.2, label=f"  of which collagen AF")
+    ax[1].set_xlabel("emission (nm)")
+    ax[1].set_ylabel("band radiance / irradiance")
+    ax[1].set_title("Band spectra at a thin and a thick collagen cover")
+    ax[1].legend(fontsize=7.5)
+    NUM["blk_wedge"]["collagen_af"] = dict(thickness=ctr2.tolist(), signal=col.tolist())
+    save(fig, "fig17_blk_collagen_autofluorescence.png")
+
+
+# ---------------------------------------------------------------- (e) light field
+def fig_blk_field():
+    from matplotlib.colors import LogNorm
+    photons = 1_000_000 if QUICK else 8_000_000
+    fig, axs = plt.subplots(1, 2, figsize=(13.2, 4.4), layout="constrained")
+    NUM["blk_field"] = {}
+    for a_, (name, ex_nm) in zip(axs, (("layered_wedge_phantom", 490.0), ("tissue_under_collagen", 365.0))):
+        exp = _blk_exp(name, ex_nm, photons)
+        res = cap.capture(exp, scale=0.25)
+        oid = res.blocks[0]["object_id"]
+        vol = res.volumes[oid]
+        fl = np.asarray(vol["fluence"][res.excitations_nm[0]], float)                  # (nx, nz, L, S)
+        grid = vol["grid"]
+        shape = exp.objects[0].shape
+        pc = np.zeros((len(shape.layers) + 1, 3))
+        pc[1:] = presets_planes(shape)
+        nx, nz, L, S = fl.shape
+        col = fl.sum(axis=(2, 3))
+        iz = int(np.unravel_index(np.argmax(col), col.shape)[1])
+        xe = grid.x_edges_mm
+        zc = 0.5 * (grid.z_edges_mm[iz] + grid.z_edges_mm[iz + 1])
+        H = pc[:, 0:1] + pc[:, 1:2] * xe[None, :] + pc[:, 2:3] * zc                          # (L+1, nx+1) plane heights
+        rows_y, rows_c = [H[0]], []
+        for l in range(L):
+            for s in range(S):
+                rows_y.append(H[l] + (H[l + 1] - H[l]) * (s + 1) / S)
+                rows_c.append(fl[:, iz, l, s])
+        Y = np.array(rows_y)
+        Cm = np.array(rows_c)
+        X = np.tile(xe, (Y.shape[0], 1))
+        Cm = np.where(Cm > 0, Cm, np.nan)
+        vmax = np.nanmax(Cm)
+        im = a_.pcolormesh(X, Y, np.ma.masked_invalid(Cm), norm=LogNorm(vmin=vmax * 1e-4, vmax=vmax), cmap="inferno", shading="flat")
+        for l in range(L + 1):
+            a_.plot(xe, H[l], color="white" if l else C["g"], lw=0.9 if l else 0.5)
+        for l, nm in enumerate(vol["layer_names"]):
+            a_.text(xe[0] + 0.6, 0.5 * (H[l, 0] + H[l + 1, 0]) if H[l + 1, 0] - H[l, 0] > 0.35 else H[l + 1, 0] + 0.25, nm, color="white" if l < L - 1 else "#222", fontsize=7.5,
+                    va="center", bbox=dict(fc="#00000066", ec="none", pad=1.0))
+        src = exp.source()
+        pos, tgt = np.array(src.position_mm, float), np.array(src.target_mm, float)
+        d = tgt - pos
+        u = d / np.linalg.norm(d)
+        top = float(H[-1].mean())
+        hit = pos + d * ((top - pos[1]) / d[1])
+        ang = np.degrees(np.arccos(abs(u[1])))
+        uxy = u[[0, 1]] / np.hypot(u[0], u[1])
+        a_.annotate("", xy=(hit[0], top + 0.1), xytext=(hit[0] - 6.0 * uxy[0], top + 0.1 - 6.0 * uxy[1]),
+                    arrowprops=dict(arrowstyle="-|>", color=C["a"], lw=1.8))
+        a_.set_ylim(-0.3, top + 6.5)
+        a_.set_xlim(xe[0], xe[-1])
+        a_.set_xlabel("x (mm)")
+        a_.set_ylabel("height above the stage y (mm)")
+        a_.set_aspect("equal")
+        a_.set_title(f"{name}, {ex_nm:g} nm\nslice z = {zc:.1f} mm, beam {ang:.0f}° from the normal", fontsize=9)
+        cb = fig.colorbar(im, ax=a_, orientation="horizontal", location="bottom", fraction=0.07, pad=0.14, aspect=40)
+        cb.set_label("fluence (mW/mm², per step power)")
+        NUM["blk_field"][name] = dict(ex_nm=ex_nm, slice_z_mm=float(zc), beam_angle_deg=float(ang),
+                                      peak_fluence=float(vmax))
+    fig.suptitle("Excitation light field inside the layered blocks (3D Monte Carlo, track-length fluence; log colour scale, "
+                 "white lines: layer interfaces)", fontsize=9.5)
+    save(fig, "fig16_blk_light_field.png")
+
+
+def presets_planes(shape):
+    from spectraforge.studio import transport3d as T3
+    return T3.planes_from_layers(shape.footprint_mm, [l.thickness for l in shape.layers])
+
+
 FIGS = {"mcml": fig_mcml, "diffusion": fig_diffusion, "closed": fig_closed_vs_volume, "legacy": fig_legacy,
-        "inner": fig_inner_filter, "bleach": fig_bleaching, "noise": fig_noise, "dof": fig_dof, "angle": fig_angle, "laser": fig_laser}
+        "inner": fig_inner_filter, "bleach": fig_bleaching, "noise": fig_noise, "dof": fig_dof, "angle": fig_angle, "laser": fig_laser,
+        "blk_validation": fig_blk_validation, "blk_bottom": fig_blk_bottom, "blk_peel": fig_blk_peel,
+        "blk_wedge": fig_blk_wedge, "blk_field": fig_blk_field}
 
 
 def main():

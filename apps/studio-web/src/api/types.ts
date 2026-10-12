@@ -98,3 +98,144 @@ export interface PixelExplain {
   components: Record<string, Record<string, number[]>>
   ground_truth: Record<string, number | string | null>   // material, object, depth_mm, angles, …
 }
+
+// =============================================================================================
+// v1.1 — analysis tools, 3D layered-block light fields, parameter sweeps
+// =============================================================================================
+//   POST /api/captures/{id}/eem        body EemRequest      → EemResult        (pixel / disk / ROI EEM)
+//   POST /api/captures/{id}/roi        body RoiRequest      → RoiStats
+//   POST /api/captures/{id}/line       body LineRequest     → LineProfile
+//   POST /api/captures/{id}/response   body ResponseRequest → ResponseCurve    (metric vs a GT map)
+//   GET  /api/captures/{id}/volumes                         → VolumeInfo[]
+//   GET  /api/captures/{id}/volume?object=&kind=&ex=&channel=
+//        → float32 LE, (nx, nz, n_layers·sublayers) C-order, headers X-Dims "nx,nz,nd"
+//   POST /api/sweeps                   body SweepRequest    → { sweep_id }
+//   WS   /api/sweeps/{sweep_id}                             → stream of SweepEvent
+//   GET  /api/sweeps/{sweep_id}                             → SweepStatus
+//   POST /api/sweeps/{sweep_id}/cancel                      → SweepStatus
+// CaptureMeta gains optional `volumes?: VolumeInfo[]` and `blocks?: BlockInfo[]` (below).
+
+/** How pixel values are reported by analysis endpoints. */
+export interface NormSpec {
+  /** irradiance_normalized: (ADU − offset) / (exposure_s × E_ex) with E_ex the ground-truth surface
+   *  irradiance `irradiance@<ex>` (mW/mm²) at each pixel — removes the lamp's spatial gradient
+   *  (recommended for signal-vs-structure studies on obliquely lit samples); NaN where
+   *  E_ex < 1e-3 · max(E_ex) (beam tails / shadow, where the ratio is numerically meaningless) */
+  mode: 'adu' | 'radiance' | 'electrons' | 'dark_subtracted' | 'exposure_power' | 'white_normalized'
+      | 'irradiance_normalized'
+  /** required for dark_subtracted (and used by white_normalized if given) */
+  dark_capture_id?: string | null
+  /** required for white_normalized: (sample − dark) / (white − dark) */
+  white_capture_id?: string | null
+}
+
+/** Region of interest in capture pixel coordinates (x = column, y = row, origin top-left). */
+export type RoiSpec =
+  | { shape: 'point'; x: number; y: number }
+  | { shape: 'disk'; x: number; y: number; radius_px: number }
+  | { shape: 'rect'; x0: number; y0: number; x1: number; y1: number }
+  | { shape: 'ellipse'; cx: number; cy: number; rx: number; ry: number }
+  | { shape: 'polygon'; points: [number, number][] }
+
+export interface EemRequest { roi: RoiSpec; norm?: NormSpec | null; stat?: 'mean' | 'median' }
+export interface EemResult {
+  roi: RoiSpec
+  n_pixels: number
+  norm: NormSpec
+  unit: string
+  excitations_nm: number[]
+  /** per excitation: band centres (they differ per excitation under the Nuance band policy) */
+  emission_nm: Record<string, number[]>
+  /** per excitation: per-band statistic over the ROI */
+  value: Record<string, number[]>
+  std: Record<string, number[]>
+  /** EEM resampled on a common emission grid (union span, 2 nm) for heatmaps; NaN where a band is absent */
+  grid_emission_nm: number[]
+  grid_value: number[][]           // [n_ex][n_grid]
+}
+
+export interface RoiStats extends EemResult {
+  /** ground-truth map statistics inside the ROI (numeric layers only): mean/std/min/max */
+  ground_truth: Record<string, { mean: number; std: number; min: number; max: number }>
+  /** optional averaged component decomposition (subsampled ≤ 64 pixels), like PixelExplain.components */
+  components?: Record<string, Record<string, number[]>> | null
+}
+export interface RoiRequest extends EemRequest { components?: boolean }
+
+export interface LineRequest {
+  p0: [number, number]; p1: [number, number]
+  width_px?: number                 // averaging width perpendicular to the line (default 1)
+  norm?: NormSpec | null
+  excitations_nm?: number[] | null  // default all
+  ground_truth?: string[] | null    // GT layers to sample along the line
+}
+export interface LineProfile {
+  distance_px: number[]
+  distance_mm: number[] | null      // on the first surface, if depth is known
+  /** per excitation → [n_points][n_bands] */
+  value: Record<string, number[][]>
+  emission_nm: Record<string, number[]>
+  ground_truth: Record<string, number[]>
+  unit: string
+}
+
+/** A scalar per pixel derived from the cube. */
+export type MetricSpec =
+  | { kind: 'band'; ex: number; band_nm: number }
+  | { kind: 'band_ratio'; a: { ex: number; band_nm: number }; b: { ex: number; band_nm: number } }
+  | { kind: 'band_sum'; ex: number; from_nm?: number; to_nm?: number }
+  | { kind: 'peak_wavelength'; ex: number }
+export interface ResponseRequest {
+  x_ground_truth: string            // e.g. 'layer_thickness:cover'
+  metric: MetricSpec
+  roi?: RoiSpec | null
+  bins?: number                     // default 24
+  norm?: NormSpec | null
+}
+export interface ResponseCurve {
+  x_ground_truth: string
+  metric: MetricSpec
+  bin_centres: number[]
+  mean: number[]; std: number[]; count: number[]
+  /** raw scatter subsample (≤ 4000 points) */
+  scatter_x: number[]; scatter_y: number[]
+  unit: string
+}
+
+/** A layered block present in the capture (for analysis labels and the light-field viewer). */
+export interface BlockInfo {
+  object_id: string
+  layer_names: string[]
+  footprint_mm: [number, number]
+}
+export interface VolumeInfo {
+  object_id: string
+  kind: 'fluence' | 'absorbed' | 'source'
+  excitations_nm: number[]
+  channels: string[]                // for 'source' (e.g. 'tissue|NADH'); [] otherwise
+  dims: [number, number, number]    // nx, nz, n_layers·sublayers
+  x_edges_mm: number[]; z_edges_mm: number[]
+  layer_names: string[]; sublayers: number
+  unit: string
+}
+
+export interface SweepRequest {
+  experiment: Experiment
+  /** JSON pointer into the experiment, e.g. "/objects/0/shape/layers/2/thickness/thickness_mm" */
+  parameter: { path: string; values: (number | string | boolean)[]; label?: string }
+  mode?: 'preview' | 'sample'       // default 'preview'
+}
+export type SweepEvent =
+  | { type: 'progress'; fraction: number; message: string; index: number }
+  | { type: 'point'; index: number; value: number | string | boolean; capture_id: string }
+  | { type: 'done'; sweep_id: string }
+  | { type: 'error'; message: string }
+  | { type: 'cancelled' }
+export interface SweepStatus {
+  sweep_id: string
+  state: 'queued' | 'running' | 'done' | 'error' | 'cancelled'
+  fraction: number
+  parameter: SweepRequest['parameter']
+  capture_ids: (string | null)[]
+  error?: string | null
+}

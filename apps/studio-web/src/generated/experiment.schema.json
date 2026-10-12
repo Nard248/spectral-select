@@ -84,6 +84,9 @@
     },
     "physics": {
      "$ref": "#/$defs/PhysicsToggles"
+    },
+    "volume_mc": {
+     "$ref": "#/$defs/VolumeMCSettings"
     }
    },
    "required": [
@@ -91,7 +94,8 @@
     "seed",
     "mc_photons",
     "preview_scale",
-    "physics"
+    "physics",
+    "volume_mc"
    ],
    "title": "AcquisitionSettings",
    "type": "object"
@@ -179,6 +183,29 @@
     "divergence_half_angle_deg"
    ],
    "title": "BeamSpec",
+   "type": "object"
+  },
+  "BlockLayer": {
+   "additionalProperties": false,
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "material_id": {
+     "title": "Material Id",
+     "type": "string"
+    },
+    "thickness": {
+     "$ref": "#/$defs/ThicknessProfile"
+    }
+   },
+   "required": [
+    "name",
+    "material_id",
+    "thickness"
+   ],
+   "title": "BlockLayer",
    "type": "object"
   },
   "BoxShape": {
@@ -594,6 +621,53 @@
     "k_per_uM"
    ],
    "title": "FretPair",
+   "type": "object"
+  },
+  "LayeredBlockShape": {
+   "additionalProperties": false,
+   "description": "A rectangular block built from a stack of uniform layers, listed BOTTOM \u2192 TOP. Footprint\n``footprint_mm = (x, z)`` centred on the local origin; the bottom face lies on local ``y = 0``\nand every layer interface ``y = \u03a3_{j\u2264i} t_j(x, z)`` is a plane (uniform or linear profiles).\nLight transport inside is solved by the 3D layered Monte Carlo (``transport3d``), so buried\nlayers (e.g. a fluorophore under a scattering cover) are seen through everything above them.\n``SceneObject.material_id`` is ignored for this shape (each layer carries its own material).",
+   "properties": {
+    "kind": {
+     "const": "layered_block",
+     "default": "layered_block",
+     "title": "Kind",
+     "type": "string"
+    },
+    "footprint_mm": {
+     "default": [
+      40.0,
+      40.0
+     ],
+     "maxItems": 2,
+     "minItems": 2,
+     "title": "Footprint Mm",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    },
+    "layers": {
+     "items": {
+      "$ref": "#/$defs/BlockLayer"
+     },
+     "maxItems": 8,
+     "minItems": 1,
+     "title": "Layers",
+     "type": "array"
+    }
+   },
+   "required": [
+    "kind",
+    "footprint_mm",
+    "layers"
+   ],
+   "title": "LayeredBlockShape",
    "type": "object"
   },
   "LensSpec": {
@@ -1172,6 +1246,7 @@
        "cuvette": "#/$defs/CuvetteShape",
        "cylinder": "#/$defs/CylinderShape",
        "droplet": "#/$defs/DropletShape",
+       "layered_block": "#/$defs/LayeredBlockShape",
        "petri_dish": "#/$defs/PetriDishShape",
        "sphere": "#/$defs/SphereShape"
       },
@@ -1195,6 +1270,9 @@
       },
       {
        "$ref": "#/$defs/CuvetteShape"
+      },
+      {
+       "$ref": "#/$defs/LayeredBlockShape"
       }
      ],
      "title": "Shape"
@@ -1481,6 +1559,50 @@
    "title": "SphereShape",
    "type": "object"
   },
+  "ThicknessProfile": {
+   "additionalProperties": false,
+   "description": "Thickness of one block layer across the footprint. ``uniform``: ``thickness_mm`` everywhere.\n``linear``: a wedge that varies linearly along local ``axis`` from ``thickness_mm`` at the\nnegative edge (axis = \u2212size/2) to ``end_thickness_mm`` at the positive edge (axis = +size/2).\nBecause every profile is linear, every interface of a layered block is an exact PLANE.",
+   "properties": {
+    "kind": {
+     "default": "uniform",
+     "enum": [
+      "uniform",
+      "linear"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "thickness_mm": {
+     "default": 1.0,
+     "minimum": 0,
+     "title": "Thickness Mm",
+     "type": "number"
+    },
+    "end_thickness_mm": {
+     "default": 1.0,
+     "minimum": 0,
+     "title": "End Thickness Mm",
+     "type": "number"
+    },
+    "axis": {
+     "default": "x",
+     "enum": [
+      "x",
+      "z"
+     ],
+     "title": "Axis",
+     "type": "string"
+    }
+   },
+   "required": [
+    "kind",
+    "thickness_mm",
+    "end_thickness_mm",
+    "axis"
+   ],
+   "title": "ThicknessProfile",
+   "type": "object"
+  },
   "Transform": {
    "additionalProperties": false,
    "properties": {
@@ -1536,6 +1658,78 @@
     "rotation_deg"
    ],
    "title": "Transform",
+   "type": "object"
+  },
+  "VolumeMCSettings": {
+   "additionalProperties": false,
+   "description": "Quality knobs of the 3D layered-block Monte Carlo (``transport3d``). Photon counts are per\nexcitation step (excitation pass) and per emission wavelength node (emission pass); previews\nuse ``preview_fraction`` of them. Tallies use a layer-conforming grid: ``lateral_cell_mm`` in\nx/z and ``sublayers`` cells across each layer's (local) thickness.",
+   "properties": {
+    "excitation_photons": {
+     "default": 2000000,
+     "maximum": 200000000,
+     "minimum": 10000,
+     "title": "Excitation Photons",
+     "type": "integer"
+    },
+    "emission_photons": {
+     "default": 2000000,
+     "maximum": 200000000,
+     "minimum": 10000,
+     "title": "Emission Photons",
+     "type": "integer"
+    },
+    "preview_fraction": {
+     "default": 0.1,
+     "exclusiveMinimum": 0,
+     "maximum": 1,
+     "title": "Preview Fraction",
+     "type": "number"
+    },
+    "lateral_cell_mm": {
+     "default": 0.5,
+     "exclusiveMinimum": 0.01,
+     "title": "Lateral Cell Mm",
+     "type": "number"
+    },
+    "sublayers": {
+     "default": 8,
+     "maximum": 64,
+     "minimum": 1,
+     "title": "Sublayers",
+     "type": "integer"
+    },
+    "exit_cell_mm": {
+     "default": 0.5,
+     "exclusiveMinimum": 0.01,
+     "title": "Exit Cell Mm",
+     "type": "number"
+    },
+    "emission_node_step_nm": {
+     "default": 20.0,
+     "maximum": 100.0,
+     "minimum": 2.0,
+     "title": "Emission Node Step Nm",
+     "type": "number"
+    },
+    "acceptance_half_angle_deg": {
+     "default": 12.0,
+     "exclusiveMinimum": 0.5,
+     "maximum": 60.0,
+     "title": "Acceptance Half Angle Deg",
+     "type": "number"
+    }
+   },
+   "required": [
+    "excitation_photons",
+    "emission_photons",
+    "preview_fraction",
+    "lateral_cell_mm",
+    "sublayers",
+    "exit_cell_mm",
+    "emission_node_step_nm",
+    "acceptance_half_angle_deg"
+   ],
+   "title": "VolumeMCSettings",
    "type": "object"
   }
  },

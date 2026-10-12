@@ -5,6 +5,7 @@ import type { Experiment, SceneObject } from '../generated/experiment'
 import { buildThreeCamera } from '../lib/camera'
 import { beamAt } from '../lib/lighting'
 import { activeCamera, activeSource } from '../state/store'
+import { stackAt, topPlane } from '../analysis/blockGeometry'
 
 export interface SceneMaps {
   width: number
@@ -17,9 +18,16 @@ export interface SceneMaps {
   incidence: Float32Array
   irradiance: Float32Array
   materials: string[]
+  /** layered-block pixels: local footprint coordinates of the hit (NaN elsewhere) and the face (0 none, 1 top, 2.. sides) */
+  lx: Float32Array
+  lz: Float32Array
+  face: Uint8Array
+  /** millimetres per image pixel at the hit distance (for line profiles) */
+  pxMm: Float32Array
 }
 
-interface Hit { t: number; n: [number, number, number]; mat: string; vol?: boolean; chord?: number }
+interface BlockHit { lx: number; lz: number; face: number }
+interface Hit { t: number; n: [number, number, number]; mat: string; vol?: boolean; chord?: number; blk?: BlockHit }
 
 function rayBox(o: number[], d: number[], lo: number[], hi: number[]): { t: number; n: [number, number, number]; chord: number } | null {
   let t0 = -Infinity, t1 = Infinity
@@ -99,6 +107,31 @@ function intersectObject(obj: SceneObject, o: number[], d: number[]): Hit | null
       const r = rayCylinder(o, d, Ro, 0, s.height_mm)
       return r ? { ...r, mat: v } : null
     }
+    case 'layered_block': {
+      const [Lx, Lz] = s.footprint_mm
+      const tp = topPlane(s)
+      // top interface: y = a + b x + c z
+      let best: Hit | null = null
+      const denom = d[1] - tp.b * d[0] - tp.c * d[2]
+      if (Math.abs(denom) > 1e-12) {
+        const t = (tp.a - (o[1] - tp.b * o[0] - tp.c * o[2])) / denom
+        const x = o[0] + t * d[0], z = o[2] + t * d[2]
+        if (t > 0 && Math.abs(x) <= Lx / 2 && Math.abs(z) <= Lz / 2) {
+          const l = Math.hypot(tp.b, 1, tp.c)
+          const sgn = denom < 0 ? 1 : -1
+          best = { t, n: [-tp.b / l * sgn, sgn / l, -tp.c / l * sgn], mat: m, blk: { lx: x, lz: z, face: 1 } }
+        }
+      }
+      const side = rayBox(o, d, [-Lx / 2, 0, -Lz / 2], [Lx / 2, tp.max + 1e-6, Lz / 2])
+      if (side && (!best || side.t < best.t)) {
+        const x = o[0] + side.t * d[0], y = o[1] + side.t * d[1], z = o[2] + side.t * d[2]
+        if (y <= tp.a + tp.b * x + tp.c * z + 1e-6) {
+          const face = side.n[0] > 0 ? 2 : side.n[0] < 0 ? 3 : side.n[2] > 0 ? 4 : side.n[2] < 0 ? 5 : 6
+          best = { t: side.t, n: side.n, mat: m, blk: { lx: x, lz: z, face } }
+        }
+      }
+      return best
+    }
     case 'cuvette': {
       const [ix, iy, iz] = s.inner_mm, w = s.wall_mm
       const tl = rayBox(o, d, [-ix / 2, w, -iz / 2], [ix / 2, w + s.fill_height_mm, iz / 2])
@@ -132,6 +165,7 @@ export function renderMaps(exp: Experiment, width: number, height: number): Scen
   const out: SceneMaps = {
     width, height, materials, mat: new Int16Array(N).fill(-1), obj: new Int16Array(N).fill(-1),
     depth: new Float32Array(N), incidence: new Float32Array(N), irradiance: new Float32Array(N),
+    lx: new Float32Array(N).fill(NaN), lz: new Float32Array(N).fill(NaN), face: new Uint8Array(N), pxMm: new Float32Array(N),
   }
   const mul = (e: number[], x: number, y: number, z: number): [number, number, number] =>
     [e[0] * x + e[3] * y + e[6] * z, e[1] * x + e[4] * y + e[7] * z, e[2] * x + e[5] * y + e[8] * z]
@@ -142,13 +176,13 @@ export function renderMaps(exp: Experiment, width: number, height: number): Scen
       const dl = mul(ce, nx, ny, -1)
       const dl_len = Math.hypot(dl[0], dl[1], dl[2])
       const d = [dl[0] / dl_len, dl[1] / dl_len, dl[2] / dl_len]
-      let best: { t: number; n: [number, number, number]; mat: string; oi: number; vol?: boolean; chord?: number } | null = null
+      let best: { t: number; n: [number, number, number]; mat: string; oi: number; vol?: boolean; chord?: number; blk?: BlockHit } | null = null
       objs.forEach(({ ob, Ri, Rw, p }, oi) => {
         if (!ob.visible) return
         const ol = mul(Ri, eye[0] - p[0], eye[1] - p[1], eye[2] - p[2])
         const dd = mul(Ri, d[0], d[1], d[2])
         const h = intersectObject(ob, ol, dd)
-        if (h && (!best || h.t < best.t)) best = { t: h.t, n: mul(Rw, ...h.n), mat: h.mat, oi, vol: h.vol, chord: h.chord }
+        if (h && (!best || h.t < best.t)) best = { t: h.t, n: mul(Rw, ...h.n), mat: h.mat, oi, vol: h.vol, chord: h.chord, blk: h.blk }
       })
       if (bg.kind === 'plane' && bg.material_id && Math.abs(d[1]) > 1e-9) {
         const t = (0 - eye[1]) / d[1]
@@ -158,9 +192,21 @@ export function renderMaps(exp: Experiment, width: number, height: number): Scen
         }
       }
       if (!best) continue
-      const b = best as { t: number; n: [number, number, number]; mat: string; oi: number; vol?: boolean; chord?: number }
+      const b = best as { t: number; n: [number, number, number]; mat: string; oi: number; vol?: boolean; chord?: number; blk?: BlockHit }
       const k = j * width + i
       out.mat[k] = mid(b.mat); out.obj[k] = b.oi; out.depth[k] = b.t
+      out.pxMm[k] = (2 * tanY * b.t) / height
+      if (b.blk) {
+        out.lx[k] = b.blk.lx; out.lz[k] = b.blk.lz; out.face[k] = b.blk.face
+        // the pixel's visible material is the TOP layer present at that spot
+        const shape = exp.objects[b.oi].shape
+        if (shape.kind === 'layered_block') {
+          const st = stackAt(shape, b.blk.lx, b.blk.lz)
+          let top = st.t.length - 1
+          while (top > 0 && st.t[top] < 1e-6) top--
+          out.mat[k] = mid(shape.layers[top].material_id)
+        }
+      }
       const pt = [eye[0] + b.t * d[0], eye[1] + b.t * d[1], eye[2] + b.t * d[2]]
       const s = beamAt(src, pt, b.vol ? null : b.n)
       let irr = s.irradiance

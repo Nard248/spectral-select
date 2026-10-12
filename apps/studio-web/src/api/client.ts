@@ -2,7 +2,8 @@
  *  `getEngine()` returns the real engine when `/api/health` answers, else the in-browser mock. */
 import type { Experiment } from '../generated/experiment'
 import type {
-  CaptureMeta, CaptureRequest, Health, JobEvent, JobStatus, PixelExplain, PreviewRequest, PresetsBundle, ValidationResult,
+  CaptureMeta, CaptureRequest, EemRequest, EemResult, Health, JobEvent, JobStatus, LineProfile, LineRequest, PixelExplain, PreviewRequest, PresetsBundle,
+  ResponseCurve, ResponseRequest, RoiRequest, RoiStats, SweepEvent, SweepRequest, SweepStatus, ValidationResult, VolumeInfo,
 } from './types'
 
 export type Kind = 'adu' | 'radiance' | 'electrons'
@@ -10,6 +11,9 @@ export type DownloadFormat = 'spectradata_pkl' | 'npz' | 'tiff_zip' | 'ground_tr
 
 export interface Raster { width: number; height: number; data: Float32Array }
 export interface Cube extends Raster { bands: number }
+/** One 3D light-field volume: float32 (nx, nz, nd) C-order; `nd = n_layers · sublayers`. */
+export interface VolumeData { dims: [number, number, number]; data: Float32Array }
+export interface VolumeQuery { object: string; kind: VolumeInfo['kind']; ex?: number; channel?: string }
 
 export interface Engine {
   kind: 'real' | 'mock'
@@ -30,6 +34,21 @@ export interface Engine {
   groundTruth(id: string, name: string): Promise<Raster>
   imageUrl(id: string, mode: 'true_color' | 'false_color' | 'band', ex?: number, band?: number, gain?: number): string
   downloadUrl(id: string, format: DownloadFormat): string
+
+  // ---- v1.1 analysis ------------------------------------------------------------------------
+  eem(id: string, r: EemRequest): Promise<EemResult>
+  roi(id: string, r: RoiRequest): Promise<RoiStats>
+  line(id: string, r: LineRequest): Promise<LineProfile>
+  response(id: string, r: ResponseRequest): Promise<ResponseCurve>
+  volumes(id: string): Promise<VolumeInfo[]>
+  volume(id: string, q: VolumeQuery): Promise<VolumeData>
+  /** The experiment a capture was made from (for physical layer geometry); null if unavailable. */
+  captureExperiment(id: string): Promise<Experiment | null>
+  // ---- v1.1 sweeps --------------------------------------------------------------------------
+  startSweep(r: SweepRequest): Promise<{ sweep_id: string }>
+  watchSweep(sweepId: string, onEvent: (e: SweepEvent) => void): () => void
+  sweepStatus(sweepId: string): Promise<SweepStatus>
+  cancelSweep(sweepId: string): Promise<SweepStatus>
 }
 
 export class ApiError extends Error {
@@ -37,10 +56,25 @@ export class ApiError extends Error {
   constructor(status: number, message: string) { super(message); this.status = status }
 }
 
+/** JSON.parse that tolerates Python's bare NaN / Infinity tokens (mapped to null). */
+export function parseLooseJson<T>(text: string): T {
+  try { return JSON.parse(text) as T } catch {
+    return JSON.parse(text.replace(/(?<=[:,[]\s*)-?(?:NaN|Infinity)(?=\s*[,\]}])/g, 'null')) as T
+  }
+}
 async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, init)
   if (!r.ok) throw new ApiError(r.status, `${init?.method ?? 'GET'} ${url} → ${r.status} ${await r.text().catch(() => '')}`.slice(0, 400))
-  return (await r.json()) as T
+  return parseLooseJson<T>(await r.text())
+}
+/** Replace `null` entries of numeric arrays (how JSON carries NaN) by NaN, recursively. */
+export function nanify<T>(o: T): T {
+  if (Array.isArray(o)) {
+    const hasNum = o.some((v) => typeof v === 'number')
+    return (hasNum || o.every((v) => v === null) ? o.map((v) => (v === null ? NaN : nanify(v))) : o.map((v) => nanify(v))) as T
+  }
+  if (o && typeof o === 'object') { const out: Record<string, unknown> = {}; for (const [k, v] of Object.entries(o)) out[k] = nanify(v); return out as T }
+  return o
 }
 const post = <T,>(url: string, body?: unknown) =>
   json<T>(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
@@ -117,6 +151,66 @@ export const realEngine: Engine = {
     const { buf, w, h } = await binary(`/api/captures/${id}/gt/${encodeURIComponent(name)}`)
     return { width: w, height: h, data: buf }
   },
+  eem: async (id, r) => nanify(await post<EemResult>(`/api/captures/${id}/eem`, r)),
+  roi: async (id, r) => nanify(await post<RoiStats>(`/api/captures/${id}/roi`, r)),
+  line: async (id, r) => nanify(await post<LineProfile>(`/api/captures/${id}/line`, r)),
+  response: async (id, r) => nanify(await post<ResponseCurve>(`/api/captures/${id}/response`, r)),
+  volumes: (id) => json<VolumeInfo[]>(`/api/captures/${id}/volumes`),
+  async volume(id, qq) {
+    const r = await fetch(`/api/captures/${id}/volume?${q({ object: qq.object, kind: qq.kind, ex: qq.ex, channel: qq.channel })}`)
+    if (!r.ok) throw new ApiError(r.status, `GET volume → ${r.status} ${(await r.text().catch(() => '')).slice(0, 200)}`)
+    const dims = (r.headers.get('X-Dims') ?? '').split(',').map(Number)
+    const data = new Float32Array(await r.arrayBuffer())
+    if (dims.length !== 3 || dims.some((d) => !(d > 0)) || dims[0] * dims[1] * dims[2] !== data.length) throw new ApiError(500, `volume has inconsistent X-Dims "${dims.join(',')}" for ${data.length} values`)
+    return { dims: dims as [number, number, number], data }
+  },
+  async captureExperiment(id) {
+    try {
+      const r = await fetch(`/api/captures/${id}/download?format=experiment_json`)
+      if (!r.ok) return null
+      return parseLooseJson<Experiment>(await r.text())
+    } catch { return null }
+  },
+  startSweep: (r) => post<{ sweep_id: string }>('/api/sweeps', r),
+  watchSweep(sweepId, onEvent) {
+    let closed = false
+    let poll: ReturnType<typeof setInterval> | null = null
+    let seen = 0
+    const startPolling = () => {
+      if (poll || closed) return
+      poll = setInterval(async () => {
+        try {
+          const s = await json<SweepStatus>(`/api/sweeps/${sweepId}`)
+          s.capture_ids.forEach((cid, i) => { if (cid && i >= seen) { onEvent({ type: 'point', index: i, value: s.parameter.values[i], capture_id: cid }); seen = i + 1 } })
+          if (s.state === 'running' || s.state === 'queued') onEvent({ type: 'progress', fraction: s.fraction, message: `point ${Math.min(seen + 1, s.parameter.values.length)}/${s.parameter.values.length}`, index: seen })
+          else {
+            if (poll) clearInterval(poll)
+            closed = true
+            if (s.state === 'done') onEvent({ type: 'done', sweep_id: sweepId })
+            else if (s.state === 'cancelled') onEvent({ type: 'cancelled' })
+            else onEvent({ type: 'error', message: s.error ?? 'sweep failed' })
+          }
+        } catch { /* keep polling */ }
+      }, 600)
+    }
+    let ws: WebSocket | null = null
+    try {
+      const proto = location.protocol === 'https:' ? 'wss' : 'ws'
+      ws = new WebSocket(`${proto}://${location.host}/api/sweeps/${sweepId}`)
+      ws.onmessage = (m) => {
+        try {
+          const ev = parseLooseJson<SweepEvent>(String(m.data))
+          if (ev.type === 'done' || ev.type === 'error' || ev.type === 'cancelled') closed = true
+          onEvent(ev)
+        } catch { /* ignore malformed frame */ }
+      }
+      ws.onerror = () => startPolling()
+      ws.onclose = () => { if (!closed) startPolling() }
+    } catch { startPolling() }
+    return () => { closed = true; if (poll) clearInterval(poll); ws?.close() }
+  },
+  sweepStatus: (id) => json<SweepStatus>(`/api/sweeps/${id}`),
+  cancelSweep: (id) => post<SweepStatus>(`/api/sweeps/${id}/cancel`),
   imageUrl: (id, mode, ex, band, gain) => `/api/captures/${id}/image.png?${q({ mode, ex, band, gain })}`,
   downloadUrl: (id, format) => `/api/captures/${id}/download?format=${format}`,
 }
@@ -130,6 +224,7 @@ export function detectEngine(force = false): Promise<Engine> {
   if (probing) return probing
   probing = (async () => {
     let eng: Engine
+    if (typeof location !== 'undefined' && new URLSearchParams(location.search).get('engine') === 'mock') { eng = await loadMock(); current = eng; probing = null; return eng }   // ?engine=mock forces the offline engine
     try {
       const ctl = new AbortController()
       const t = setTimeout(() => ctl.abort(), 1200)

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, X, Play, Pause } from 'lucide-react'
 import { useStudio } from '../state/store'
-import { STEPS, TOTAL, tourBackup, resetUiForTour, type TourCtx } from './steps'
+import { STEPS, TOTAL, tourBackup, resetUiForTour, restoreOriginal, LAYER_STEP0, type TourCtx } from './steps'
 import { useTour } from './tourStore'
 
 const sleepFor = (token: number) => (ms: number) => new Promise<void>((res) => {
@@ -17,8 +17,9 @@ export async function goToStep(i: number) {
   if (i < 0) return
   if (i >= TOTAL) { endTour(); return }
   if (autoTimer) { clearTimeout(autoTimer); autoTimer = null }
+  if (i < LAYER_STEP0) restoreOriginal()   // stepping back out of the layered demo scene
   const token = useTour.getState().token + 1
-  useTour.setState({ active: true, step: i, total: TOTAL, caption: null, busy: true, token })
+  useTour.setState({ active: true, step: i, total: TOTAL, caption: null, busy: true, token, thumbs: [] })
   const ctx: TourCtx = {
     stale: () => useTour.getState().token !== token,
     sleep: sleepFor(token),
@@ -46,6 +47,7 @@ export function endTour() {
     useStudio.setState({ exp: tourBackup.exp, past: tourBackup.past, future: [], dirty: tourBackup.dirty })
   }
   useTour.setState({ thumbs: [] })
+  restoreOriginal()
   tourBackup.exp = null
   resetUiForTour()
   useStudio.setState({ previewNm: null })

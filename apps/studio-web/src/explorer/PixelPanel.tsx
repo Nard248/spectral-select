@@ -8,8 +8,6 @@ import { fluorophoreMap } from '../state/presets'
 import { useStudio } from '../state/store'
 import { dyeColor } from '../panels/inspector/MaterialInspector'
 import type { CaptureMeta } from '../api/types'
-import type { Cube } from '../api/client'
-import type { Roi } from './ImageView'
 
 const fmtSci = (v: number) => fmtSig(v)
 const COMP_LABELS: Record<string, string> = { elastic: 'elastic scatter', glint: 'specular glint', raman: 'water Raman', leak_source: 'excitation leak', room_light: 'room light' }
@@ -28,29 +26,24 @@ function toEem(emission: Record<string, number[]>, values: Record<string, number
   return { exs, grid, data }
 }
 
-export function PixelPanel({ meta, pixel, ex, roi, cube }: { meta: CaptureMeta; pixel: { x: number; y: number } | null; ex: number; roi: Roi | null; cube: Cube | null }) {
+export function PixelPanel({ meta, pixel, ex }: { meta: CaptureMeta; pixel: { x: number; y: number } | null; ex: number }) {
   const { data: px, loading, error } = usePixel(meta.id, pixel?.x ?? null, pixel?.y ?? null)
   const exp = useStudio((s) => s.exp)
   const fl = useMemo(() => fluorophoreMap(exp), [exp])
   const exKey = String(ex)
   const [allGt, setAllGt] = useState(false)
 
-  const roiSpec = useMemo(() => {
-    if (!roi || !cube) return null
-    const B = cube.bands, mean = new Float64Array(B); let n = 0
-    for (let y = roi.y0; y <= roi.y1; y++) for (let x = roi.x0; x <= roi.x1; x++) { const k = (y * cube.width + x) * B; for (let j = 0; j < B; j++) mean[j] += cube.data[k + j]; n++ }
-    return { mean: Array.from(mean, (v) => v / Math.max(1, n)), n }
-  }, [roi, cube])
-
   const layers = useMemo(() => {
     if (!px?.components[exKey]) return []
     let pi = 0
     return Object.entries(px.components[exKey]).map(([name, y]) => {
-      const key = name.replace(/^(dye|secondary|background):/, '')
+      const nameBase = name.split('@')[0], layer = name.includes('@') ? name.split('@')[1] : null
+      const key = nameBase.replace(/^(dye|secondary|background):/, '')
       const dye = fl[key]
-      const base = name.split(':')[0]
-      const color = name.startsWith('dye:') ? dyeColor(dye) : name.startsWith('secondary:') ? dyeColor(dye) : COMP_COLORS[base] ?? PALETTE[pi++ % PALETTE.length]
-      return { name: name.startsWith('secondary:') ? `${key} (re-emitted)` : name.startsWith('dye:') ? key : compLabel(name), color, y: Array.from(y as ArrayLike<number>) }
+      const base = nameBase.split(':')[0]
+      const suffix = layer ? ` · ${layer}` : ''
+      const color = nameBase.startsWith('dye:') ? dyeColor(dye) : nameBase.startsWith('secondary:') ? dyeColor(dye) : COMP_COLORS[base] ?? PALETTE[pi++ % PALETTE.length]
+      return { name: (name.startsWith('secondary:') ? `${key} (re-emitted)` : name.startsWith('dye:') ? key : compLabel(nameBase)) + suffix, color, y: Array.from(y as ArrayLike<number>) }
     }).filter((l) => l.y.some((v) => v > 1e-9))
   }, [px, exKey, fl])
 
@@ -63,7 +56,7 @@ export function PixelPanel({ meta, pixel, ex, roi, cube }: { meta: CaptureMeta; 
 
   return (
     <div className="scroll">
-      {!pixel && <Empty title="Click a pixel">The image is a view into the 4D cube (excitation × emission × y × x). Click anywhere to decompose that pixel's spectrum into physical components — or drag a region with the ROI tool.</Empty>}
+      {!pixel && <Empty title="Click a pixel">The image is a view into the 4D cube (excitation × emission × y × x). Click anywhere to decompose that pixel's spectrum into physical components — or draw regions with the ROI tools for EEMs, profiles and response curves.</Empty>}
       {pixel && <>
         <div className="plot-title">Pixel ({pixel.x}, {pixel.y}) {loading && <small>loading…</small>}{error && <small style={{ color: 'var(--err)' }}>{error}</small>}</div>
         {px && <>
@@ -92,10 +85,6 @@ export function PixelPanel({ meta, pixel, ex, roi, cube }: { meta: CaptureMeta; 
             {Object.keys(px.ground_truth).length > 8 && <button className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={() => setAllGt(!allGt)}>{allGt ? 'less' : 'all'}</button>}</div>
           <dl className="kv">{Object.entries(px.ground_truth).slice(0, allGt ? undefined : 8).map(([k, v]) => <Fragment key={k}><dt>{k.replace(/_/g, ' ')}</dt><dd>{v == null ? '—' : typeof v === 'number' ? fmtSig(v, gtUnit(k)) : String(v)}</dd></Fragment>)}</dl>
         </>}
-      </>}
-      {roiSpec && cube && <>
-        <div className="plot-title" style={{ color: '#ffb547' }}>ROI mean spectrum <small>{roi!.x1 - roi!.x0 + 1}×{roi!.y1 - roi!.y0 + 1} px · {ex} nm</small></div>
-        <div style={{ padding: '0 8px 8px' }}><LineChart series={[{ x: meta.emission_nm[exKey], y: roiSpec.mean, color: '#ffb547', fill: true }]} height={120} strip xLabel="emission nm" yLabel="ADU" /></div>
       </>}
       <div className="plot-title">Capture</div>
       <dl className="kv">

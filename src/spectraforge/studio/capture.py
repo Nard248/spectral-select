@@ -1,4 +1,4 @@
-"""Capture orchestration: experiment -> hyperspectral 4D cube (excitation x emission x H x W).
+r"""Capture orchestration: experiment -> hyperspectral 4D cube (excitation x emission x H x W).
 
 Pipeline per capture (see ``contracts.py`` for the radiometric definitions)::
 
@@ -21,7 +21,24 @@ Components of the spectral radiance leaving a pixel (names as reported by :func:
 * ``raman``         water Raman band for aqueous media.
 * ``leak_source``   excitation-filter leakage (out-of-band source continuum) reflected/glinting.
 * ``background:<material>``  everything diffuse emitted by the background slab.
+* ``dye:<f>@<layer>``, ``raman@<layer>``, ``elastic``, ``glint``, ``leak_source``  pixels of a
+  ``layered_block`` (3D Monte Carlo, see :mod:`spectraforge.studio.block_capture`).
 * ``room_light``    ambient light (elastic + induced fluorescence).
+
+Layered blocks (v1.1)
+---------------------
+Pixels that see a ``layered_block`` are not evaluated by the 1-D kernels: before the radiance stage the
+engine runs the 3D Monte Carlo of every visible block (:func:`block_capture.get_runs`; excitation pass per
+step, photobleaching/quenching/FRET/Raman source volumes, emission pass per spectral node) and reads the face
+tallies at each pixel's hit point. Results are cached (small LRU keyed by the experiment JSON, mode, photon
+fraction and step set) so ``explain_pixel`` / ``preview`` do not repeat the simulation. Documented
+approximations: ``subsurface_spread`` is inherent in 3D (ignored for blocks), ``secondary_emission`` is not
+modelled for blocks, room light is not applied to block pixels, one camera direction per block (acceptance
+cone), clear objects in front of a block attenuate through the usual view transmission ``V`` and the
+launch's Fresnel/Beer factors. Preview (``scale < 1``) uses ``volume_mc.preview_fraction`` of the photons.
+Extra ground-truth maps (NaN off-block): ``layer_thickness:<layer>``, ``layer_depth:<layer>`` (depth of that
+layer's TOP interface below the block's top surface), ``block_face`` (0 top, 1 +x, 2 -x, 3 +z, 4 -z),
+``origin_depth_mm``, ``origin_layer_fraction:<layer>``; ``conc:<dye>`` / ``bleached:<dye>`` are NaN there.
 
 Progress messages (stable format, parsed by the web UI)
 -----------------------------------------------------
@@ -31,13 +48,15 @@ non-decreasing in ``[0, 1]`` and a ``message`` that is exactly one of::
     "tracing rays"
     "simulating <ex> nm (<i>/<n>) · radiance"     # radiance stage of excitation i of n (1-based)
     "sensor <ex> nm (<i>/<n>)"                    # optical blur + detector of excitation i of n
+    "simulating <ex> nm (<i>/<n>) · 3D excitation"  # layered blocks only, before the radiance stage
+    "emission node <lam> nm (<j>/<m>) · 3D"         # layered blocks only
     "done"
 
 ``<ex>`` is the excitation wavelength formatted with ``f"{ex:g}"`` (``365``, ``488``, ``532.5``) and
 ``·`` is U+00B7 with one space on each side.  Regex: ``^simulating ([\d.]+) nm \((\d+)/(\d+)\) · radiance$``
 and ``^sensor ([\d.]+) nm \((\d+)/(\d+)\)$``.  Stages are sequential (all steps are simulated first, in
 sequence order, then all sensor stages), so the fraction budget is 0-0.08 tracing/setup, 0.08-0.70
-radiance, 0.70-0.99 sensor.
+radiance, 0.70-0.99 sensor (with blocks: 0.08-0.52 3D Monte Carlo, 0.52-0.70 radiance).
 
 Approximations (all documented where they occur)
 ------------------------------------------------
@@ -212,8 +231,19 @@ def _subset_hit(hit: HitBuffer, pix: np.ndarray) -> HitBuffer:
         kw[name] = None if arr is None else np.asarray(arr)[:, pix]
     arr = getattr(hit, "vol_T_out", None)
     kw["vol_T_out"] = None if arr is None else np.asarray(arr)[:, pix]
+    info = dict(hit.info)
+    if "block_hits" in info:                     # remap pixel positions into the subset
+        inv = np.full(hit.material.shape[1], -1, dtype=np.int64)
+        inv[pix] = np.arange(len(pix))
+        nb = {}
+        for oi, d in info["block_hits"].items():
+            newp = inv[d["pixel"]]
+            ok = newp >= 0
+            if ok.any():
+                nb[oi] = {k_: (newp[ok] if k_ == "pixel" else np.asarray(v_)[ok]) for k_, v_ in d.items()}
+        info["block_hits"] = nb
     return HitBuffer(width=hit.width, height=hit.height, focus_depth_mm=hit.focus_depth_mm,
-                     info=dict(hit.info), **kw)
+                     info=info, **kw)
 
 
 # --------------------------------------------------------------------------------------------
@@ -275,6 +305,21 @@ class _Engine:
         self.room_cols: np.ndarray | None = None     # union spectral window the room-light cache keeps
         self._prior_cache: dict[int, np.ndarray] = {}
         self._scene = None
+        self.blocks: list = []                       # block_capture.BlockRun (layered blocks, 3D MC)
+        self.mat_eff = hit.material                  # material per layer slot with block pixels masked (-1)
+
+    def attach_blocks(self, runs) -> None:
+        """Register the 3D block runs: their pixels bypass the 1-D kernels (see block_capture)."""
+        import copy
+        # shallow copies: the cached runs are shared between captures / previews / explain calls (possibly
+        # on different threads) and ``attach_hits`` stores the per-capture pixel look-up on the object
+        self.blocks = [copy.copy(r) for r in runs]
+        K, P = self.hit.material.shape
+        eff = self.hit.material.copy()
+        for r in self.blocks:
+            r.attach_hits(self.hit.info, K, P)
+            eff[r.mask] = -1
+        self.mat_eff = eff
 
     # ---------------------------------------------------------------- transport helper
     def _kernels(self, opt, ex_nm, k, gidx, cos_in=None, em_index=None):
@@ -356,7 +401,7 @@ class _Engine:
 
         if P > 0:
             for k in range(self.K):
-                matk = h.material[k, a:b]
+                matk = self.mat_eff[k, a:b]
                 isbg = h.object_index[k, a:b] == -2
                 for m in np.unique(matk[matk >= 0]):
                     for flag in (False, True):
@@ -364,6 +409,8 @@ class _Engine:
                         if sel.size:
                             with np.errstate(all="ignore"):     # Accelerate BLAS raises spurious FP flags
                                 self._layer(st, k, int(m), a + sel, sel, line_w, leak_w, ws, add, white, flag)
+            if self.blocks:
+                self._block_chunk(st, a, b, line_w, leak_w, ws, add)
             # specular glint at the first interface
             if tg.specular_glints:
                 m0 = h.material[0, a:b] >= 0
@@ -387,6 +434,33 @@ class _Engine:
                 if name not in st.comps:
                     st.comps[name] = np.zeros((self.P, len(st.centres)), dtype=np.float32)
                 st.comps[name][a:b] = r
+
+    def _block_chunk(self, st: _Step, a: int, b: int, line_w, leak_w, ws, add) -> None:
+        """Radiance of the layered-block pixels of the chunk from the 3D Monte Carlo face tallies."""
+        h, tg = self.hit, self.tg
+        for run in self.blocks:
+            for k in range(self.K):
+                msk = run.mask[k, a:b]
+                if not msk.any():
+                    continue
+                sel = np.nonzero(msk)[0]
+                gidx = a + sel
+                if k == 0:       # ground-truth surface irradiance of the first surface
+                    st.irr[gidx] = st.power_mW * h.irradiance_per_mW[0, gidx].astype(np.float64) * h.T_light[0, gidx]
+                V = self._view_transmission(k, gidx, ws)
+                parts = run.components(st.ex_nm, run.face_code[k, gidx], run.hit_u[k, gidx], run.hit_v[k, gidx],
+                                       st.wsel_idx, line_w, leak_w, self._keep, tg.fluorescence, tg.elastic_leak)
+                if self._keep:
+                    for name, arr, _fl in parts:
+                        add(name, (arr * V).astype(np.float32), sel)
+                else:
+                    tot = np.zeros((len(sel), line_w.size), np.float32)
+                    fl = np.zeros_like(tot)
+                    for _n, arr, is_fl in parts:
+                        tot += arr
+                        if is_fl:
+                            fl += arr
+                    add("layer", tot * V, sel, fl_arr=fl * V)
 
     def _layer(self, st: _Step, k: int, m: int, gidx: np.ndarray, sel: np.ndarray, line_w, leak_w, ws,
                add, white: bool, bg: bool) -> None:
@@ -825,7 +899,7 @@ class _Engine:
         erm = spectra.room_light_irradiance_mW_mm2_nm(rl.spectrum, rl.illuminance_lux, GRID)
         out = np.zeros((b - a, len(GRID)), dtype=np.float32)
         for k in range(self.K):
-            matk = h.material[k, a:b]
+            matk = self.mat_eff[k, a:b]
             for m in np.unique(matk[matk >= 0]):
                 opt, mspec = self.optics[int(m)], self.mats[int(m)]
                 if self._skippable(opt, mspec, False):
@@ -931,7 +1005,7 @@ def _spread_subsurface(eng: _Engine, st: _Step, h: HitBuffer) -> None:
     H, W = h.height, h.width
     if not st.radial or eng.P != H * W:
         return
-    mat0 = h.material[0].reshape(H, W)
+    mat0 = eng.mat_eff[0].reshape(H, W)          # block pixels (-1) are not spread
     foot = h.pixel_footprint_mm.reshape(H, W)
     centres = st.centres
     for m, (r_mm, prof, lam_nodes) in st.radial.items():
@@ -1003,10 +1077,82 @@ def _gt_maps(eng: _Engine, steps: list[_Step], h: HitBuffer) -> dict[str, np.nda
         for mi, m in enumerate(eng.mats):
             c = sum(x.concentration_uM for x in m.dyes if x.fluorophore == d)
             if c > 0:
-                conc[h.material[0] == mi] = c
+                conc[eng.mat_eff[0] == mi] = c
+        bl = np.asarray(eng.survival[d][0], dtype=np.float64).copy()
+        for run in eng.blocks:                       # concentration / survival vary with depth in blocks
+            conc[run.mask[0]] = np.nan
+            bl[run.mask[0]] = np.nan
         gt[f"conc:{d}"] = f32(conc)
-        gt[f"bleached:{d}"] = f32(eng.survival[d][0])
+        gt[f"bleached:{d}"] = f32(bl)
+    for run in eng.blocks:
+        gt.update(_block_gt(run, h))
     return gt
+
+
+def _block_gt(run, h: HitBuffer) -> dict[str, np.ndarray]:
+    """Block ground-truth maps (NaN off the block; every camera layer slot that hits the block)."""
+    H, W = h.height, h.width
+    K = run.mask.shape[0]
+    maps: dict[str, np.ndarray] = {}
+    for k in range(K - 1, -1, -1):          # layer 0 (first surface) wins over deeper slots
+        sel = np.nonzero(run.mask[k])[0]
+        if sel.size == 0:
+            continue
+        vals = run.gt_values(run.face_code[k, sel].astype(int), run.hit_u[k, sel], run.hit_v[k, sel],
+                             run.hit_x[k, sel], run.hit_z[k, sel])
+        for key, v in vals.items():
+            arr = maps.setdefault(key, np.full(H * W, np.nan, dtype=np.float32))
+            arr[sel] = v
+    return {k_: v.reshape(H, W) for k_, v in maps.items()}
+
+
+def _block_gt_pixel(run, h: HitBuffer) -> dict[str, float]:
+    """Block ground truth of the single traced pixel of :func:`explain_pixel` (NaN-free scalars)."""
+    for k in range(run.mask.shape[0]):
+        if run.mask[k, 0]:
+            vals = run.gt_values(run.face_code[k, :1].astype(int), run.hit_u[k, :1], run.hit_v[k, :1],
+                                 run.hit_x[k, :1], run.hit_z[k, :1])
+            return {key: (None if not np.isfinite(v[0]) else float(v[0])) for key, v in vals.items()}
+    return {}
+
+
+def _run_blocks(eng: _Engine, steps: list[_Step], traced: Experiment, mode: str, scale: float, progress, cancel):
+    """3D Monte Carlo of every visible block (cached); ``None`` if cancelled."""
+    if not eng.hit.info.get("block_hits"):
+        return []
+    from spectraforge.studio import block_capture
+    frac = _block_fraction(traced, scale)
+    return block_capture.get_runs(eng, steps, eng._scene_geometry(), mode, frac, progress, cancel)
+
+
+def _block_fraction(exp: Experiment, scale: float) -> float:
+    """Photon fraction of the block Monte Carlo: full at scale >= 1, ``preview_fraction`` otherwise."""
+    return 1.0 if scale >= 1.0 else float(exp.acquisition.volume_mc.preview_fraction)
+
+
+def _restrict_sequence(exp: Experiment, excitations) -> Experiment:
+    """``exp`` whose active source only keeps the enabled steps at ``excitations`` (what ``preview`` does)."""
+    src = exp.source()
+    want = [float(e) for e in excitations]
+    seq = [s for s in src.sequence if s.enabled and any(abs(s.wavelength_nm - w) < 1e-6 for w in want)]
+    if not seq or len(seq) == sum(1 for s in src.sequence if s.enabled):
+        return exp
+    new_src = src.model_copy(update={"sequence": seq})
+    return exp.model_copy(update={"sources": [new_src if s.id == src.id else s for s in exp.sources]})
+
+
+def _block_results(res: CaptureResult, eng: _Engine, steps: list[_Step]) -> None:
+    """Fill ``CaptureResult.blocks`` / ``.volumes`` from the block runs."""
+    for run in eng.blocks:
+        res.blocks.append({"object_id": run.object_id, "layer_names": list(run.layer_names),
+                           "footprint_mm": [float(run.footprint_mm[0]), float(run.footprint_mm[1])],
+                           "world_from_local": np.asarray(run.world_from_local, float).tolist()})
+        res.volumes[run.object_id] = {
+            "grid": run.grid, "layer_names": list(run.layer_names),
+            "fluence": {ex: run.fluence[ex] for ex in run.ex_list},
+            "absorbed": {ex: run.absorbed[ex] for ex in run.ex_list},
+            "source": dict(run.sources),
+            "units": {"fluence": "mW/mm^2", "absorbed": "mW", "source": "mW"}}
 
 
 # --------------------------------------------------------------------------------------------
@@ -1129,7 +1275,18 @@ def capture(experiment: Experiment, *, mode: str | None = None, scale: float = 1
     timings["setup"] = time.perf_counter() - t0
 
     t0 = time.perf_counter()
-    ok = _run_engine(eng, steps, False, progress, cancel, 0.08, 0.7)
+    rad_p0 = 0.08
+    ok = True
+    if hit.info.get("block_hits"):                  # 3D Monte Carlo of the layered blocks (cached)
+        runs = _run_blocks(eng, steps, traced, mode, scale, lambda f, m: prog(0.08 + 0.44 * f, m), cancel)
+        timings["mc3d"] = time.perf_counter() - t0
+        ok = runs is not None
+        if ok:
+            eng.attach_blocks(runs)
+            rad_p0 = 0.52
+        t0 = time.perf_counter()
+    if ok:
+        ok = _run_engine(eng, steps, False, progress, cancel, rad_p0, 0.7)
     timings["radiance"] = time.perf_counter() - t0
     if not ok:
         res = CaptureResult(experiment_json=experiment.model_dump_json(), mode=mode, width=width, height=height,
@@ -1190,6 +1347,7 @@ def capture(experiment: Experiment, *, mode: str | None = None, scale: float = 1
     timings["sensor"] = time.perf_counter() - t0
 
     res.ground_truth = _gt_maps(eng, steps, hit)
+    _block_results(res, eng, steps)
     # ---- warnings -------------------------------------------------------------------------------
     if sat_note:
         warnings.append("saturation: " + "; ".join(sat_note))
@@ -1282,7 +1440,7 @@ def preview(experiment: Experiment, excitation_nm: float | None = None, scale: f
 
 
 def explain_pixel(experiment: Experiment, x: int, y: int, *, scale: float = 1.0, mode: str | None = None,
-                  transport=None, tracer=None) -> dict:
+                  transport=None, tracer=None, excitations=None) -> dict:
     """Per-pixel decomposition of the captured signal (see :class:`PixelExplain` in ``api/types.ts``).
 
     The pixel is recomputed exactly via ``trace_scene(pixels=[idx])`` and the same engine
@@ -1299,7 +1457,13 @@ def explain_pixel(experiment: Experiment, x: int, y: int, *, scale: float = 1.0,
     neighbouring pixels.  At edge pixels the difference is the lateral light exchange (median 0.14 %, up
     to ~7 % at material boundaries).  Optical blur and fixed-pattern noise are not applied either (only
     ``radiance`` is compared; ``adu`` is the noise-free expectation without blur).  The filter-angle rings
-    are laid out up to the full-frame corner angle, exactly as in :func:`capture`."""
+    are laid out up to the full-frame corner angle, exactly as in :func:`capture`.
+
+    Layered blocks: the 3D Monte Carlo is cached per (experiment, mode, photon fraction, excitation steps)
+    (:mod:`block_capture`).  ``excitations`` (wavelengths in nm) selects the steps to explain; by default the
+    steps of the most recent cached block run of this experiment are used, so a pixel of a preview explains
+    the PREVIEWED excitation and re-uses its tallies (~20-60 ms per pixel instead of re-simulating the whole
+    sequence, ~10 s).  Pass the same ``scale`` as the capture (it selects the photon fraction)."""
     mode = mode or experiment.acquisition.mode
     exp = experiment
     cam, tg, acq = exp.camera(), exp.acquisition.physics, exp.acquisition
@@ -1308,6 +1472,14 @@ def explain_pixel(experiment: Experiment, x: int, y: int, *, scale: float = 1.0,
     if not (0 <= x < width and 0 <= y < height):
         raise ValueError(f"pixel ({x}, {y}) outside {width}x{height}")
     idx = y * width + x
+    if any(o.visible and o.shape.kind == "layered_block" for o in exp.objects):
+        # layered blocks: explain the excitation(s) that were previewed / captured, so that the cached 3D
+        # Monte Carlo is reused instead of re-simulating the whole sequence (``excitations`` overrides)
+        from spectraforge.studio import block_capture
+        sel = excitations if excitations is not None else block_capture.cached_excitations(
+            _mode_experiment(exp, mode), mode, _block_fraction(exp, scale))
+        if sel is not None:
+            exp = _restrict_sequence(exp, sel)
     traced = _mode_experiment(exp, mode)
     hit = _get_tracer(tracer)(traced, width, height, pixels=[idx], toggles=tg)
     if hit.material.shape[1] != 1:
@@ -1319,6 +1491,8 @@ def explain_pixel(experiment: Experiment, x: int, y: int, *, scale: float = 1.0,
     hc = _get_tracer(tracer)(traced, width, height, pixels=corners, toggles=tg)
     steps = _prepare_steps(traced, hit, mode, _select_steps(exp, None), eng, keep=True,
                            max_angle=float(np.max(hc.field_angle_rad)))
+    runs = _run_blocks(eng, steps, traced, mode, scale, None, None)
+    eng.attach_blocks(runs)
     _run_engine(eng, steps, True, None, None, 0.0, 1.0)
     copt = sensor_mod.CameraOptics.from_camera(cam, hit.focus_depth_mm if hit.focus_depth_mm > 0 else None)
     vign = sensor_mod.vignetting(hit.field_angle_rad, tg.vignetting)
@@ -1352,9 +1526,13 @@ def explain_pixel(experiment: Experiment, x: int, y: int, *, scale: float = 1.0,
         "shadow": bool(m0 >= 0 and hit.T_light[0, 0] <= 0),
         "field_angle_deg": float(np.degrees(hit.field_angle_rad[0])),
     })
+    is_block = any(r.mask[0, 0] for r in eng.blocks)
     for d in eng.dyes:
         conc = sum(dd.concentration_uM for dd in eng.mats[m0].dyes if dd.fluorophore == d) if m0 >= 0 else 0.0
-        gt[f"conc:{d}"] = float(conc)
-        gt[f"bleached:{d}"] = float(eng.survival[d][0, 0])
+        gt[f"conc:{d}"] = None if is_block else float(conc)
+        gt[f"bleached:{d}"] = None if is_block else float(eng.survival[d][0, 0])
+    for r in eng.blocks:
+        if r.mask[:, 0].any():
+            gt.update(_block_gt_pixel(r, hit))
     out["ground_truth"] = gt
     return out

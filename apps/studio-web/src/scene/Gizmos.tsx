@@ -9,6 +9,8 @@ import { beamAt } from '../lib/lighting'
 import { distance } from '../lib/camera'
 import { imagingGeometry } from '../three/hardware/CameraFrustum'
 import { useActiveNm } from './useExcitation'
+import { useLayerView } from '../state/layerView'
+import { totalRange } from '../three/layers/profile'
 
 type V3 = [number, number, number]
 const D2R = Math.PI / 180
@@ -136,13 +138,16 @@ export function Readouts() {
   const sel = useStudio((s) => s.selection)
   const exp = useStudio((s) => s.exp)
   const lookThrough = useStudio((s) => s.ui.lookThrough)
+  const sectionOn = useLayerView((s) => (sel ? s.sections[sel.id]?.on : false)) ?? false
   if (!sel || lookThrough) return null
   const src = activeSource(exp), cam = activeCamera(exp)
   if (sel.kind === 'object') {
     const o = exp.objects.find((x) => x.id === sel.id); if (!o) return null
     const p = o.transform.position_mm
-    const top: V3 = [p[0], p[1] + 10, p[2]]
-    const b = src ? beamAt(src, [p[0], p[1] + 1, p[2]], [0, 1, 0]) : null
+    const blockH = o.shape.kind === 'layered_block' ? totalRange(o.shape).max : 0   // bottom-origin block: readout sits above its top face
+    if (o.shape.kind === 'layered_block' && sectionOn) return null                   // the cutaway has its own callouts
+    const top: V3 = [p[0], p[1] + blockH + 10, p[2]]
+    const b = src ? beamAt(src, [p[0], p[1] + (blockH || 1), p[2]], [0, 1, 0]) : null
     return (
       <group userData={{ hideInPip: true }}><Html position={top} zIndexRange={[20, 0]} style={{ pointerEvents: 'none' }}>
         <div className="readout">

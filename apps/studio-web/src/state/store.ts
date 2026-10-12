@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { produce } from 'immer'
 import type { Experiment } from '../generated/experiment'
 import type { CaptureMeta, PhysicsWarning, ValidationIssue } from '../api/types'
-import { DEFAULT_PRESET, presetExperiment, clone } from './presets'
+import { DEFAULT_PRESET, presetExperiment, clone, BUNDLE } from './presets'
 import { uniqueId } from '../lib/ids'
 import { LIBRARY_SHAPES, newCamera, newMaterial, newSource } from './library'
 
@@ -150,6 +150,10 @@ export const useStudio = create<StudioState>()((set, get) => ({
     const matId = exp.materials.find((m) => m.dyes.length)?.id ?? exp.materials[0]?.id ?? 'water'
     const glass = exp.materials.find((m) => m.id === 'glass')?.id ?? null
     get().edit((e) => {
+      for (const rid of lib.requires ?? []) {   // layered-block items bring their library materials along
+        const m = BUNDLE.materials.find((x) => x.id === rid)
+        if (m && !e.materials.some((x) => x.id === rid)) e.materials.push(clone(m))
+      }
       const o = lib.make(id, matId, glass)
       if (at) { o.transform.position_mm[0] = at[0]; o.transform.position_mm[2] = at[2] }
       else { const k = e.objects.length; o.transform.position_mm[0] += ((k % 5) - 2) * 30; o.transform.position_mm[2] += 60 + Math.floor(k / 5) * 40 }

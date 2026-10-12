@@ -5,6 +5,7 @@ import type { SampleMeshProps } from './types'
 import { Edges } from '@react-three/drei'
 import { HullMat, hullColor } from './util/parts'
 import { noiseBump } from './util/textures'
+import { LayeredBlockMesh } from './LayeredBlockMesh'
 
 /** thin bright glass edge lines so clear vessels read against dark backgrounds */
 const GlassEdges = () => <Edges threshold={25} color="#d6ecff" transparent opacity={0.35} toneMapped={false} />
@@ -123,7 +124,7 @@ function Cuvette({ s, fill, vessel }: { s: Extract<SceneObject['shape'], { kind:
   )
 }
 
-function Shape({ obj, body, fill, vessel }: { obj: SceneObject; body: MatFn; fill: MatFn; vessel: MatFn }) {
+function Shape({ obj, body, fill, vessel, block }: { obj: SceneObject; body: MatFn; fill: MatFn; vessel: MatFn; block?: ReactElement | null }) {
   const s = obj.shape
   const drop = useMemo(() => (s.kind === 'droplet' ? new THREE.LatheGeometry(dropletProfile(s.base_radius_mm, s.height_mm), 64) : null),
     [s.kind === 'droplet' ? s.base_radius_mm : 0, s.kind === 'droplet' ? s.height_mm : 0]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -139,13 +140,14 @@ function Shape({ obj, body, fill, vessel }: { obj: SceneObject; body: MatFn; fil
     )
     case 'petri_dish': return <Petri s={s} body={body} fill={fill} vessel={vessel} />
     case 'cuvette': return <Cuvette s={s} fill={fill} vessel={vessel} />
+    case 'layered_block': return block ?? null
   }
 }
 
 /** Sample geometry that matches the physics shapes exactly (mm). Glass vessels use a transmissive physical material
  *  (ior 1.52); liquids/gels/turbid solids get class-appropriate PBR from the material's optics; `glowColor` drives an
  *  emissive fluorescence glow (bloom picks it up). */
-export function SampleMesh({ object, material, vesselMaterial, selected, hovered, glowColor, glowIntensity = 0.6 }: SampleMeshProps) {
+export function SampleMesh({ object, material, vesselMaterial, selected, hovered, glowColor, glowIntensity = 0.6, layerMaterials, layerGlows, section, sectionLabels, lightField }: SampleMeshProps) {
   const t = object.transform
   const glow = useMemo(() => (glowColor ? new THREE.Color(glowColor) : null), [glowColor])
   const s = object.shape
@@ -160,11 +162,14 @@ export function SampleMesh({ object, material, vesselMaterial, selected, hovered
     }
   }, [material, vesselMaterial, glow, glowIntensity, thick])
   if (!object.visible) return null
+  const block = s.kind === 'layered_block' && layerMaterials?.length === s.layers.length
+    ? <LayeredBlockMesh shape={s} materials={layerMaterials} glows={layerGlows} section={section} sectionLabels={sectionLabels} lightField={lightField} selected={selected} hovered={hovered} />
+    : null
   const rot = t.rotation_deg.map((d) => (d * Math.PI) / 180) as [number, number, number]
   return (
     <group position={t.position_mm} rotation={rot}>
-      <Shape obj={object} {...mats} />
-      {hull && <group scale={1.04}><Shape obj={object} body={hullFn(hull)} fill={hullFn(hull)} vessel={hullFn(hull)} /></group>}
+      <Shape obj={object} {...mats} block={block} />
+      {hull && s.kind !== 'layered_block' && <group scale={1.04}><Shape obj={object} body={hullFn(hull)} fill={hullFn(hull)} vessel={hullFn(hull)} /></group>}
     </group>
   )
 }

@@ -164,8 +164,57 @@ class CuvetteShape(_Model):
     fill_height_mm: float = Field(30.0, ge=0)
 
 
+class ThicknessProfile(_Model):
+    """Thickness of one block layer across the footprint. ``uniform``: ``thickness_mm`` everywhere.
+    ``linear``: a wedge that varies linearly along local ``axis`` from ``thickness_mm`` at the
+    negative edge (axis = −size/2) to ``end_thickness_mm`` at the positive edge (axis = +size/2).
+    Because every profile is linear, every interface of a layered block is an exact PLANE."""
+    kind: Literal["uniform", "linear"] = "uniform"
+    thickness_mm: float = Field(1.0, ge=0)
+    end_thickness_mm: float = Field(1.0, ge=0)
+    axis: Literal["x", "z"] = "x"
+
+    def at(self, x_mm: float, z_mm: float, footprint_mm: tuple[float, float]) -> float:
+        if self.kind == "uniform":
+            return self.thickness_mm
+        u = x_mm if self.axis == "x" else z_mm
+        size = footprint_mm[0] if self.axis == "x" else footprint_mm[1]
+        f = min(max(u / size + 0.5, 0.0), 1.0)
+        return self.thickness_mm + (self.end_thickness_mm - self.thickness_mm) * f
+
+
+class BlockLayer(_Model):
+    name: str
+    material_id: str
+    thickness: ThicknessProfile = Field(default_factory=ThicknessProfile)
+
+
+class LayeredBlockShape(_Model):
+    """A rectangular block built from a stack of uniform layers, listed BOTTOM → TOP. Footprint
+    ``footprint_mm = (x, z)`` centred on the local origin; the bottom face lies on local ``y = 0``
+    and every layer interface ``y = Σ_{j≤i} t_j(x, z)`` is a plane (uniform or linear profiles).
+    Light transport inside is solved by the 3D layered Monte Carlo (``transport3d``), so buried
+    layers (e.g. a fluorophore under a scattering cover) are seen through everything above them.
+    ``SceneObject.material_id`` is ignored for this shape (each layer carries its own material)."""
+    kind: Literal["layered_block"] = "layered_block"
+    footprint_mm: tuple[float, float] = (40.0, 40.0)
+    layers: list[BlockLayer] = Field(min_length=1, max_length=8)
+
+    @model_validator(mode="after")
+    def _positive_total(self) -> "LayeredBlockShape":
+        hx, hz = self.footprint_mm[0] / 2, self.footprint_mm[1] / 2
+        for x, z in ((-hx, -hz), (hx, -hz), (-hx, hz), (hx, hz)):
+            if sum(l.thickness.at(x, z, self.footprint_mm) for l in self.layers) <= 0:
+                raise ValueError("layered block has zero total thickness somewhere on its footprint")
+        names = [l.name for l in self.layers]
+        if len(set(names)) != len(names):
+            raise ValueError("layered block layer names must be unique")
+        return self
+
+
 Shape = Annotated[
-    Union[BoxShape, SphereShape, CylinderShape, DropletShape, PetriDishShape, CuvetteShape],
+    Union[BoxShape, SphereShape, CylinderShape, DropletShape, PetriDishShape, CuvetteShape,
+          LayeredBlockShape],
     Field(discriminator="kind"),
 ]
 
@@ -320,12 +369,28 @@ class PhysicsToggles(_Model):
     quantization: bool = True
 
 
+class VolumeMCSettings(_Model):
+    """Quality knobs of the 3D layered-block Monte Carlo (``transport3d``). Photon counts are per
+    excitation step (excitation pass) and per emission wavelength node (emission pass); previews
+    use ``preview_fraction`` of them. Tallies use a layer-conforming grid: ``lateral_cell_mm`` in
+    x/z and ``sublayers`` cells across each layer's (local) thickness."""
+    excitation_photons: int = Field(2_000_000, ge=10_000, le=200_000_000)
+    emission_photons: int = Field(2_000_000, ge=10_000, le=200_000_000)
+    preview_fraction: float = Field(0.1, gt=0, le=1)
+    lateral_cell_mm: float = Field(0.5, gt=0.01)
+    sublayers: int = Field(8, ge=1, le=64)
+    exit_cell_mm: float = Field(0.5, gt=0.01)
+    emission_node_step_nm: float = Field(20.0, ge=2.0, le=100.0)
+    acceptance_half_angle_deg: float = Field(12.0, gt=0.5, le=60.0)
+
+
 class AcquisitionSettings(_Model):
     mode: Literal["sample", "dark", "white_reference"] = "sample"
     seed: int = 0
     mc_photons: int = Field(200_000, ge=1_000, le=50_000_000)   # Monte Carlo quality per bake
     preview_scale: float = Field(0.25, gt=0, le=1)
     physics: PhysicsToggles = Field(default_factory=PhysicsToggles)
+    volume_mc: VolumeMCSettings = Field(default_factory=VolumeMCSettings)
 
 
 # --------------------------------------------------------------------------------------------
@@ -354,6 +419,11 @@ class Experiment(_Model):
             if o.vessel_material_id is not None and o.vessel_material_id not in mats:
                 raise ValueError(f"object '{o.id}' references unknown vessel material "
                                  f"'{o.vessel_material_id}'")
+            if o.shape.kind == "layered_block":
+                for layer in o.shape.layers:
+                    if layer.material_id not in mats:
+                        raise ValueError(f"object '{o.id}' layer '{layer.name}' references unknown "
+                                         f"material '{layer.material_id}'")
         if self.background.kind == "plane" and self.background.material_id not in mats:
             raise ValueError(f"background references unknown material '{self.background.material_id}'")
         for label, ids, active in (("source", [s.id for s in self.sources], self.active_source_id),

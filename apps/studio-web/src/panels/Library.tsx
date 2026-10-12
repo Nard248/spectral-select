@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useStudio } from '../state/store'
-import { LIBRARY_SHAPES } from '../state/library'
+import { LIBRARY_SHAPES, BLOCK_ITEMS } from '../state/library'
 import { BUNDLE, clone } from '../state/presets'
 import { ShapeIcon, SourceIcon, CameraIcon } from '../ui/icons'
 import { Seg, Tip } from '../ui/controls'
@@ -9,7 +9,7 @@ import { wavelengthToHex } from '../lib/color'
 import { toast } from '../ui/toast'
 import type { SceneObject } from '../generated/experiment'
 
-const KIND: Record<string, SceneObject['shape']['kind']> = { petri: 'petri_dish', cuvette: 'cuvette', slide: 'box', droplet: 'droplet', bead: 'sphere', block: 'box', puck: 'cylinder' }
+const KIND: Record<string, SceneObject['shape']['kind']> = { petri: 'petri_dish', cuvette: 'cuvette', slide: 'box', droplet: 'droplet', bead: 'sphere', block: 'box', puck: 'cylinder', block_wedge: 'layered_block', block_tissue: 'layered_block', block_two: 'layered_block' }
 
 export function Library() {
   const [tab, setTab] = useState<'ware' | 'materials' | 'dyes' | 'hardware'>('ware')
@@ -44,13 +44,23 @@ export function Library() {
       <div className="ptitle">Library</div>
       <div className="libtabs"><Seg small value={tab} onChange={setTab} options={[{ value: 'ware', label: 'Lab-ware' }, { value: 'materials', label: 'Materials' }, { value: 'dyes', label: 'Dyes' }, { value: 'hardware', label: 'Hardware' }]} /></div>
       <div className="scroll">
-        {tab === 'ware' && <div className="lib">
-          {LIBRARY_SHAPES.map((s) => (
-            <button key={s.key} draggable onDragStart={(e) => { e.dataTransfer.setData('application/x-sf-shape', s.key); e.dataTransfer.effectAllowed = 'copy' }} onClick={() => addObject(s.key)}>
-              <ShapeIcon kind={KIND[s.key]} size={18} />{s.label}<small>{s.hint}</small>
-            </button>
-          ))}
-        </div>}
+        {tab === 'ware' && <>
+          <div className="lib">
+            {LIBRARY_SHAPES.filter((s) => !BLOCK_ITEMS.includes(s)).map((s) => (
+              <button key={s.key} draggable onDragStart={(e) => { e.dataTransfer.setData('application/x-sf-shape', s.key); e.dataTransfer.effectAllowed = 'copy' }} onClick={() => addObject(s.key)}>
+                <ShapeIcon kind={KIND[s.key]} size={18} />{s.label}<small>{s.hint}</small>
+              </button>
+            ))}
+          </div>
+          <div className="group-title" style={{ padding: '2px 14px 6px' }}>Layered blocks · 3D Monte Carlo</div>
+          <div className="lib">
+            {BLOCK_ITEMS.map((s) => (
+              <button key={s.key} className="blk" draggable onDragStart={(e) => { e.dataTransfer.setData('application/x-sf-shape', s.key); e.dataTransfer.effectAllowed = 'copy' }} onClick={() => addObject(s.key)}>
+                <ShapeIcon kind="layered_block" size={18} />{s.label}<small>{s.hint}</small>
+              </button>
+            ))}
+          </div>
+        </>}
         {tab === 'materials' && <div className="tree" style={{ paddingBottom: 10 }}>
           <div className="hint" style={{ padding: '0 8px 6px' }}>{sel?.kind === 'object' ? 'Click to assign to the selected object.' : 'Click to add to the experiment.'}</div>
           {BUNDLE.materials.map((m) => (

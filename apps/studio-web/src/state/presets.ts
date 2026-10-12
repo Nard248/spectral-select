@@ -9,6 +9,9 @@ export const PRESET_ORDER: { key: string; label: string; blurb: string }[] = [
   { key: 'generic_macro_bench', label: 'Generic macro bench', blurb: 'Mixed fluorescent samples under a tunable lamp' },
   { key: 'led_multispectral', label: 'LED multispectral', blurb: 'LED array + filter wheel, six bands' },
   { key: 'laser_line', label: 'Laser line, side view', blurb: 'Cuvette row: dilute, FRET and inner-filter regimes' },
+  { key: 'layered_wedge_phantom', label: 'Layered wedge phantom', blurb: '3D: fluorescein layer under a turbid cover thinning 2 → 0 mm' },
+  { key: 'tissue_under_collagen', label: 'Tissue under collagen', blurb: '3D: NADH/FAD layer under a collagen cover 1.5 → 0.05 mm' },
+  { key: 'pencil_beam_penetration', label: 'Pencil-beam penetration', blurb: '3D: 1 mm laser at 45° into tissue under 0.5 mm collagen — the banana-shaped light field' },
 ]
 
 export const clone = <T,>(v: T): T => structuredClone(v)

@@ -34,6 +34,8 @@ import math
 import numpy as np
 from numba import njit, prange
 
+from spectraforge.studio._numba_env import parallel_njit
+
 # --------------------------------------------------------------------------------------------
 # Shared grids (path-length bins etc.)
 # --------------------------------------------------------------------------------------------
@@ -377,7 +379,7 @@ def _mcml_chunk(mua, mus, g, n, no, d, mode, mu0_ext, z0, zrate, n_ph, zmax, nzb
                 break
 
 
-@njit(parallel=True, cache=True)
+@parallel_njit(cache=True)
 def _mcml_all(mua, mus, g, n, no, d, mode, mu0_ext, z0, zrate, n_per, nchunks, seed, zmax, nzb,
               res, hist, absz):
     for c in prange(nchunks):
@@ -450,7 +452,7 @@ def _lin_idx(v, nodes):
     return i, w
 
 
-@njit(parallel=True, cache=True, error_model="numpy")
+@parallel_njit(cache=True, error_model="numpy")
 def turbid_pixels(cos_in, cos_out, thick, no, n, mu_nodes, d_nodes, lnj, w_idx, w_wgt, em_sel,
                   ln_zbar, rho_tab, out_G, out_rho, out_zbar):
     """Fused per-pixel turbid-medium kernel evaluation (numba twin of the NumPy pipeline
@@ -559,7 +561,7 @@ def turbid_pixels(cos_in, cos_out, thick, no, n, mu_nodes, d_nodes, lnj, w_idx, 
             out_rho[p] = 0.0
 
 
-@njit(parallel=True, cache=True)
+@parallel_njit(cache=True)
 def clear_G(mut_em, mut_ex, ci_p, co_p, length, pref, out, mean_depth, sel):
     """Closed-form clear-medium kernel ``pref * L * (1 - e^{-x})/x`` with
     ``x = (mut_ex co'/ci' + mut_em) L`` for all pixels/wavelengths, plus the G-weighted mean depth

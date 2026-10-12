@@ -12,7 +12,7 @@ import time
 import uuid
 from collections import OrderedDict
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -23,14 +23,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import ValidationError
 
-from . import exports, render_png
+from . import analysis, exports, render_png
 from .jobs import Cancelled, JobManager
 from .presets import PRESETS, builtin_fluorophores, builtin_materials
 from .schema import EXTINCTION_REFERENCE_M_CM, SCHEMA_VERSION, Experiment
+from .sweeps import SweepError, SweepManager
 
 ENGINE_VERSION = "studio-1.0"
 DEFAULT_DIST = Path(__file__).resolve().parents[3] / "apps" / "studio-web" / "dist"
-_EXPOSE = "X-Width, X-Height, X-Bands, Content-Disposition"
+_EXPOSE = "X-Width, X-Height, X-Bands, X-Dims, Content-Disposition"
 
 
 # --------------------------------------------------------------------------------------------
@@ -42,6 +43,7 @@ class StoredCapture:
     result: Any            # contracts.CaptureResult
     experiment: Experiment
     scale: float = 1.0     # resolution scale relative to the sensor (explain_pixel coordinates)
+    pixel_cache: dict = field(default_factory=dict)   # (x, y) -> explained components (analysis ROI stats)
 
 
 class CaptureStore:
@@ -70,22 +72,7 @@ class CaptureStore:
             return [it.meta for it in reversed(self._d.values())]
 
 
-def _plain(x: Any) -> Any:
-    """Recursively convert numpy / non-JSON values to JSON-safe Python."""
-    if isinstance(x, dict):
-        return {(f"{k:g}" if isinstance(k, (float, np.floating)) else str(k)): _plain(v) for k, v in x.items()}
-    if isinstance(x, (list, tuple)):
-        return [_plain(v) for v in x]
-    if isinstance(x, np.ndarray):
-        return _plain(x.tolist())
-    if isinstance(x, (np.floating, float)):
-        v = float(x)
-        return v if np.isfinite(v) else None
-    if isinstance(x, (np.integer,)):
-        return int(x)
-    if isinstance(x, np.bool_):
-        return bool(x)
-    return x
+_plain = analysis.to_jsonable
 
 
 def build_meta(result, experiment: Experiment, cid: str, mode: str) -> dict:
@@ -114,6 +101,10 @@ def build_meta(result, experiment: Experiment, cid: str, mode: str) -> dict:
         "warnings": [str(w) for w in result.warnings],
         "timings_s": {k: float(v) for k, v in result.timings_s.items()},
         "camera_id": cam.id if cam else "", "source_id": src.id if src else "",
+        "volumes": analysis.volume_infos(result),
+        "blocks": [{"object_id": str(b["object_id"]), "layer_names": [str(n) for n in b["layer_names"]],
+                    "footprint_mm": [float(v) for v in b["footprint_mm"]]}
+                   for b in (getattr(result, "blocks", None) or [])],
     }
 
 
@@ -338,6 +329,7 @@ def create_app(capture_fn: Callable | None = None, preview_fn: Callable | None =
     trace_fn = trace_fn or _default_trace
     store = CaptureStore(store_size)
     jobs = JobManager()
+    sweeps: SweepManager | None = None   # created below, after the capture helpers
 
     @asynccontextmanager
     async def lifespan(_app):
@@ -412,13 +404,13 @@ def create_app(capture_fn: Callable | None = None, preview_fn: Callable | None =
         return out
 
     # ------------------------------------------------------------------ preview / capture
-    def _store_result(result, exp: Experiment, mode: str, scale: float) -> dict:
+    def _store_result(result, exp: Experiment, mode: str, scale: float, into: CaptureStore | None = None) -> dict:
         cid = uuid.uuid4().hex[:12]
         if mode in ("sample", "dark", "white_reference") and exp.acquisition.mode != mode:
             # explain_pixel() reads the mode from the experiment: keep it consistent with the capture
             exp = exp.model_copy(update={"acquisition": exp.acquisition.model_copy(update={"mode": mode})})
         meta = build_meta(result, exp, cid, mode)
-        store.put(StoredCapture(meta=meta, result=result, experiment=exp, scale=scale))
+        (into or store).put(StoredCapture(meta=meta, result=result, experiment=exp, scale=scale))
         return meta
 
     @app.post("/api/preview")
@@ -494,7 +486,7 @@ def create_app(capture_fn: Callable | None = None, preview_fn: Callable | None =
 
     # ------------------------------------------------------------------ capture access
     def _cap(cid: str) -> StoredCapture:
-        c = store.get(cid)
+        c = store.get(cid) or (sweeps.find_capture(cid) if sweeps is not None else None)
         if c is None:
             raise HTTPException(404, "unknown capture (the server keeps only the most recent ones)")
         return c
@@ -609,6 +601,168 @@ def create_app(capture_fn: Callable | None = None, preview_fn: Callable | None =
             raise HTTPException(422, f"format must be one of {sorted(exports.FORMATS)}")
         return Response(payload, media_type=media, headers={
             "Content-Disposition": exports.content_disposition(fname), "Access-Control-Expose-Headers": _EXPOSE})
+
+    # ------------------------------------------------------------------ v1.1: sweeps
+    def _sweep_point(exp: Experiment, mode: str, progress, cancel, into: CaptureStore) -> str:
+        if mode == "preview":
+            scale = exp.acquisition.preview_scale
+            progress(0.0, "preview")
+            result = preview_fn(exp, excitation_nm=None, scale=scale)
+            if cancel():
+                raise Cancelled()
+            return _store_result(result, exp, "preview", float(scale), into)["id"]
+        result = capture_fn(exp, mode="sample", scale=1.0, progress=progress, cancel=cancel)
+        if cancel():
+            raise Cancelled()
+        return _store_result(result, exp, "sample", 1.0, into)["id"]
+
+    sweeps = SweepManager(jobs, _sweep_point, lambda n: CaptureStore(max(1, n)))
+    app.state.sweeps = sweeps
+
+    @app.post("/api/sweeps")
+    async def start_sweep(request: Request):
+        body = await _json(request)
+        if not isinstance(body, dict) or "experiment" not in body:
+            raise HTTPException(422, detail=[{"loc": ["experiment"], "msg": "field required"}])
+        exp = _parse_experiment(body["experiment"])
+        param = body.get("parameter")
+        if not isinstance(param, dict) or "path" not in param or "values" not in param:
+            raise HTTPException(422, detail=[{"loc": ["parameter"], "msg": "parameter.path and parameter.values are required"}])
+        try:
+            sw = await asyncio.to_thread(sweeps.start, exp, param, body.get("mode") or "preview")
+        except SweepError as exc:
+            raise HTTPException(422, str(exc))
+        return {"sweep_id": sw.id}
+
+    def _sweep(sweep_id: str):
+        sw = sweeps.get(sweep_id)
+        if sw is None:
+            raise HTTPException(404, "unknown sweep")
+        return sw
+
+    @app.get("/api/sweeps/{sweep_id}")
+    def sweep_status(sweep_id: str):
+        return _sweep(sweep_id).status()
+
+    @app.post("/api/sweeps/{sweep_id}/cancel")
+    def sweep_cancel(sweep_id: str):
+        _sweep(sweep_id)
+        return sweeps.cancel(sweep_id).status()
+
+    @app.websocket("/api/sweeps/{sweep_id}")
+    async def sweep_ws(ws: WebSocket, sweep_id: str):
+        sw = sweeps.get(sweep_id)
+        if sw is None:
+            await ws.close(code=4404)
+            return
+        await ws.accept()
+        i = 0
+        try:
+            while True:
+                new = sw.events_since(i)
+                for ev in new:
+                    await ws.send_json(_plain(ev))
+                    i += 1
+                    if ev["type"] in ("done", "error", "cancelled"):
+                        await ws.close()
+                        return
+                if not new:
+                    await asyncio.sleep(0.03)
+        except WebSocketDisconnect:
+            return
+
+    # ------------------------------------------------------------------ v1.1: analysis
+    def _norm_inputs(norm_raw):
+        try:
+            norm = analysis.coerce_norm(norm_raw)
+        except analysis.AnalysisError as exc:
+            raise HTTPException(exc.status, str(exc))
+        dark = white = None
+        if norm.dark_capture_id:
+            dark = store_get(norm.dark_capture_id, "dark").result
+        if norm.white_capture_id:
+            white = store_get(norm.white_capture_id, "white").result
+        return norm, dark, white
+
+    def store_get(cid: str, role: str) -> StoredCapture:
+        c = store.get(cid) or sweeps.find_capture(cid)
+        if c is None:
+            raise HTTPException(404, f"unknown {role} capture '{cid}'")
+        return c
+
+    async def _body(request: Request) -> dict:
+        body = await _json(request)
+        if not isinstance(body, dict):
+            raise HTTPException(422, "request body must be a JSON object")
+        return body
+
+    async def _analyse(fn: Callable[[], Any]) -> Any:
+        try:
+            return await asyncio.to_thread(fn)
+        except analysis.AnalysisError as exc:
+            raise HTTPException(exc.status, str(exc))
+        except (TypeError, ValueError, KeyError) as exc:
+            raise HTTPException(422, f"{type(exc).__name__}: {exc}")
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(500, f"{type(exc).__name__}: {exc}")
+
+    @app.post("/api/captures/{cid}/eem")
+    async def eem_endpoint(cid: str, request: Request):
+        c, body = _cap(cid), await _body(request)
+        if "roi" not in body:
+            raise HTTPException(422, detail=[{"loc": ["roi"], "msg": "field required"}])
+        norm, dark, white = _norm_inputs(body.get("norm"))
+        return await _analyse(lambda: analysis.eem(c.result, body["roi"], norm, body.get("stat") or "mean",
+                                                   dark=dark, white=white).to_dict())
+
+    @app.post("/api/captures/{cid}/roi")
+    async def roi_endpoint(cid: str, request: Request):
+        c, body = _cap(cid), await _body(request)
+        if "roi" not in body:
+            raise HTTPException(422, detail=[{"loc": ["roi"], "msg": "field required"}])
+        norm, dark, white = _norm_inputs(body.get("norm"))
+        want = bool(body.get("components"))
+        explain = (lambda x, y: explain_fn(c.experiment, x, y, scale=c.scale)) if want else None
+        return await _analyse(lambda: analysis.roi_stats(
+            c.result, body["roi"], norm, body.get("stat") or "mean", components=want, explain=explain,
+            cache=c.pixel_cache, dark=dark, white=white).to_dict())
+
+    @app.post("/api/captures/{cid}/line")
+    async def line_endpoint(cid: str, request: Request):
+        c, body = _cap(cid), await _body(request)
+        for k in ("p0", "p1"):
+            if k not in body:
+                raise HTTPException(422, detail=[{"loc": [k], "msg": "field required"}])
+        norm, dark, white = _norm_inputs(body.get("norm"))
+        return await _analyse(lambda: analysis.line_profile(
+            c.result, body["p0"], body["p1"], width_px=float(body.get("width_px") or 1.0), norm=norm,
+            excitations_nm=body.get("excitations_nm"), ground_truth=body.get("ground_truth"),
+            dark=dark, white=white).to_dict())
+
+    @app.post("/api/captures/{cid}/response")
+    async def response_endpoint(cid: str, request: Request):
+        c, body = _cap(cid), await _body(request)
+        for k in ("x_ground_truth", "metric"):
+            if k not in body:
+                raise HTTPException(422, detail=[{"loc": [k], "msg": "field required"}])
+        norm, dark, white = _norm_inputs(body.get("norm"))
+        return await _analyse(lambda: analysis.response_curve(
+            c.result, body["x_ground_truth"], body["metric"], body.get("roi"), int(body.get("bins") or 24), norm,
+            dark=dark, white=white).to_dict())
+
+    @app.get("/api/captures/{cid}/volumes")
+    def volumes_endpoint(cid: str):
+        return _plain(analysis.volume_infos(_cap(cid).result))
+
+    @app.get("/api/captures/{cid}/volume")
+    async def volume_endpoint(cid: str, object: str = Query(...), kind: str = Query(...),
+                              ex: float | None = None, channel: str | None = None):
+        c = _cap(cid)
+        a = await _analyse(lambda: analysis.volume(c.result, object, kind, ex, channel))
+        return Response(np.ascontiguousarray(a, dtype="<f4").tobytes(), media_type="application/octet-stream",
+                        headers={"X-Dims": ",".join(str(d) for d in a.shape), "Access-Control-Expose-Headers": _EXPOSE})
 
     # ------------------------------------------------------------------ SPA
     dist = Path(dist_dir) if dist_dir is not None else DEFAULT_DIST

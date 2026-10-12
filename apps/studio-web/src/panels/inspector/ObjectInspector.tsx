@@ -1,19 +1,25 @@
 import { useStudio } from '../../state/store'
-import { materialMap, fluorophoreMap } from '../../state/presets'
-import { LIBRARY_SHAPES } from '../../state/library'
+import { materialMap, fluorophoreMap, BUNDLE, clone } from '../../state/presets'
+import { LIBRARY_SHAPES, DEFAULT_BLOCK } from '../../state/library'
 import { Section, Row, Sel, Toggle } from '../../ui/controls'
 import { ShapeIcon } from '../../ui/icons'
+import { Layers } from 'lucide-react'
 import { InspectorHeader, HeaderActions, NF, TF, VF, SF, useErrAt } from './Fields'
 import { wavelengthToHex } from '../../lib/color'
 import type { SceneObject } from '../../generated/experiment'
+import { LayerStackEditor } from './LayerStackEditor'
+import { BlockViewSection } from './BlockViewSection'
+import { totalRange } from '../../three/layers/profile'
+import { uniformProfile } from '../../state/layerStack'
 
 type Shape = SceneObject['shape']
-const KIND_LABEL: Record<Shape['kind'], string> = { box: 'Box', sphere: 'Sphere', cylinder: 'Cylinder', droplet: 'Droplet', petri_dish: 'Petri dish', cuvette: 'Cuvette' }
+const KIND_LABEL: Record<Shape['kind'], string> = { box: 'Box', sphere: 'Sphere', cylinder: 'Cylinder', droplet: 'Droplet', petri_dish: 'Petri dish', cuvette: 'Cuvette', layered_block: 'Layered block' }
 const DEFAULT_SHAPE: Record<Shape['kind'], Shape> = {
   box: { kind: 'box', size_mm: [30, 10, 30] }, sphere: { kind: 'sphere', radius_mm: 7 }, cylinder: { kind: 'cylinder', radius_mm: 10, height_mm: 6 },
   droplet: { kind: 'droplet', base_radius_mm: 8, height_mm: 4 },
   petri_dish: { kind: 'petri_dish', inner_radius_mm: 17, wall_mm: 1, height_mm: 10, base_mm: 1, fill_height_mm: 4 },
   cuvette: { kind: 'cuvette', inner_mm: [10, 40, 10], wall_mm: 1.25, fill_height_mm: 30 },
+  layered_block: { kind: 'layered_block', footprint_mm: [40, 40], layers: [{ name: 'substrate', material_id: 'tissue_substrate', thickness: uniformProfile(3) }, { name: 'cover', material_id: 'collagen_cover', thickness: uniformProfile(1) }] },
 }
 
 export function ObjectInspector({ id }: { id: string }) {
@@ -44,12 +50,28 @@ export function ObjectInspector({ id }: { id: string }) {
         <TF label="Name" value={obj.name} onChange={(v) => upd((o) => { o.name = v }, `obj:${id}:name`)} />
         <Row label="Visible"><Toggle value={obj.visible} onChange={(v) => upd((o) => { o.visible = v })} /></Row>
         <SF label="Shape" tip="Switching shape resets its parameters to defaults." value={sh.kind} options={(Object.keys(KIND_LABEL) as Shape['kind'][]).map((k) => ({ value: k, label: KIND_LABEL[k] }))}
-          onChange={(k) => upd((o) => { o.shape = structuredClone(DEFAULT_SHAPE[k]) })} />
+          onChange={(k) => {
+            if (k !== 'layered_block') { upd((o) => { o.shape = structuredClone(DEFAULT_SHAPE[k]) }); return }
+            edit((e) => {   // bring the block's library materials along, then replace the shape (one undo step)
+              for (const rid of DEFAULT_BLOCK.requires ?? []) { const bm = BUNDLE.materials.find((x) => x.id === rid); if (bm && !e.materials.some((x) => x.id === rid)) e.materials.push(clone(bm)) }
+              const o = e.objects.find((x) => x.id === id); if (!o) return
+              const blk = DEFAULT_BLOCK.make(id, o.material_id, null)
+              o.shape = blk.shape; o.material_id = blk.material_id; o.vessel_material_id = null
+              o.transform.position_mm[1] = 0
+            })
+          }} />
       </Section>
       <Section title="Transform">
         <VF label="Position" tip="Millimetres, Y-up, table top is y = 0." value={obj.transform.position_mm} step={1} unit="mm" onChange={(v) => upd((o) => { o.transform.position_mm = v }, `obj:${id}:pos`)} />
         <VF label="Rotation" tip="Euler XYZ in degrees." value={obj.transform.rotation_deg} step={1} unit="°" onChange={(v) => upd((o) => { o.transform.rotation_deg = v }, `obj:${id}:rot`)} />
       </Section>
+      {sh.kind === 'layered_block' ? (
+        <>
+          <Section title="Layer stack" icon={<Layers size={13} />} extra={<span className="tag">{sh.layers.length} layers</span>}><LayerStackEditor objectId={id} shape={sh} /></Section>
+          <BlockViewSection objectId={id} shape={sh} />
+          <div style={{ padding: 12 }} className="hint">Each layer carries its own material (the object's single material is ignored). Light transport inside is solved by the 3D layered Monte Carlo — thickness {(() => { const r = totalRange(sh); return r.min === r.max ? `${+r.max.toFixed(3)} mm` : `${+r.min.toFixed(3)}–${+r.max.toFixed(3)} mm` })()}.</div>
+        </>
+      ) : (<>
       <Section title="Geometry">
         {sh.kind === 'box' && <VF label="Size" tip="Axis-aligned box centred on its origin (x, y, z)." value={sh.size_mm} step={0.5} unit="mm" onChange={(v) => setShape({ size_mm: v })} />}
         {sh.kind === 'sphere' && <NF label="Radius" value={sh.radius_mm} min={0.1} max={100} step={0.1} unit="mm" onChange={(v) => setShape({ radius_mm: v })} />}
@@ -88,6 +110,7 @@ export function ObjectInspector({ id }: { id: string }) {
         )}
       </Section>
       <div style={{ padding: 12 }} className="hint">Presets in library: {LIBRARY_SHAPES.length} lab-ware shapes. Drag the gizmo in the viewport or type exact values.</div>
+      </>)}
     </>
   )
 }

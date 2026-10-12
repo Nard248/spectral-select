@@ -17,6 +17,11 @@ Composite objects (local frames per ``schema.py``):
   the top, so the glass base and the annular wall are one CSG solid) + *fill* cylinder
   (material = object ``material_id``, ``fill_height_mm`` above the inner base).
 * ``cuvette``     → *vessel* = outer box minus the open-top cavity + *fill* box.
+* ``layered_block`` → ONE convex solid (the whole stack, any layer thickness profile): the box
+  ``[-X/2, X/2] x [0, y_max] x [-Z/2, Z/2]`` intersected with the half-space below the (possibly
+  tilted) top interface plane ``y = a + b x + c z``. It is an opaque/turbid occluder for the camera and
+  shadow rays (``object_index`` = the block, ``material`` = the TOP layer's material); the interior is
+  solved by the 3D Monte Carlo (:mod:`spectraforge.studio.transport3d`), not by ray tracing.
 * ``droplet``     → spherical cap = sphere ∩ half-space ``y >= 0`` (also valid for h > base radius).
 
 Performance: :meth:`Scene.first_hit` / :meth:`Scene.locate` run on parallel numba kernels
@@ -38,6 +43,7 @@ from spectraforge.studio.schema import (
     CylinderShape,
     DropletShape,
     Experiment,
+    LayeredBlockShape,
     PetriDishShape,
     SphereShape,
     Transform,
@@ -339,7 +345,7 @@ class Solid:
     name: str
     object_index: int            # index into experiment.objects; BACKGROUND_OBJECT for the slab
     material_index: int          # index into experiment.materials
-    role: str                    # "body" | "vessel" | "fill" | "background"
+    role: str                    # "body" | "vessel" | "fill" | "block" | "background"
     prim: Primitive
     R: np.ndarray
     p: np.ndarray
@@ -491,6 +497,40 @@ def _droplet_primitive(base_r: float, h: float) -> Primitive:
     return Intersection(Sphere([0.0, h - rs, 0.0], rs), HalfSpace([0.0, -1.0, 0.0], 0.0))
 
 
+def block_plane_coeffs(shape: LayeredBlockShape) -> np.ndarray:
+    """``(L, 3)`` ``[a, b, c]`` of the TOP interface ``y = a + b x + c z`` of every layer (bottom → top).
+
+    Layer thickness profiles are linear in x or z, so each cumulative interface is an exact plane:
+    ``t_i(x, z) = t0 + (t1 - t0) (u / size + 1/2)`` with ``u`` the profile axis coordinate (the
+    profile clamps to [0, 1] outside the footprint, which is irrelevant inside it)."""
+    X, Z = shape.footprint_mm
+    acc = np.zeros(3)
+    out = []
+    for layer in shape.layers:
+        pr = layer.thickness
+        if pr.kind == "uniform":
+            acc = acc + np.array([pr.thickness_mm, 0.0, 0.0])
+        else:
+            size = X if pr.axis == "x" else Z
+            slope = (pr.end_thickness_mm - pr.thickness_mm) / size
+            d = np.array([pr.thickness_mm + 0.5 * (pr.end_thickness_mm - pr.thickness_mm), 0.0, 0.0])
+            d[1 if pr.axis == "x" else 2] = slope
+            acc = acc + d
+        out.append(acc.copy())
+    return np.array(out)
+
+
+def block_primitive(shape: LayeredBlockShape) -> Primitive:
+    """Convex solid of a layered block in its local frame (see module docstring)."""
+    X, Z = shape.footprint_mm
+    a, b, c = block_plane_coeffs(shape)[-1]
+    corners = [a + b * sx * X / 2 + c * sz * Z / 2 for sx in (-1, 1) for sz in (-1, 1)]
+    nvec = np.array([-b, 1.0, -c])
+    nn = float(np.linalg.norm(nvec))
+    return Intersection(Box([-X / 2, 0.0, -Z / 2], [X / 2, max(corners) + 1.0, Z / 2]),
+                        HalfSpace(nvec, a / nn))
+
+
 def build_solids(experiment: Experiment) -> list[Solid]:
     """Instantiate every visible object (+ background slab) as :class:`Solid` s.
 
@@ -554,6 +594,9 @@ def build_scene(experiment: Experiment) -> Scene:
                 warns.append(f"object '{o.id}': fill_height clamped to {iy:g} mm")
             if fill > 0:
                 add("fill", Box([-ix / 2, w, -iz / 2], [ix / 2, w + fill, iz / 2]), mi, "fill")
+        elif isinstance(sh, LayeredBlockShape):
+            top_mat = mat_idx[sh.layers[-1].material_id]
+            solids.append(Solid(f"{o.id}:block", oi, top_mat, "block", block_primitive(sh), R, p))
         else:  # pragma: no cover
             raise TypeError(f"unsupported shape {type(sh).__name__}")
 

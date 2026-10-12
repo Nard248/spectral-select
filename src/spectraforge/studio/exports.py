@@ -103,17 +103,74 @@ def to_spectradata_pkl(result, sample_name: str) -> bytes:
     return pickle.dumps(spectradata_payload(result, sample_name), protocol=pickle.HIGHEST_PROTOCOL)
 
 
+def _volume_arrays(result) -> dict[str, np.ndarray]:
+    """npz entries of the layered-block volumes: ``volume/<object>/<kind>/<ex>[/<channel>]`` (every component
+    sanitised with :func:`safe_name`, arrays ``(nx, nz, layers, sublayers)`` float32) and one
+    ``volume_meta/<object>`` JSON string per object (original names, grid edges, units)."""
+    arrs: dict[str, np.ndarray] = {}
+    used: set[str] = set()
+    for oid, vol in (getattr(result, "volumes", None) or {}).items():
+        stem = safe_name(oid, 80, "block")
+        n, i = stem, 1
+        while n in used:
+            i += 1
+            n = f"{stem}_{i}"
+        used.add(n)
+        grid = vol["grid"]
+        channels: dict[str, str] = {}
+        for kind in ("fluence", "absorbed", "source"):
+            for key, a in (vol.get(kind) or {}).items():
+                a32 = np.asarray(a, dtype=np.float32)
+                if kind == "source":
+                    ex, ch = key
+                    sch = safe_name(ch, 100, "channel")
+                    channels[sch] = str(ch)
+                    arrs[f"volume/{n}/source/{_ex_key(float(ex))}/{sch}"] = a32
+                else:
+                    arrs[f"volume/{n}/{kind}/{_ex_key(float(key))}"] = a32
+        arrs[f"volume_meta/{n}"] = np.asarray(json.dumps({
+            "object_id": str(oid), "safe_name": n, "layer_names": [str(x) for x in vol.get("layer_names", [])],
+            "sublayers": int(grid.sublayers), "x_edges_mm": [float(v) for v in np.asarray(grid.x_edges_mm)],
+            "z_edges_mm": [float(v) for v in np.asarray(grid.z_edges_mm)], "units": vol.get("units", {}),
+            "channels": channels}))
+    return arrs
+
+
 def to_npz(result) -> bytes:
+    """Compressed npz of the whole capture (readable offline with ``analysis.load_npz_capture``).  Keys:
+    ``adu_<ex>``, ``radiance_<ex>``, ``electrons_<ex>``, ``emission_nm_<ex>``, ``exposure_ms_<ex>``,
+    ``power_mW_<ex>``, ``gt_<layer>`` (sanitised names; originals in ``meta_json``), ``excitations_nm``,
+    ``experiment_json``, ``meta_json``, ``blocks_json`` and ``volume/...`` / ``volume_meta/...`` (v1.1)."""
     arrs: dict[str, np.ndarray] = {}
     for ex in result.excitations_nm:
         k = _ex_key(ex)
         arrs[f"adu_{k}"] = np.asarray(result.adu[ex], dtype=np.float32)
         arrs[f"radiance_{k}"] = np.asarray(result.radiance[ex], dtype=np.float32)
         arrs[f"emission_nm_{k}"] = np.asarray(result.emission_nm[ex], dtype=np.float64)
+        if ex in (getattr(result, "electrons_mean", None) or {}):
+            arrs[f"electrons_{k}"] = np.asarray(result.electrons_mean[ex], dtype=np.float32)
+        if ex in result.exposure_ms:
+            arrs[f"exposure_ms_{k}"] = np.asarray(float(result.exposure_ms[ex]))
+        if ex in result.power_mW:
+            arrs[f"power_mW_{k}"] = np.asarray(float(result.power_mW[ex]))
+    gt_names: dict[str, str] = {}
     for name, g in result.ground_truth.items():
-        arrs[f"gt_{safe_name(name, 100, 'layer')}"] = np.asarray(g)
+        safe = safe_name(name, 100, "layer")
+        n, i = safe, 1
+        while f"gt_{n}" in arrs:
+            i += 1
+            n = f"{safe}_{i}"
+        arrs[f"gt_{n}"] = np.asarray(g)
+        gt_names[n] = str(name)
     arrs["excitations_nm"] = np.asarray(result.excitations_nm, dtype=np.float64)
     arrs["experiment_json"] = np.asarray(result.experiment_json)
+    arrs["meta_json"] = np.asarray(json.dumps({
+        "mode": result.mode, "engine_version": result.engine_version, "ground_truth_names": gt_names,
+        "warnings": [str(w) for w in result.warnings], "timings_s": {k: float(v) for k, v in result.timings_s.items()}}))
+    blocks = getattr(result, "blocks", None) or []
+    if blocks:
+        arrs["blocks_json"] = np.asarray(json.dumps(blocks, default=lambda o: np.asarray(o).tolist()))
+    arrs.update(_volume_arrays(result))
     buf = io.BytesIO()
     np.savez_compressed(buf, **arrs)
     return buf.getvalue()

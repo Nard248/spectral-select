@@ -9,6 +9,10 @@ import { loadCube } from '../explorer/data'
 import { useTour } from './tourStore'
 import type { Experiment } from '../generated/experiment'
 import type { CaptureMeta } from '../api/types'
+import { useLayerView } from '../state/layerView'
+import { setCutaway, frameSection } from '../scene/blockView'
+import { totalRange, wedgeAngleDeg, profileEnds } from '../three/layers/profile'
+import type { BlockLayer, SceneObject } from '../generated/experiment'
 
 type V3 = THREE.Vector3Tuple
 
@@ -62,7 +66,28 @@ function nearest(e: Experiment, nm: number): number | null {
 }
 
 /** the original experiment the tour started from, so the physics demo can be undone exactly */
-export const tourBackup: { exp: Experiment | null; past: Experiment[]; dirty: boolean } = { exp: null, past: [], dirty: false }
+export const tourBackup: { exp: Experiment | null; past: Experiment[]; dirty: boolean; swapped: boolean } = { exp: null, past: [], dirty: false, swapped: false }
+
+/** first step that needs a layered block (steps before it are about the user's own scene) */
+export const LAYER_STEP0 = 8
+
+/** Leave the layered demo scene and bring back the experiment the tour started from. */
+export function restoreOriginal() {
+  if (tourBackup.swapped && tourBackup.exp) useStudio.setState({ exp: tourBackup.exp, past: tourBackup.past, future: [], dirty: tourBackup.dirty, selection: null })
+  tourBackup.swapped = false
+  useLayerView.setState({ sections: {} }); useLayerView.getState().setLf({ on: false })
+}
+/** The layered steps use the user's own block if there is one, otherwise they temporarily load the wedge phantom. */
+function ensureBlock(): SceneObject | undefined {
+  if (!st().exp.objects.some((o) => o.shape.kind === 'layered_block')) {
+    st().loadPreset('layered_wedge_phantom'); tourBackup.swapped = true
+    useStudio.setState({ previewMeta: null, previewExp: null })
+  }
+  return st().exp.objects.find((o) => o.shape.kind === 'layered_block')
+}
+const blockOf = () => st().exp.objects.find((o) => o.shape.kind === 'layered_block')
+const layersOf = (o: SceneObject) => (o.shape.kind === 'layered_block' ? (o.shape.layers as BlockLayer[]) : [])
+const fmtMm = (t: number) => (t < 0.1 && t > 0 ? `${(t * 1000).toFixed(0)} µm` : `${+t.toFixed(2)} mm`)
 
 export function resetUiForTour() {
   const s = st()
@@ -239,6 +264,83 @@ export const STEPS: TourStep[] = [
       if (metaA) useStudio.setState({ previewMeta: metaA, previewExp: tourBackup.exp })
       else await runPreview()
       ctx.caption(`Scattering is back ON${useTour.getState().thumbs.length ? ' (left: physical result, right: scattering off)' : ''}. The turbid lichens lose their diffuse glow and colour shift without it. Every toggle in the Acquisition panel works like this — try one, then Preview.`)
+    },
+  },
+
+  {
+    title: 'Layered block',
+    dwell: 8,
+    text: (e) => {
+      const o = e.objects.find((x) => x.shape.kind === 'layered_block')
+      if (!o || o.shape.kind !== 'layered_block') return 'A layered block: a stack of materials with exact planar interfaces.'
+      const ls = layersOf(o).slice().reverse().map((l) => `${l.name} (${profileEnds(l)[0] === profileEnds(l)[1] ? fmtMm(profileEnds(l)[0]) : `${fmtMm(profileEnds(l)[0])} → ${fmtMm(profileEnds(l)[1])}`})`)
+      return `A 3D layered block, top to bottom: ${ls.join(', ')}. Every interface is an exact plane, so each layer is a uniform slab or a linear wedge. The fluorophore is buried — the cover scatters and absorbs both the excitation going in and the fluorescence coming out.`
+    },
+    enter: async () => {
+      const o = ensureBlock(); if (!o) return
+      st().setMode('design'); st().setUi({ showFrustum: false, showBeam: true, pip: true })
+      useLayerView.setState({ sections: {} }); useLayerView.getState().setLf({ on: false })
+      st().select({ kind: 'object', id: o.id })
+      const p = o.transform.position_mm as V3
+      await fly(v.add(p, [70, 62, 96]), v.add(p, [0, 3, 0]), 2200)
+    },
+  },
+  {
+    title: 'Cutaway and the wedge',
+    dwell: 9,
+    text: (e) => {
+      const o = e.objects.find((x) => x.shape.kind === 'layered_block')
+      if (!o || o.shape.kind !== 'layered_block') return 'A cutaway shows the layer stack in cross-section.'
+      const w = layersOf(o).find((l) => l.thickness.kind === 'linear')
+      const r = totalRange(o.shape)
+      return w
+        ? `Cutaway: the half of the block beyond the plane is removed and the cut is capped with the layer bands. The “${w.name}” layer is a wedge — ${fmtMm(profileEnds(w)[0])} at one edge, ${fmtMm(profileEnds(w)[1])} at the other (${wedgeAngleDeg(w, o.shape.footprint_mm)?.toFixed(1)}°) — while the other layers stay flat; total thickness ${fmtMm(r.min)}–${fmtMm(r.max)}. Drag the plane in the viewport card.`
+        : `Cutaway: the half of the block beyond the plane is removed and the cut is capped with the layer bands (total ${fmtMm(r.max)}). Drag the plane in the viewport card.`
+    },
+    enter: async (ctx) => {
+      const o = ensureBlock(); if (!o || o.shape.kind !== 'layered_block') return
+      st().setMode('design'); st().setUi({ showBeam: false, showFrustum: false })
+      st().select({ kind: 'object', id: o.id })
+      const w = layersOf(o).find((l) => l.thickness.kind === 'linear')
+      const axis = w?.thickness.axis === 'z' ? 'x' : 'z'     // cut across the wedge so its profile is in the section
+      useLayerView.getState().setLf({ on: false })
+      setCutaway(o, true, { axis, position_mm: 0, keep: 'low', labels: true })
+      await ctx.sleep(2300)
+    },
+  },
+  {
+    title: '3D capture',
+    dwell: 3,
+    text: () => 'Capture runs the 3D Monte Carlo twice per line: an excitation pass (the beam entering the block, scattering and being absorbed layer by layer) and an emission pass (fluorescence born in the buried layer finding its way out to the camera). Every pixel above the thin end of the wedge sees much more fluorophore than one under the thick cover.',
+    enter: async (ctx) => {
+      const o = ensureBlock(); if (!o) return
+      st().setMode('acquire'); st().setUi({ showBeam: true, showFrustum: true })
+      st().select({ kind: 'object', id: o.id })
+      await ctx.sleep(350)
+      const eng = getEngine()
+      if (!eng || eng.kind !== 'real') { ctx.caption('3D transport needs the Python engine — start `python -m spectraforge.studio` (the in-browser mock only previews the geometry).'); await ctx.sleep(1200); return }
+      const before = st().captures.length
+      await runCapture('sample')
+      await waitFor(() => st().captures.length > before || (st().job?.state === 'error'), ctx, 900_000)
+      await ctx.sleep(900)
+    },
+  },
+  {
+    title: 'The light field',
+    dwell: 10,
+    text: () => 'The same Monte Carlo yields the 3D light field. Here is the excitation fluence on the cut plane (log colours): it decays through the scattering cover, is attenuated again inside the substrate and lights up the buried fluorophore layer — where the cover is thin the layer receives far more light. Switch to Absorbed or Source in the inspector to see where photons are consumed and where fluorescence is born.',
+    enter: async (ctx) => {
+      const o = ensureBlock(); if (!o || o.shape.kind !== 'layered_block') return
+      st().setMode('design'); st().setUi({ showBeam: false, showFrustum: false, pip: false })
+      st().select({ kind: 'object', id: o.id })
+      useLayerView.getState().setLf({ on: true, kind: 'fluence' })
+      const w = layersOf(o).find((l) => l.thickness.kind === 'linear')
+      setCutaway(o, true, { axis: w?.thickness.axis === 'z' ? 'x' : 'z', position_mm: 0, keep: 'low', labels: false })
+      await ctx.sleep(400)
+      const cur = blockOf(); if (cur) frameSection(cur, { axis: useLayerView.getState().section(cur.id).axis, keep: 'low' }, 1800)
+      await ctx.sleep(1900)
+      const status = useLayerView.getState().lfStatus
+      if (status.state === 'none' || status.state === 'error') ctx.caption(`${status.message ?? 'No light field available.'} Run a capture on the Python engine to see it here.`)
     },
   },
 ]

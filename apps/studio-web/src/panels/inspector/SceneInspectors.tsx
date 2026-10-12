@@ -1,8 +1,9 @@
 import { useStudio } from '../../state/store'
-import { Section, Toggle, Tip, Row } from '../../ui/controls'
+import { Section, Toggle, Tip, Row, Seg } from '../../ui/controls'
 import { InspectorHeader, NF, SF, BF } from './Fields'
 import { BackgroundIcon } from '../../ui/icons'
-import { Layers, SlidersHorizontal, Info } from 'lucide-react'
+import { Layers, SlidersHorizontal, Info, Box as BoxIcon } from 'lucide-react'
+import { estimateVolumeCost, fmtDuration, qualityOf, QUALITY_PRESETS, ASSUMED_PHOTONS_PER_S } from '../../state/volumeEstimate'
 import type { PhysicsToggles } from '../../generated/experiment'
 
 export function BackgroundInspector() {
@@ -67,6 +68,44 @@ const GROUPS: Group[] = [
   ] },
 ]
 
+/** "3D Monte Carlo" group: quality knobs of `acquisition.volume_mc` with a cost estimate. */
+function VolumeMcSection() {
+  const exp = useStudio((s) => s.exp)
+  const edit = useStudio((s) => s.edit)
+  const v = exp.acquisition.volume_mc
+  const cost = estimateVolumeCost(exp)
+  const set = (fn: (m: typeof v) => void, key: string) => edit((e) => fn(e.acquisition.volume_mc), `vmc:${key}`)
+  const q = qualityOf(v)
+  const hasBlock = cost.blocks > 0
+  return (
+    <Section title="3D Monte Carlo" icon={<BoxIcon size={13} />} defaultOpen={hasBlock}
+      extra={<span className="tag">{hasBlock ? `~${fmtDuration(cost.seconds)}` : 'no block'}</span>}>
+      <div className="hint">Quality ↔ time for layered blocks: every excitation step and every emission wavelength node launches photon packets through the 3D layer stack. More photons → smoother deep tails (noise ∝ 1/√N) but run time grows linearly.</div>
+      <Row label="Quality" tip="Sets both photon counts. Draft is for composing the scene, Standard for most captures, High/Max for the weak signal under a thick cover.">
+        <Seg small value={q as string} onChange={(k) => { const p = QUALITY_PRESETS.find((x) => x.key === k); if (p) set((m) => { m.excitation_photons = p.photons; m.emission_photons = p.photons }, 'q') }}
+          options={[...QUALITY_PRESETS.map((p) => ({ value: p.key, label: p.label, title: `${(p.photons / 1e6).toLocaleString()} M photons — ${p.hint}` })), ...(q === 'custom' ? [{ value: 'custom', label: 'Custom' }] : [])]} />
+      </Row>
+      <NF label="Excitation" tip="Photon packets per excitation step. They carry the beam into the block: sets the noise of the fluence / absorbed-power maps and of the fluorescence source." integer min={10_000} max={200_000_000} step={100_000} value={v.excitation_photons} bar={false} unit="ph" onChange={(x) => set((m) => { m.excitation_photons = x }, 'ex')} />
+      <NF label="Emission" tip="Photon packets per emission wavelength node, launched from the fluorescence source volume. Sets the noise of the image of the buried fluorophore." integer min={10_000} max={200_000_000} step={100_000} value={v.emission_photons} bar={false} unit="ph" onChange={(x) => set((m) => { m.emission_photons = x }, 'em')} />
+      <NF bar={false} label="Preview" tip="Preview renders use only this fraction of the photons (fast, noisier)." min={0.01} max={1} step={0.01} value={v.preview_fraction} onChange={(x) => set((m) => { m.preview_fraction = x }, 'pf')} />
+      <NF bar={false} label="Lateral cell" tip="Tally voxel size in x and z. Smaller = finer maps but fewer photons per voxel (and more memory)." min={0.05} max={5} step={0.05} unit="mm" value={v.lateral_cell_mm} onChange={(x) => set((m) => { m.lateral_cell_mm = x }, 'lc')} />
+      <NF bar={false} label="Sublayers" tip="Depth cells across each layer's local thickness (the grid follows the interfaces, so a wedge keeps full depth resolution)." integer min={1} max={64} step={1} value={v.sublayers} onChange={(x) => set((m) => { m.sublayers = x }, 'sl')} />
+      <NF bar={false} label="Exit cell" tip="Pixel size of the exit-radiance tally on the faces the camera sees." min={0.05} max={5} step={0.05} unit="mm" value={v.exit_cell_mm} onChange={(x) => set((m) => { m.exit_cell_mm = x }, 'ec')} />
+      <NF bar={false} label="Em. step" tip="Spacing of the emission wavelength nodes; the spectrum between nodes is interpolated. Cost ∝ number of nodes." min={2} max={100} step={1} unit="nm" value={v.emission_node_step_nm} onChange={(x) => set((m) => { m.emission_node_step_nm = x }, 'es')} />
+      <NF bar={false} label="Acceptance" tip="Half-angle of the camera acceptance cone used for the exit tally (the lens collects light within this angle of the optical axis)." min={0.5} max={60} step={0.5} unit="°" value={v.acceptance_half_angle_deg} onChange={(x) => set((m) => { m.acceptance_half_angle_deg = x }, 'aa')} />
+      {hasBlock
+        ? <Tip text={`Cost model: (N_ex × ${cost.excitationSteps} steps + N_em × ${cost.emissionNodes} nodes) × ${cost.blocks} block(s) ≈ ${(cost.totalPhotons / 1e6).toFixed(1)} M photon packets at an assumed ~${ASSUMED_PHOTONS_PER_S / 1e6} M/s. Calibrate with your first capture.`}>
+          <div className="vmc-est">
+            <div><b>≈ {fmtDuration(cost.seconds)}</b><span>capture</span></div>
+            <div><b>≈ {fmtDuration(cost.previewSeconds)}</b><span>preview</span></div>
+            <div><b>{cost.voxels >= 1e6 ? `${(cost.voxels / 1e6).toFixed(1)} M` : `${Math.round(cost.voxels / 1e3)} k`}</b><span>voxels · ~{cost.megabytes < 10 ? cost.megabytes.toFixed(1) : Math.round(cost.megabytes)} MB</span></div>
+          </div>
+        </Tip>
+        : <div className="hint">No layered block in the scene — these settings only apply to <b>layered_block</b> objects.</div>}
+    </Section>
+  )
+}
+
 export function AcquisitionInspector() {
   const acq = useStudio((s) => s.exp.acquisition)
   const edit = useStudio((s) => s.edit)
@@ -83,6 +122,7 @@ export function AcquisitionInspector() {
         <NF label="MC photons" tip="Photon packets per Monte Carlo bake. More = smoother subsurface transport, slower first run (cached afterwards)." integer min={1000} max={50_000_000} step={50000} value={acq.mc_photons} bar={false} onChange={(v) => upd((a) => { a.mc_photons = v }, 'acq:mc')} />
         <NF label="Preview scale" tip="Resolution fraction used by Preview." min={0.05} max={1} step={0.05} value={acq.preview_scale} onChange={(v) => upd((a) => { a.preview_scale = v }, 'acq:ps')} />
       </Section>
+      <VolumeMcSection />
       {GROUPS.map((g) => (
         <Section key={g.title} title={g.title} defaultOpen={g.title !== 'Detector'} extra={<span className="tag">{g.items.filter(([k]) => acq.physics[k]).length}/{g.items.length}</span>}>
           <div className="toggles">
@@ -114,7 +154,7 @@ export function ExperimentInspector() {
       </Section>}
       <Section title="Shortcuts" icon={<Info size={13} />}>
         <table className="tbl"><tbody>
-          {[['G / R', 'Move / rotate gizmo'], ['S', 'Toggle snap (25 mm, 15°)'], ['F', 'Frame selection'], ['C', 'Look through camera'], ['Space', 'Preview'], ['Del', 'Delete selected'], ['⌘Z / ⇧⌘Z', 'Undo / redo'], ['⌘D', 'Duplicate'], ['1 / 2 / 3', 'Design / Acquire / Explore'], ['[ / ]', 'Hide left / right panel']].map(([k, d]) => (
+          {[['G / R', 'Move / rotate gizmo'], ['S', 'Toggle snap (25 mm, 15°)'], ['F', 'Frame selection'], ['C', 'Look through camera'], ['X', 'Cutaway of a layered block'], ['Space', 'Preview'], ['Del', 'Delete selected'], ['⌘Z / ⇧⌘Z', 'Undo / redo'], ['⌘D', 'Duplicate'], ['1 / 2 / 3', 'Design / Acquire / Explore'], ['[ / ]', 'Hide left / right panel']].map(([k, d]) => (
             <tr key={k}><td><span className="kbd">{k}</span></td><td className="hint">{d}</td></tr>))}
         </tbody></table>
       </Section>

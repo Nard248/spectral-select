@@ -13,3 +13,4 @@ export interface ViewApi {
 export const viewApi: { current: ViewApi | null } = { current: null }
 export const pipFrame: { el: HTMLElement | null } = { el: null }
 export const viewportEl: { el: HTMLElement | null } = { el: null }
+if (import.meta.env.DEV && typeof window !== 'undefined') Object.defineProperty(window, '__viewApi', { get: () => viewApi.current, configurable: true })

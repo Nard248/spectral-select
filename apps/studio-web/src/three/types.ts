@@ -28,8 +28,27 @@ export interface SampleMeshProps extends HardwareCommon {
    *  / backend), null = no glow */
   glowColor?: string | null
   glowIntensity?: number
+  /** layered blocks only: one material per layer (bottom → top), glows per layer, cutaway, annotations, light-field texture */
+  layerMaterials?: MaterialSpec[]
+  layerGlows?: (LayerGlow | null)[]
+  section?: BlockSection | null
+  /** draw layer names / thickness callouts on the section face */
+  sectionLabels?: boolean
+  /** colour-mapped light field painted on the section face; needs `section` (see `scene/lightfield.ts`) */
+  lightField?: import('three').Texture | null
 }
 export interface StageProps {
   background: Background
   material?: MaterialSpec
 }
+
+/** ---- v1.1 layered block (optional props, added by the weblayers work stream) ---- */
+/** Cutaway of a layered block: the half with u > position (keep 'low') or u < position (keep 'high') is removed. */
+export interface BlockSection {
+  axis: 'x' | 'z'
+  /** local coordinate of the cut plane along `axis` (mm, block-local frame) */
+  position_mm: number
+  keep: 'low' | 'high'
+}
+/** Fluorescence glow of one layer under the active excitation (same model as `SampleMeshProps.glowColor`). */
+export interface LayerGlow { color: string | null; intensity: number }

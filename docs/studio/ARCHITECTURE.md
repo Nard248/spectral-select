@@ -80,8 +80,14 @@ The contract is `apps/studio-web/src/api/types.ts` (TypeScript) implemented by `
 | `GET /api/captures/{id}/image.png?mode=&ex=&band=&gain=&bands=` | | PNG | `true_color` (CIE 1931, auto-exposure at p99), `false_color` (3 bands, p1..p99 stretch), `band` (viridis) |
 | `GET /api/captures/{id}/pixel?x=&y=` | | `PixelExplain` | wraps `capture.explain_pixel`; coordinates in the capture's own resolution |
 | `GET /api/captures/{id}/download?format=` | | file attachment | `spectradata_pkl`, `npz`, `tiff_zip`, `ground_truth_zip`, `experiment_json` |
+| `POST /api/captures/{id}/eem` | `{roi, norm?, stat?}` | `EemResult` | v1.1. EEM of a pixel / disk / rect / ellipse / polygon ROI; `norm.mode` in `adu`, `radiance`, `electrons`, `dark_subtracted`, `exposure_power`, `white_normalized`, `irradiance_normalized` (needs the capture's `irradiance@<ex>` map; 422 with a message otherwise) |
+| `POST /api/captures/{id}/roi` | `{roi, norm?, stat?, components?}` | `RoiStats` | band statistics plus ground-truth statistics (and averaged components) of a ROI |
+| `POST /api/captures/{id}/line` | `{p0, p1, width_px?, norm?, excitations_nm?, ground_truth?}` | `LineProfile` | bands along a line, ground-truth traces |
+| `POST /api/captures/{id}/response` | `{x_ground_truth, metric, roi?, bins?, norm?}` | `ResponseCurve` | metric versus a ground-truth map |
+| `GET /api/captures/{id}/volumes`, `GET /api/captures/{id}/volume?object=&kind=&ex=&channel=` | | `VolumeInfo[]`, float32 `(nx, nz, layers*sublayers)` | 3D light field of a layered block (`fluence`, `absorbed`, `source`) |
+| `POST /api/sweeps`, `GET`/`POST cancel /api/sweeps/{id}`, `WS /api/sweeps/{id}` | `{experiment, parameter{path, values, label}, mode}` | `{sweep_id}`, `SweepStatus`, stream of `SweepEvent` | v1.1. Runs one capture or preview per value of any numeric experiment parameter |
 
-Error conventions: 422 with a Pydantic issue list for an invalid experiment or parameter, 404 for an unknown capture, job, band or pixel (the capture store keeps only the most recent ones), 500 with `ExceptionType: message` when the engine fails. CORS allows `http://localhost:5173` and `http://127.0.0.1:5173`.
+Error conventions: 422 with a Pydantic issue list for an invalid experiment or parameter, 404 for an unknown capture, job, band or pixel (the capture store keeps only the most recent ones), 500 with `ExceptionType: message` when the engine fails. CORS and the CSRF origin guard allow the app's own origin (the engine serving `dist/`) and exactly `http://localhost:5173` / `http://127.0.0.1:5173` (the Vite dev server); any other `Origin` (for example Vite falling back to port 5174) is refused with 403.
 
 ## 3. Jobs, progress, warm-up
 
@@ -100,7 +106,7 @@ All under `src/spectraforge/studio/`. Line counts are approximate.
 | Module | Role | Key public names |
 |---|---|---|
 | `schema.py` | **The contract**: the Pydantic `Experiment` model (extra fields forbidden, validated references) | `Experiment`, `FluorophoreSpec`, `MaterialSpec`, `SceneObject`, shapes (`BoxShape`, `SphereShape`, `CylinderShape`, `DropletShape`, `PetriDishShape`, `CuvetteShape`), `LightSourceSpec`, `CameraSpec`, `PhysicsToggles`, `AcquisitionSettings`, `SCHEMA_VERSION`, `EXTINCTION_REFERENCE_M_CM` |
-| `presets.py` | builtin fluorophores (the 2-D library plus `optical_brightener`, `chlorophyll_a`), 17 materials, 4 experiment presets | `builtin_fluorophores`, `builtin_materials`, `PRESETS`, `preset(name)`, `nuance_camera`, `tunable_lamp` |
+| `presets.py` | builtin fluorophores (the 2-D library plus `optical_brightener`, `chlorophyll_a`), materials, 7 experiment presets (incl. `layered_wedge_phantom`, `tissue_under_collagen`, `pencil_beam_penetration`) | `builtin_fluorophores`, `builtin_materials`, `PRESETS`, `preset(name)`, `nuance_camera`, `tunable_lamp` |
 | `contracts.py` | engine-internal data contracts and the radiometric definitions | `HitBuffer`, `MaterialOptics`, `TransportKernels`, `TransportModel`, `CaptureResult`, `SPECTRAL_GRID_NM`, `MAX_LAYERS` |
 | `geometry.py` | analytic solids as CSG of convex primitives, exact vectorised intersections | `build_scene`, `Scene.first_hit`, `Scene.locate`, `euler_xyz_matrix`, `BACKGROUND_OBJECT` |
 | `geometry_nb.py` | numba ports of the intersection kernels and the fused volume-shadow kernel | `first_hit_nb`, `locate_nb`, `volume_shadow_nb`, `compile_solids` |
@@ -113,6 +119,10 @@ All under `src/spectraforge/studio/`. Line counts are approximate.
 | `transport_mc.py` | numba Monte Carlo (white MC bake, MCML reference for tests, turbid pixel kernel, clear kernel) | `bake_arrays`, `mcml_slab`, `turbid_pixels`, `clear_G` |
 | `sensor.py` | bands, angle shift, étendue, blur, detector | `band_centres`, `band_responses`, `project_bands`, `blur_sigma_px`, `blur_cube`, `detect`, `CameraOptics` |
 | `capture.py` | orchestration: components, FRET, secondary emission, Raman, bleaching, subsurface spread, white-reference geometry, ground truth | `capture`, `preview`, `explain_pixel`, `white_reference_experiment`, `GROUND_TRUTH_KEYS` |
+| `transport3d.py`, `transport3d_mc.py` | v1.1 3D Monte Carlo of layered blocks (MCML on tilted planes, peel-off estimator, fluence/absorbed tallies, emission pass) and its numba kernels | `excitation_pass`, `emission_pass`, `planes_from_layers` |
+| `block_capture.py` | builds the 3D MC inputs from the experiment (launch, region optics, sources per channel, adaptive emission nodes), turns tallies into pixel radiance, caches results | `PEEL_PHOTON_FACTOR`, `SMOOTH_SIGMA_MM`, `choose_emission_nodes` |
+| `analysis.py` | v1.1 scientist-facing analysis (normalisation modes, ROI, EEM, line profile, response curve, volumes, `load_npz_capture`) as pure functions on a `CaptureResult` | `normalize`, `eem`, `roi_stats`, `line_profile`, `response_curve`, `volume`, `load_npz_capture` |
+| `sweeps.py` | v1.1 parameter sweeps: sets a value by JSON pointer, runs a capture per value | `SweepManager` |
 | `server.py` | FastAPI app factory, validation warnings, capture store, SPA serving, CLI `main()` | `create_app`, `main`, `static_warnings`, `trace_warnings`, `CaptureStore` |
 | `jobs.py` | single-worker job manager | `JobManager`, `Job`, `Cancelled` |
 | `exports.py` | `SpectraData` pickle, npz, TIFF zip, ground-truth zip, experiment JSON | `build_export`, `spectradata_payload`, `FORMATS` |
@@ -135,6 +145,8 @@ Scripts: `scripts/export_studio_contract.py` (contract export) and `scripts/stud
 | `src/panels/` | `TopBar.tsx`, `Outliner.tsx`, `Library.tsx`, `Inspector.tsx` with `inspector/*` (object, material, source, camera, scene and acquisition inspectors), `AcquireBar.tsx` (sequence bar, preview, capture, dark, white ref) |
 | `src/explorer/` | `Explorer.tsx` (captures list, band scrubber, colour modes, GT overlay, compare, export), `ImageView.tsx` (canvas), `PixelPanel.tsx` (component decomposition, EEM, ROI), `data.ts` (cube/pixel/GT hooks), `render.ts` |
 | `src/three/` | presentational 3D models, driven only by props (no store access): hardware (`TunableLampModel`, `LedArrayModel`, `LaserModel`, `CameraModel`, `CameraFrustum`, `BeamVolume`), `SampleMesh.tsx`, `Stage.tsx`, `StudioEnvironment.tsx`, `pose.ts`, `types.ts`; `showcase.html` renders them standalone |
+| `src/analysis/` | v1.1 analysis workspace: ROI tools and store (`store.ts`, `roi.ts`), tabs (`EemPanel`, `LinePanel`, `ResponsePanel`), `NormBar` + `norm.ts` (normalisation modes), `layeredDefaults.ts` (layered-block defaults), `LightField.tsx`, CSV/JSON export; own zustand stores, independent of the experiment store |
+| `src/sweep/` | v1.1 sweep store, parameter enumeration (`paths.ts`), `SweepPanel.tsx` |
 | `src/tour/` | the guided tour: `steps.ts` (script), `Tour.tsx` (card and controller), `tourStore.ts` |
 | `src/lib/` | client-side spectral maths, camera intrinsics, beam colour, formatting, lighting |
 | `src/ui/` | controls, SVG/canvas charts, colormaps, icons, toast |
@@ -183,8 +195,8 @@ A given `(experiment, seed)` produces a bit-identical capture: every random draw
 
 | Suite | Where | What it covers |
 |---|---|---|
-| Python | `tests/studio/` (203 tests, 11 marked `slow`) | geometry, surface, source, optics, spectra, tracer, transport (MCML, diffusion, reciprocity, cache), sensor, capture (energy, dilute limit, bleaching, determinism), server (with fake engines), exports, QA regressions |
-| Web unit | `apps/studio-web/src/**/*.test.ts` (vitest, 40 tests) | store (undo, coalescing), spectral maths, progress parsing, mock engine, explorer rendering |
+| Python | `tests/studio/` (slow tests are marked `slow`; the v1.1 suites add transport3d, block capture, analysis, sweeps and server-analysis tests) | geometry, surface, source, optics, spectra, tracer, transport (MCML, diffusion, reciprocity, cache), sensor, capture (energy, dilute limit, bleaching, determinism), server (with fake engines), exports, QA regressions |
+| Web unit | `apps/studio-web/src/**/*.test.ts` (vitest, including the analysis workspace and the mock engine's v1.1 endpoints) | store (undo, coalescing), spectral maths, progress parsing, mock engine, explorer rendering |
 | UI | `apps/studio-web/scripts/smoke.mjs`, `check-framing.mjs` | Playwright smoke test of the main flow; engine image vs 3D projection (about one pixel) |
 | Validation | `scripts/studio_validation_figures.py` | regenerates the figures and numbers in PHYSICS_VALIDATION.md |
 

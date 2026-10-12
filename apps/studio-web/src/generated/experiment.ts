@@ -45,7 +45,8 @@ export type DisplayColor1 = string | null;
 export type Materials = MaterialSpec[];
 export type Id1 = string;
 export type Name3 = string;
-export type Shape = BoxShape | SphereShape | CylinderShape | DropletShape | PetriDishShape | CuvetteShape;
+export type Shape =
+  BoxShape | SphereShape | CylinderShape | DropletShape | PetriDishShape | CuvetteShape | LayeredBlockShape;
 export type Kind = "box";
 /**
  * @minItems 3
@@ -74,6 +75,31 @@ export type Kind5 = "cuvette";
 export type InnerMm = [number, number, number];
 export type WallMm1 = number;
 export type FillHeightMm1 = number;
+export type Kind6 = "layered_block";
+/**
+ * @minItems 2
+ * @maxItems 2
+ */
+export type FootprintMm = [number, number];
+/**
+ * @minItems 1
+ * @maxItems 8
+ */
+export type Layers =
+  | [BlockLayer]
+  | [BlockLayer, BlockLayer]
+  | [BlockLayer, BlockLayer, BlockLayer]
+  | [BlockLayer, BlockLayer, BlockLayer, BlockLayer]
+  | [BlockLayer, BlockLayer, BlockLayer, BlockLayer, BlockLayer]
+  | [BlockLayer, BlockLayer, BlockLayer, BlockLayer, BlockLayer, BlockLayer]
+  | [BlockLayer, BlockLayer, BlockLayer, BlockLayer, BlockLayer, BlockLayer, BlockLayer]
+  | [BlockLayer, BlockLayer, BlockLayer, BlockLayer, BlockLayer, BlockLayer, BlockLayer, BlockLayer];
+export type Name4 = string;
+export type MaterialId = string;
+export type Kind7 = "uniform" | "linear";
+export type ThicknessMm = number;
+export type EndThicknessMm = number;
+export type Axis = "x" | "z";
 /**
  * @minItems 3
  * @maxItems 3
@@ -84,20 +110,20 @@ export type PositionMm = [number, number, number];
  * @maxItems 3
  */
 export type RotationDeg = [number, number, number];
-export type MaterialId = string;
+export type MaterialId1 = string;
 export type VesselMaterialId = string | null;
 export type Visible = boolean;
 export type Objects = SceneObject[];
-export type Kind6 = "none" | "plane";
-export type MaterialId1 = string | null;
-export type ThicknessMm = number;
+export type Kind8 = "none" | "plane";
+export type MaterialId2 = string | null;
+export type ThicknessMm1 = number;
 export type ExtentMm = number;
 export type Enabled = boolean;
 export type Spectrum = "fluorescent_tube" | "white_led" | "daylight" | "incandescent";
 export type IlluminanceLux = number;
 export type Id2 = string;
-export type Name4 = string;
-export type Kind7 = "tunable_lamp" | "led_array" | "laser";
+export type Name5 = string;
+export type Kind9 = "tunable_lamp" | "led_array" | "laser";
 /**
  * @minItems 3
  * @maxItems 3
@@ -123,7 +149,7 @@ export type Enabled1 = boolean;
 export type Sequence = ExcitationStep[];
 export type Sources = LightSourceSpec[];
 export type Id3 = string;
-export type Name5 = string;
+export type Name6 = string;
 /**
  * @minItems 3
  * @maxItems 3
@@ -154,7 +180,7 @@ export type BitDepth = 12 | 14 | 16;
 export type PrnuPct = number;
 export type DsnuE = number;
 export type HotPixelFraction = number;
-export type Kind8 = "lctf" | "filter_wheel";
+export type Kind10 = "lctf" | "filter_wheel";
 export type BandStartNm = number;
 export type BandStepNm = number;
 export type NBands = number;
@@ -198,6 +224,14 @@ export type DarkCurrent = boolean;
 export type FixedPatternNoise = boolean;
 export type Saturation = boolean;
 export type Quantization = boolean;
+export type ExcitationPhotons = number;
+export type EmissionPhotons = number;
+export type PreviewFraction = number;
+export type LateralCellMm = number;
+export type Sublayers = number;
+export type ExitCellMm = number;
+export type EmissionNodeStepNm = number;
+export type AcceptanceHalfAngleDeg = number;
 
 export interface Experiment {
   schema_version: SchemaVersion;
@@ -305,7 +339,7 @@ export interface SceneObject {
   name: Name3;
   shape: Shape;
   transform: Transform;
-  material_id: MaterialId;
+  material_id: MaterialId1;
   vessel_material_id: VesselMaterialId;
   visible: Visible;
 }
@@ -382,6 +416,46 @@ export interface CuvetteShape {
   fill_height_mm: FillHeightMm1;
 }
 /**
+ * A rectangular block built from a stack of uniform layers, listed BOTTOM → TOP. Footprint
+ * ``footprint_mm = (x, z)`` centred on the local origin; the bottom face lies on local ``y = 0``
+ * and every layer interface ``y = Σ_{j≤i} t_j(x, z)`` is a plane (uniform or linear profiles).
+ * Light transport inside is solved by the 3D layered Monte Carlo (``transport3d``), so buried
+ * layers (e.g. a fluorophore under a scattering cover) are seen through everything above them.
+ * ``SceneObject.material_id`` is ignored for this shape (each layer carries its own material).
+ *
+ * This interface was referenced by `Experiment`'s JSON-Schema
+ * via the `definition` "LayeredBlockShape".
+ */
+export interface LayeredBlockShape {
+  kind: Kind6;
+  footprint_mm: FootprintMm;
+  layers: Layers;
+}
+/**
+ * This interface was referenced by `Experiment`'s JSON-Schema
+ * via the `definition` "BlockLayer".
+ */
+export interface BlockLayer {
+  name: Name4;
+  material_id: MaterialId;
+  thickness: ThicknessProfile;
+}
+/**
+ * Thickness of one block layer across the footprint. ``uniform``: ``thickness_mm`` everywhere.
+ * ``linear``: a wedge that varies linearly along local ``axis`` from ``thickness_mm`` at the
+ * negative edge (axis = −size/2) to ``end_thickness_mm`` at the positive edge (axis = +size/2).
+ * Because every profile is linear, every interface of a layered block is an exact PLANE.
+ *
+ * This interface was referenced by `Experiment`'s JSON-Schema
+ * via the `definition` "ThicknessProfile".
+ */
+export interface ThicknessProfile {
+  kind: Kind7;
+  thickness_mm: ThicknessMm;
+  end_thickness_mm: EndThicknessMm;
+  axis: Axis;
+}
+/**
  * This interface was referenced by `Experiment`'s JSON-Schema
  * via the `definition` "Transform".
  */
@@ -397,9 +471,9 @@ export interface Transform {
  * via the `definition` "Background".
  */
 export interface Background {
-  kind: Kind6;
-  material_id: MaterialId1;
-  thickness_mm: ThicknessMm;
+  kind: Kind8;
+  material_id: MaterialId2;
+  thickness_mm: ThicknessMm1;
   extent_mm: ExtentMm;
   room_light: RoomLight;
 }
@@ -418,8 +492,8 @@ export interface RoomLight {
  */
 export interface LightSourceSpec {
   id: Id2;
-  name: Name4;
-  kind: Kind7;
+  name: Name5;
+  kind: Kind9;
   position_mm: PositionMm1;
   target_mm: TargetMm;
   roll_deg: RollDeg;
@@ -455,7 +529,7 @@ export interface ExcitationStep {
  */
 export interface CameraSpec {
   id: Id3;
-  name: Name5;
+  name: Name6;
   position_mm: PositionMm2;
   target_mm: TargetMm1;
   roll_deg: RollDeg1;
@@ -504,7 +578,7 @@ export interface SensorSpec {
  * via the `definition` "SpectralFilterSpec".
  */
 export interface SpectralFilterSpec {
-  kind: Kind8;
+  kind: Kind10;
   band_start_nm: BandStartNm;
   band_step_nm: BandStepNm;
   n_bands: NBands;
@@ -526,6 +600,7 @@ export interface AcquisitionSettings {
   mc_photons: McPhotons;
   preview_scale: PreviewScale;
   physics: PhysicsToggles;
+  volume_mc: VolumeMCSettings;
 }
 /**
  * Every effect can be switched off (for teaching / ablation). All default ON except
@@ -561,4 +636,23 @@ export interface PhysicsToggles {
   fixed_pattern_noise: FixedPatternNoise;
   saturation: Saturation;
   quantization: Quantization;
+}
+/**
+ * Quality knobs of the 3D layered-block Monte Carlo (``transport3d``). Photon counts are per
+ * excitation step (excitation pass) and per emission wavelength node (emission pass); previews
+ * use ``preview_fraction`` of them. Tallies use a layer-conforming grid: ``lateral_cell_mm`` in
+ * x/z and ``sublayers`` cells across each layer's (local) thickness.
+ *
+ * This interface was referenced by `Experiment`'s JSON-Schema
+ * via the `definition` "VolumeMCSettings".
+ */
+export interface VolumeMCSettings {
+  excitation_photons: ExcitationPhotons;
+  emission_photons: EmissionPhotons;
+  preview_fraction: PreviewFraction;
+  lateral_cell_mm: LateralCellMm;
+  sublayers: Sublayers;
+  exit_cell_mm: ExitCellMm;
+  emission_node_step_nm: EmissionNodeStepNm;
+  acceptance_half_angle_deg: AcceptanceHalfAngleDeg;
 }

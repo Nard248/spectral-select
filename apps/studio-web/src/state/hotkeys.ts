@@ -3,6 +3,8 @@ import { useStudio } from './store'
 import { viewApi } from '../scene/viewApi'
 import { downloadExperiment } from './io'
 import { runPreview } from './actions'
+import { useLayerView, targetBlockId, DEFAULT_SECTION } from './layerView'
+import { setCutaway } from '../scene/blockView'
 
 const typing = (t: EventTarget | null) => {
   const el = t as HTMLElement | null
@@ -27,6 +29,7 @@ export function useHotkeys() {
       else if (k === 's') st.setUi({ snap: !st.ui.snap })
       else if (k === 'f') viewApi.current?.frame()
       else if (k === 'c') st.setUi({ lookThrough: !st.ui.lookThrough })
+      else if (k === 'x') { const id = targetBlockId(st.exp, st.selection); const o = id ? st.exp.objects.find((x) => x.id === id) : null; if (o) setCutaway(o, !(useLayerView.getState().sections[o.id] ?? DEFAULT_SECTION).on) }
       else if (k === 'delete' || k === 'backspace') { e.preventDefault(); st.deleteSelected() }
       else if (k === 'escape') { if (st.ui.lookThrough) st.setUi({ lookThrough: false }); else st.select(null) }
       else if (k === ' ') { e.preventDefault(); void runPreview() }

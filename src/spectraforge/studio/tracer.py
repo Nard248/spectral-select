@@ -55,6 +55,24 @@ omitted (it is available per material in ``light_clear_path_mm`` for the entry p
 (0 on TIR). With ``toggles.shadows`` off only the own face is traced and nothing occludes; with
 ``toggles.fresnel`` off all T = 1 and no compression. Turbid layers/background: zeros.
 
+Layered blocks
+--------------
+A ``layered_block`` is a single convex, non-clear solid (see :mod:`spectraforge.studio.geometry`): the
+layer chain ends there (even if its top layer is a clear material) and it occludes shadow rays. Its
+interior is NOT traced; the pixels that see it are reported in ``HitBuffer.info['block_hits']``::
+
+    info['block_hits'][object_index] = {
+        'layer': (n,) int   # which camera-ray layer slot j (0 = first surface) hit the block
+        'pixel': (n,) int   # pixel position 0..P-1 within this buffer
+        'face':  (n,) <U6   # 'top' | '+x' | '-x' | '+z' | '-z' | 'bottom'
+        'u': (n,), 'v': (n,)  # face-local coordinates (mm, block frame; see contracts.FaceGrid)
+        'x': (n,), 'z': (n,)  # block-local lateral position of the hit (for thickness ground truth)
+    }
+
+``material[j, pixel]`` is the TOP layer's material; the capture engine skips the 1-D kernel for these
+pixels and reads the 3D Monte Carlo face tallies instead. The specular glint of the top/side face is
+still computed here (ordinary GGX at the face normal).
+
 Performance: the volumetric shadow rays (the dominant cost, ~16 per clear layer pixel) are traced by a
 fused parallel numba kernel (``geometry_nb.volume_shadow_nb``: crossings, occlusion and the Fresnel
 chain per sample, scalar port of ``_shadow(volume=True)``); the NumPy ``_shadow`` path remains as the
@@ -75,7 +93,7 @@ import numpy as np
 from spectraforge.studio import source as srcmod
 from spectraforge.studio import surface
 from spectraforge.studio.contracts import MAX_LAYERS, HitBuffer
-from spectraforge.studio.geometry import BACKGROUND_OBJECT, EPS_T_MM, PROBE_MM, Scene, build_scene
+from spectraforge.studio.geometry import BACKGROUND_OBJECT, EPS_T_MM, PROBE_MM, Scene, _rowmat, build_scene
 from spectraforge.studio.schema import CameraSpec, Experiment, PhysicsToggles
 
 _MAX_SHADOW_CROSSINGS = 16   # three cuvettes in series need 10 crossings; ray beyond the cap counts as occluded
@@ -317,6 +335,60 @@ def _volume_samples(ctx: _Ctx, src, x, d_in, chord, S, n_S, n_out, nout, cosv_in
     return {"s": s, "w": w, "F": fluence.reshape(n, Q), "l": lpath.reshape(n, Q), "T_out": T_out}
 
 
+def block_face_coords(local_pt: np.ndarray, local_n: np.ndarray):
+    """Face id and face-local ``(u, v)`` of points ``local_pt`` (n,3) with outward normals ``local_n`` on
+    a layered block: ``top`` (ny > 0.5; ``u = x, v = z``), ``+x/-x`` (``u = z, v = y``), ``+z/-z``
+    (``u = x, v = y``), ``bottom`` (ny < -0.5)."""
+    n = len(local_pt)
+    face = np.full(n, "top", dtype="<U6")
+    ny = local_n[:, 1]
+    side = np.abs(ny) <= 0.5
+    ax = np.abs(local_n[:, 0]) >= np.abs(local_n[:, 2])
+    face[side & ax & (local_n[:, 0] > 0)] = "+x"
+    face[side & ax & (local_n[:, 0] <= 0)] = "-x"
+    face[side & ~ax & (local_n[:, 2] > 0)] = "+z"
+    face[side & ~ax & (local_n[:, 2] <= 0)] = "-z"
+    face[ny < -0.5] = "bottom"
+    x, y, z = local_pt[:, 0], local_pt[:, 1], local_pt[:, 2]
+    u = np.where(face == "top", x, np.where(np.isin(face, ("+x", "-x")), z, x))
+    v = np.where(face == "top", z, y)
+    return face, u, v
+
+
+def _block_hits(scene: Scene, rec: list[tuple]) -> dict:
+    out: dict[int, dict] = {}
+    cat = [np.concatenate([r[i] for r in rec]) for i in (1, 2, 3, 4)]
+    layer = np.concatenate([np.full(len(r[1]), r[0], dtype=np.int64) for r in rec])
+    pix, sol, pw, nw = cat
+    for si in np.unique(sol):
+        sd = scene.solids[int(si)]
+        m = sol == si
+        lp = _rowmat(pw[m] - sd.p, sd.R)
+        ln = _rowmat(nw[m], sd.R)
+        face, u, v = block_face_coords(lp, ln)
+        out[int(sd.object_index)] = {"layer": layer[m], "pixel": pix[m], "face": face, "u": u, "v": v,
+                                     "x": lp[:, 0], "z": lp[:, 2]}
+    return out
+
+
+def make_context(experiment: Experiment, scene: Scene, toggles: PhysicsToggles):
+    """Shadow-ray context of ``scene`` (also used by the capture engine to trace the excitation of
+    layered blocks). Returns ``(ctx, mat_clear, solid_block)``; layered-block solids are never clear."""
+    mats = experiment.materials
+    mat_n = np.array([m.refractive_index for m in mats], float)
+    mat_rough = np.array([m.surface_roughness for m in mats], float)
+    mat_clear = np.array([(m.scattering.model == "none") or (m.scattering.mus_prime_500_per_mm == 0.0)
+                          or (not toggles.scattering) for m in mats], bool)
+    solid_mat = np.array([s.material_index for s in scene.solids], dtype=np.int64)
+    solid_obj = np.array([s.object_index for s in scene.solids], dtype=np.int64)
+    solid_block = np.array([s_.role == "block" for s_ in scene.solids], dtype=bool)
+    ctx = _Ctx(scene, solid_mat, solid_obj, mat_n[solid_mat] if len(solid_mat) else np.zeros(0),
+               (mat_clear[solid_mat] & (solid_obj != BACKGROUND_OBJECT) & ~solid_block)
+               if len(solid_mat) else np.zeros(0, bool),
+               mat_rough, mat_n, len(mats), toggles.fresnel, toggles.shadows)
+    return ctx, mat_clear, solid_block
+
+
 # --------------------------------------------------------------------------------------------
 # Main entry
 # --------------------------------------------------------------------------------------------
@@ -340,17 +412,9 @@ def trace_scene(experiment: Experiment, width: int, height: int, *, pixels: np.n
     except ValueError:
         src = None
     scene = build_scene(experiment)
-    mats = experiment.materials
-    M = len(mats)
-    mat_n = np.array([m.refractive_index for m in mats], float)
-    mat_rough = np.array([m.surface_roughness for m in mats], float)
-    mat_clear = np.array([(m.scattering.model == "none") or (m.scattering.mus_prime_500_per_mm == 0.0)
-                          or (not toggles.scattering) for m in mats], bool)
-    solid_mat = np.array([s.material_index for s in scene.solids], dtype=np.int64)
-    solid_obj = np.array([s.object_index for s in scene.solids], dtype=np.int64)
-    ctx = _Ctx(scene, solid_mat, solid_obj, mat_n[solid_mat] if len(solid_mat) else np.zeros(0),
-               (mat_clear[solid_mat] & (solid_obj != BACKGROUND_OBJECT)) if len(solid_mat) else np.zeros(0, bool),
-               mat_rough, mat_n, M, toggles.fresnel, toggles.shadows)
+    ctx, mat_clear, solid_block = make_context(experiment, scene, toggles)
+    mats, M, mat_n, mat_rough = experiment.materials, ctx.M, ctx.mat_n, ctx.mat_rough
+    solid_mat, solid_obj = ctx.solid_mat, ctx.solid_obj
 
     rays = camera_rays(cam, width, height, pixels)
     dirs = rays["dirs"]
@@ -388,6 +452,7 @@ def trace_scene(experiment: Experiment, width: int, height: int, *, pixels: np.n
     e_x = np.zeros((P, 3))
     e_n = np.zeros((P, 3))
     tir_term = 0
+    block_rec: list[tuple] = []        # (layer j, pixel idx, solid idx, world point, world normal)
     vol = None
     q_nodes = q_w = None
     if volume_samples and volume_samples > 0:
@@ -482,7 +547,11 @@ def trace_scene(experiment: Experiment, width: int, height: int, *, pixels: np.n
         # --- continue through clear solids ---------------------------------------------------
         if j == K - 1:
             break
-        cont = mat_clear[mat] & ~is_bg & hc.found
+        if solid_block.any():
+            isb = solid_block[S]
+            if isb.any():
+                block_rec.append((j, A[isb], S[isb], x[isb], nout[isb]))
+        cont = mat_clear[mat] & ~is_bg & hc.found & ~solid_block[S]
         alive[A[~cont]] = False
         if not cont.any():
             break
@@ -550,6 +619,8 @@ def trace_scene(experiment: Experiment, width: int, height: int, *, pixels: np.n
         "n_lit_layer0": int(first_lit.sum()),
         "trace_s": time.perf_counter() - t0,
     }
+    if block_rec:
+        info["block_hits"] = _block_hits(scene, block_rec)
     if pixels is not None:
         info.update(full_width=width, full_height=height, pixel_indices=np.asarray(pixels, dtype=np.int64))
         out_w, out_h = P, 1

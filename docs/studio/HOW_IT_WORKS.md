@@ -19,6 +19,7 @@ Related documents: [README](README.md) (index) · [USER_GUIDE](USER_GUIDE.md) ·
 11. [Outputs and acquisition modes](#11-outputs-and-acquisition-modes)
 12. [Determinism](#12-determinism)
 13. [Approximations and limits](#13-approximations-and-limits)
+14. [Layered blocks and the 3D Monte Carlo (v1.1)](#14-layered-blocks-and-the-3d-monte-carlo-v11)
 
 ---
 
@@ -386,3 +387,50 @@ The honest list, consistent with [PHYSICS_VALIDATION.md §12](PHYSICS_VALIDATION
 * **Detector.** Poisson shot noise, Gaussian read noise, PRNU/DSNU, hot pixels, full well, quantisation; no blooming, no charge-transfer inefficiency, no non-linearity near saturation, no rolling shutter.
 * **Not modelled at all** (out of scope for v1): polarisation, fluorescence lifetime and time-resolved imaging, push-broom / spectrograph cameras, more than one bounce.
 * **Tracer.** A shadow ray crosses at most 16 interfaces (cuvettes in series need 10); one expected failure (`xfail`) in `tests/studio/test_qa_findings.py` documents that the volume samples omit Beer-Lambert absorption by clear media crossed before the light-entry face (the capture applies it separately for cuvettes in a row).
+
+---
+
+## 14. Layered blocks and the 3D Monte Carlo (v1.1)
+
+Everything above treats a sample as laterally uniform: the transport kernel `G` is one-dimensional. A **layered block** (`layered_block` shape) cannot be treated that way: the cover thickness changes across the object and the light spreads sideways. Its pixels therefore get their radiance from an explicit three-dimensional photon random walk instead of from `G`. Everything else (tracer, optics, sensor, bleaching bookkeeping, noise) is shared with the other shapes.
+
+### 14.1 The schema
+
+`LayeredBlockShape(footprint_mm=(x, z), layers=[BlockLayer...])`, layers bottom to top, each with its own material and a `ThicknessProfile` (`uniform`, or `linear` along local `x` or `z` from `thickness_mm` at the negative edge to `end_thickness_mm` at the positive edge). Because every profile is linear, every interface is an exact plane `y = a_i + b_i x + c_i z`; the block is bounded by four vertical side faces and the bottom `y = 0`. Outside is air. Settings of the simulation live in `acquisition.volume_mc` (`VolumeMCSettings`): photons per excitation pass and per emission node (2e6 nominal, scaled, see 14.6), preview fraction, lateral cell size, sublayers per layer, emission-node spacing, acceptance half-angle.
+
+### 14.2 Formulation
+
+`transport3d` is MCML generalised to tilted planar interfaces. A packet of weight `w` carries power in mW. Per step: free path sampled from `mu_t` of the current layer (dimensionless-step bookkeeping across interfaces, deterministic Beer-Lambert in `mu_s = 0` layers), implicit capture (`w <- w mu_s/mu_t`, the absorbed part is tallied), Henyey-Greenstein scattering with the layer's `g`, Russian roulette, and at every interface unpolarised Fresnel reflection or refraction with the **true plane normal** (so a wedge steers light correctly), total internal reflection included.
+
+* **Excitation pass** (once per excitation line): the launch is a jittered grid of points on the faces that face the source, with weight per mW `S cos(theta_inc) dA T_other` (`S` the beam flux from the source model, `T_other` the Fresnel and Beer-Lambert attenuation of any clear object in the way, 0 if a turbid object shadows the point). The specular part of the entry Fresnel split is **not** transported: the tracer renders it as glint, so nothing is counted twice. The pass tallies the track-length **fluence** `Phi_v = sum(w l) / V_v` (mW/mm²), the absorbed power per voxel, the elastic exit radiance of every face cell, and the diagnostics `R + T + A + specular + lost = 1` (energy conserved to 1e-9).
+* **From absorbed light to fluorescence sources**: absorbed power is split between the dyes of a layer by `mu_a,dye / mu_a,total`; each channel `(excitation, layer, dye)` gets `A_d x quantum yield x quenching x survival(bleaching) x (1 - FRET)`, plus the Raman channel of aqueous layers. Photobleaching dose is resolved per voxel and carried across the sequence like in v1.
+* **Emission pass** (once per emission wavelength node, all channels of all excitations in the same run): source voxels are drawn by stratified inverse-CDF on the total source, uniformly inside the exact (sheared) voxel volume, with isotropic directions; one run serves every channel (`coef_c = sources[c, v] / q(v) Q / N`). The tally is the radiance leaving each face cell towards the camera, multiplied by the area-normalised emission density `e_c(lambda)` on the fine grid. Between nodes the transport factor is interpolated linearly (it is smooth, the sharp structure is in `e_c`). Nodes are adaptive: dense where the factor bends (absorption bands), at most twice the nominal spacing elsewhere.
+
+### 14.3 The peel-off (next-event) estimator
+
+Counting only the packets that happen to leave inside the camera's acceptance cone is very noisy per face cell. At **every scattering event** (and at the launch of an emission packet) the code instead adds the expected contribution of the straight line of sight to the camera: the internal direction `d` is found by inverting Snell's law through the (tilted) interface chain above the point, and the contribution is
+
+`dL = w p_HG(u . d) T exp(-tau) J / (A_cell (n . c))`,
+
+with `tau` the optical depth of the straight segments, `T` the product of the Fresnel transmittances crossed, and `J = dOmega_in / dOmega_air = prod n_up^2 cos_up / (n_in^2 cos_in)` the etendue factor. A multiple-importance weight `1/(1 + Omega_c p J)` bounds the forward-peaked tail of the phase function. A flag marks the paths the peel-off does not cover (the launch and after a Fresnel reflection), which the cone estimator still scores, so nothing is double counted. Validation (peel-off versus cone, noise reduction at equal photons) is in [PHYSICS_VALIDATION.md §12.3](PHYSICS_VALIDATION.md#123-peel-off-next-event-estimator-versus-the-acceptance-cone-estimator). Because it needs about 5 times fewer packets, `volume_mc` photon counts are multiplied by `PEEL_PHOTON_FACTOR = 0.2`, and the top-face tally is smoothed by a sub-cell Gaussian (`SMOOTH_SIGMA_MM = 0.35`).
+
+### 14.4 The bottom boundary
+
+The bottom face is a Fresnel interface to air, exactly like the four sides and like the 1-D slab engine: the transmitted part `w (1 - R)` leaves (the stage absorbs it, tallied as `T_bottom`) and the reflected part `w R`, total internal reflection included, stays in the block. A perfect-sink bottom would be visibly wrong (validation figure 13).
+
+### 14.5 The layer-conforming grid
+
+Tallies use a `VoxelGrid` that follows the layers: `lateral_cell_mm` cells in x and z, and `sublayers` cells across each layer's local thickness, so a voxel's volume is `dx dz t_l(x_c, z_c) / S` (exact because `t` is linear) and a 0 mm end of a wedge is represented without staircasing. Face cells (`FaceGrid`, `exit_cell_mm`) are bilinearly interpolated at each pixel's hit point.
+
+### 14.6 Performance
+
+Kernels are numba-compiled and deterministic for any thread count (fixed batches seeded from `(seed, batch)`, private tallies summed in order). Typical wall clock on a loaded laptop (PHYSICS_VALIDATION §12.7): wedge phantom preview about 2 s, full capture of 6 excitations about 45 s; tissue under collagen preview about 4 s, full capture of 8 excitations about 60 s; the pencil-beam preset (3 laser lines, full resolution) about 90 s. The tally arrays of a preview or capture are cached, so *Explain pixel* of a block pixel after a capture takes tens of milliseconds, and a light-field request does not re-simulate.
+
+### 14.7 Limits
+
+* No secondary emission for block pixels: fluorescence re-absorbed inside the block is lost, not re-emitted (a few percent to ~10 % dimmer than the 1-D engine for strongly overlapping dyes).
+* One camera direction per block (the radiance is tallied in a cone of `acceptance_half_angle_deg` around the direction from the block centre to the camera); wide-field cameras close to a block see a small angular error, and views of the side faces use the noisier cone estimator.
+* Planar interfaces and a rectangular footprint only: no curved or rough interfaces, inclusions or lateral material changes. Interface roughness is a glint property of the tracer.
+* Subsurface spread, room light and secondary emission are not applied to block pixels (the 3D transport already contains the lateral spreading).
+* The result is a Monte Carlo estimate: about 10 % rms noise per 0.5 mm face cell at the default photon count before smoothing, 2 to 3 % in a 3 mm region of interest.
+* Irradiance-normalised analysis (UI section 13) divides by the ground-truth surface irradiance `irradiance@<ex>` of the pixel, which is a property of the tracer's launch, not of the 3D tally; pixels where it is below 1e-3 of its maximum are blank (a narrow beam's wings), and near block edges light escapes through the side faces and the trend there should be ignored.

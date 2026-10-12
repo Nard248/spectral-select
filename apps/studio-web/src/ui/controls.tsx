@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronRight } from 'lucide-react'
 
 /* ---------- tooltip ---------- */
@@ -13,7 +14,7 @@ export function Tip({ title, text, children, block }: { title?: string; text: st
       }}
       onMouseLeave={() => { if (timer.current) clearTimeout(timer.current); setPos(null) }}>
       {children}
-      {pos && <div className="tt" style={{ left: pos.x, top: pos.y }}>{title && <b>{title}</b>}{text}</div>}
+      {pos && createPortal(<div className="tt" style={{ left: pos.x, top: pos.y }}>{title && <b>{title}</b>}{text}</div>, document.body)}
     </span>
   )
 }

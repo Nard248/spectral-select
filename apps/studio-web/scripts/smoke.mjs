@@ -57,10 +57,11 @@ await page.getByRole('button', { name: 'False colour' }).click(); await page.wai
 await page.getByRole('button', { name: 'Band', exact: true }).click()
 const canvas = page.locator('.imgstage canvas').first(); const box = await canvas.boundingBox()
 await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.4); await page.waitForTimeout(500)
-await page.locator('.explore button[title="Draw ROI"]').click()
+await page.locator('.explore button[aria-label="Rectangle ROI"]').click()
 await page.mouse.move(box.x + 40, box.y + 40); await page.mouse.down(); await page.mouse.move(box.x + 140, box.y + 120); await page.mouse.up()
 await page.waitForTimeout(500)
-check((await page.locator('.explore .col').last().innerText()).includes('ROI mean spectrum'), 'roi spectrum')
+check((await page.locator('.roi-item').count()) === 1, 'roi listed')
+check((await page.locator('.explore .col').last().innerText()).includes('EEM'), 'eem panel opens for the new ROI')
 await page.locator('.explore select.field').nth(1).selectOption({ index: 1 }); await page.waitForTimeout(600) // gt overlay
 await page.locator('.explore select.field').nth(0).selectOption({ index: 1 }); await page.waitForTimeout(1200) // compare (preview)
 check((await page.locator('.imgstage canvas').count()) === 2, 'compare shows two canvases')

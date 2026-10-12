@@ -1,7 +1,10 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { Move3d, Rotate3d, Magnet, Focus, Video, PictureInPicture2, Sun, ScanLine, Gauge } from 'lucide-react'
+import { Move3d, Rotate3d, Magnet, Focus, Video, PictureInPicture2, Sun, ScanLine, Gauge, Slice } from 'lucide-react'
 import { useStudio, activeCamera } from '../state/store'
+import { useLayerView, targetBlockId, DEFAULT_SECTION } from '../state/layerView'
+import { SectionCard, LightFieldLegend } from './SectionCard'
+import { setCutaway } from './blockView'
 import { SceneRoot } from './SceneRoot'
 import { Pip } from './Pip'
 import { viewApi, viewportEl } from './viewApi'
@@ -20,6 +23,8 @@ export function Viewport() {
   const select = useStudio((s) => s.select)
   const addObject = useStudio((s) => s.addObject)
   const cam = useStudio((s) => activeCamera(s.exp))
+  const blockId = useStudio((s) => targetBlockId(s.exp, s.selection))
+  const cutOn = useLayerView((s) => (blockId ? (s.sections[blockId] ?? DEFAULT_SECTION).on : false))
   const host = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ w: 800, h: 500 })
 
@@ -73,6 +78,9 @@ export function Viewport() {
           <ToolBtn on={ui.lookThrough} onClick={() => setUi({ lookThrough: !ui.lookThrough })} tip="Look through HSI camera" kbd="C"><Video size={16} /></ToolBtn>
           <ToolBtn on={ui.pip} onClick={() => setUi({ pip: !ui.pip })} tip="Camera view (picture-in-picture)"><PictureInPicture2 size={16} /></ToolBtn>
         </div>
+        {blockId && <div className="group">
+          <ToolBtn on={cutOn} onClick={() => { const o = useStudio.getState().exp.objects.find((x) => x.id === blockId); if (o) setCutaway(o, !cutOn) }} tip="Cutaway / section view of the layered block" kbd="X"><Slice size={16} /></ToolBtn>
+        </div>}
         <div className="group">
           <ToolBtn on={ui.showBeam} onClick={() => setUi({ showBeam: !ui.showBeam })} tip="Show light beam"><Sun size={16} /></ToolBtn>
           <ToolBtn on={ui.quality === 'high'} onClick={() => setUi({ quality: ui.quality === 'high' ? 'low' : 'high' })} tip="Render quality: ambient occlusion + SMAA (turn off on slow GPUs)"><Gauge size={16} /></ToolBtn>
@@ -80,6 +88,8 @@ export function Viewport() {
         </div>
       </div>
 
+      <SectionCard />
+      <LightFieldLegend />
       {ui.pip && <Pip />}
       <div className="vp-hint glass"><span>Drag orbit</span><span>Right-drag pan</span><span>Scroll zoom</span></div>
     </div>
