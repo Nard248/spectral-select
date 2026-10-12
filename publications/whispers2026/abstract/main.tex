@@ -1,0 +1,76 @@
+\documentclass[10pt]{article}
+\usepackage[a4paper,margin=0.8in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage[hidelinks]{hyperref}
+\usepackage{parskip}
+\setlength{\parskip}{0.38em}
+\pagestyle{empty}
+
+\begin{document}
+
+\begin{center}
+{\large\bfseries SpectraForge: An Open, Physics-Grounded Benchmark for Band Selection\\
+in Multi-Excitation (4D) Fluorescence Hyperspectral Imaging}\\[0.6em]
+{\normalsize Narek Meloyan\textsuperscript{1,2,3}, Narine Sarvazyan\textsuperscript{1,3,4}}\\[0.2em]
+{\footnotesize \textsuperscript{1}Zaven P.\ and Sonia Akian College of Science and Engineering, American University of Armenia, Yerevan, Armenia\\
+\textsuperscript{2}Engineering Research Center, American University of Armenia \quad
+\textsuperscript{3}L.A.\ Orbeli Institute of Physiology NAS RA, Yerevan, Armenia \quad
+\textsuperscript{4}George Washington University, Washington, DC, USA\\
+\texttt{narek\_meloyan@edu.aua.am}, \texttt{phynas@gwu.edu}}
+\end{center}
+
+\vspace{0.3em}
+
+Multi-excitation fluorescence hyperspectral imaging records, for every pixel, a
+four-dimensional excitation-emission cube, and choosing which spectral bands to keep is
+central to cheaper acquisition and compact classification. Progress on band selection for
+this modality is held back by a data problem: labeled real 4D fluorescence cubes are
+scarce, and even when available they carry no ground truth, so a selector cannot be scored
+against the bands it should have found. We present \textbf{SpectraForge}, an open,
+physics-grounded generator that renders 4D excitation-emission cubes from a parametric
+fluorophore model obeying the standard laws of fluorescence photophysics (Kasha, Vavilov,
+Franck-Condon, Stokes shift), with optional inner-filter attenuation, reabsorption, FRET,
+scatter, photon and read noise, and fixed-pattern clutter. Every cube carries perfect
+ground truth (concentration maps and true emission peaks), parametric dyes can be replaced
+by real measured spectra imported from FPbase, and an interactive workbench
+(Fig.~\ref{fig:gui}) lets a user pick and mix fluorophores, paint them as layers, render the 4D cube,
+and validate a selection against ground truth. Crucially, scenes are
+built so that band variance is decoupled from class informativeness (measured correlation
+$\approx -0.1$), which makes the benchmark an honest test rather than a trivial one, at
+difficulty controllable from a single call.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.72\linewidth]{fig_gui.png}
+\caption{\footnotesize The SpectraForge workbench: pick and mix fluorophores into materials (left),
+paint them as layers onto a canvas (centre), then render the 4D cube and validate a band selection
+against ground truth (bottom, previewing a rendered emission band).}
+\label{fig:gui}
+\end{figure}
+
+Alongside the generator we define an evaluation protocol whose two decisive controls, a
+random-selection baseline and the full spectrum, separate genuine gains from self-deception, with a
+classifier panel and a nonlinear-only information metric for regimes where linear scoring cannot
+credit a nonlinear-shape selection.
+
+Using SpectraForge we characterize autoencoder-plus-latent-perturbation band selection.
+The benchmark exposed a failure invisible to raw loss (a published model that selected at
+chance, macro-F1 $\approx 0.33$) and traced it to four trainer defects and an emission-axis
+band collapse; correcting these recovers the selector to $85$--$97\%$ of a labels-using
+oracle and matches the strongest classical blind selector (PCA loadings). A
+significance-tested battery then shows the learned selector \emph{ties} PCA loadings on
+realistic and FRET data and \emph{significantly exceeds} it in the nonlinear reabsorption
+regime (macro-F1 $0.449$ vs $0.431$, $95\%$ CI $[+0.001,+0.029]$), capturing nonlinear-only
+information that linear selection misses. The same controls delimit where unsupervised
+selection stops helping, and reveal that a convolutional model is structurally necessary
+when discrimination is carried by spatial texture, where per-pixel selection is provably
+blind (below random) while a spatial model reaches the oracle.
+
+SpectraForge turns ``does this selector help'' into a measured, reproducible question for
+4D fluorescence imaging. The generator, the evaluation harness, and the full experiment
+record are released, and validation on real Lichens and Collagen cubes with the same
+controls is the immediate next step.
+
+\end{document}
