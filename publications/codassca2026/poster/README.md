@@ -9,6 +9,9 @@ superscripts, Calibri 22 pt body, Calibri Bold 40 pt section bars (khaki-gold `#
 sage-green `#C4D0B5` for the data/results/footer sections), navy `#1A2332` table header with tinted rows, AUA and
 L.A. Orbeli logos in the header, three-column top and bottom rows, full-width dataset bands in between.
 
+## Presenter guide
+`CODASSCA2026_presenter_guide.docx` (37 pages, A4; `_preview.pdf` is a LibreOffice render) is the companion document: every dataset in plain English (source, format, rows, attributes, groups, highlighted channels, algorithms compared, numbers, figures with what to say), the algorithms compared, a layered presentation script (30 s / 2 min / 5 min), speaker notes per poster section, likely questions with answers, a glossary, and appendices with every poster visual and extra thesis figures. Rebuild with `.venv/bin/python publications/codassca2026/poster/build_presenter_guide.py`; edit the text in that script.
+
 ## Editing
 * **Text**: every block is a normal PowerPoint text box (named, e.g. "Text Novelty", "Stage 2", "Caption Fig1").
   Edit in place, or edit the `CONTENT` dict at the top of `build_poster.py` and re-run

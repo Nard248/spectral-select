@@ -203,3 +203,9 @@ cython_debug/
 *.npz
 *.docx
 *.pptx
+
+# Local datasets (raw .im3 + processed pickles, ~8.5 GB) — published on Zenodo, never commit
+/Data/
+# Superseded manuscript drafts and build archives
+**/superseded_*/
+publications/scientific_reports/**/*.zip
