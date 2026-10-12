@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lichen-rl-selector"
+version = "0.1.0"
+description = "Small REINFORCE wavelength selector for the Lichens_2 HSI dataset"
+requires-python = ">=3.11"
+dependencies = [
+    "matplotlib>=3.8",
+    "numpy>=2.0",
+    "scikit-learn>=1.3",
+    "scipy>=1.10",
+    "torch>=2.0",
+]
+
+[project.scripts]
+lichen-rl-select = "lichen_rl.cli:main"
+lichen-rl-oracle-transfer = "lichen_rl.oracle_cli:main"
+lichen-mc-select = "wavelength_selection.run_experiment:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

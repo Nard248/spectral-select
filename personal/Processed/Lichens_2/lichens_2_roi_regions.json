@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Region 1",
+    "coords": [
+      38,
+      84,
+      4,
+      54
+    ],
+    "color": "#FF0000",
+    "class_id": 0,
+    "class_name": "Class 1 (Red)"
+  },
+  {
+    "name": "Region 2",
+    "coords": [
+      75,
+      135,
+      152,
+      206
+    ],
+    "color": "#00FF00",
+    "class_id": 1,
+    "class_name": "Class 2 (Green)"
+  },
+  {
+    "name": "Region 3",
+    "coords": [
+      137,
+      184,
+      171,
+      222
+    ],
+    "color": "#0000FF",
+    "class_id": 2,
+    "class_name": "Class 3 (Blue)"
+  },
+  {
+    "name": "Region 4",
+    "coords": [
+      178,
+      229,
+      70,
+      121
+    ],
+    "color": "#FFFF00",
+    "class_id": 3,
+    "class_name": "Class 4 (Yellow)"
+  },
+  {
+    "name": "Region 5",
+    "coords": [
+      174,
+      211,
+      266,
+      293
+    ],
+    "color": "#FF00FF",
+    "class_id": 4,
+    "class_name": "Class 5 (Magenta)"
+  }
+]
