@@ -1,0 +1,1835 @@
+{
+ "$defs": {
+  "AbsorberSpec": {
+   "additionalProperties": false,
+   "description": "Non-fluorescent background absorption added to the dyes' absorption.\n\n``preset`` spectra are tabulated in :mod:`spectraforge.studio.spectra`; ``scale`` multiplies\nthem (for ``water`` scale 1 = pure water; for ``hemoglobin`` / ``melanin`` scale is the\nabsorption coefficient at 500 nm in 1/mm). ``custom`` is a list of ``(nm, mua_per_mm)``.",
+   "properties": {
+    "preset": {
+     "default": "none",
+     "enum": [
+      "none",
+      "water",
+      "hemoglobin",
+      "melanin",
+      "carbon_black",
+      "custom"
+     ],
+     "title": "Preset",
+     "type": "string"
+    },
+    "scale": {
+     "default": 1.0,
+     "minimum": 0,
+     "title": "Scale",
+     "type": "number"
+    },
+    "custom": {
+     "items": {
+      "maxItems": 2,
+      "minItems": 2,
+      "type": "array",
+      "items": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "number"
+       }
+      ],
+      "additionalItems": false
+     },
+     "title": "Custom",
+     "type": "array"
+    }
+   },
+   "required": [
+    "preset",
+    "scale",
+    "custom"
+   ],
+   "title": "AbsorberSpec",
+   "type": "object"
+  },
+  "AcquisitionSettings": {
+   "additionalProperties": false,
+   "properties": {
+    "mode": {
+     "default": "sample",
+     "enum": [
+      "sample",
+      "dark",
+      "white_reference"
+     ],
+     "title": "Mode",
+     "type": "string"
+    },
+    "seed": {
+     "default": 0,
+     "title": "Seed",
+     "type": "integer"
+    },
+    "mc_photons": {
+     "default": 200000,
+     "maximum": 50000000,
+     "minimum": 1000,
+     "title": "Mc Photons",
+     "type": "integer"
+    },
+    "preview_scale": {
+     "default": 0.25,
+     "exclusiveMinimum": 0,
+     "maximum": 1,
+     "title": "Preview Scale",
+     "type": "number"
+    },
+    "physics": {
+     "$ref": "#/$defs/PhysicsToggles"
+    },
+    "volume_mc": {
+     "$ref": "#/$defs/VolumeMCSettings"
+    }
+   },
+   "required": [
+    "mode",
+    "seed",
+    "mc_photons",
+    "preview_scale",
+    "physics",
+    "volume_mc"
+   ],
+   "title": "AcquisitionSettings",
+   "type": "object"
+  },
+  "Background": {
+   "additionalProperties": false,
+   "description": "``none``: rays that miss every object return nothing (void). ``plane``: a slab of\n``material_id`` covering the table top (``y in [-thickness, 0]``), ``extent_mm`` square.",
+   "properties": {
+    "kind": {
+     "default": "plane",
+     "enum": [
+      "none",
+      "plane"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "material_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": "black_anodized",
+     "title": "Material Id"
+    },
+    "thickness_mm": {
+     "default": 5.0,
+     "exclusiveMinimum": 0,
+     "title": "Thickness Mm",
+     "type": "number"
+    },
+    "extent_mm": {
+     "default": 600.0,
+     "exclusiveMinimum": 0,
+     "title": "Extent Mm",
+     "type": "number"
+    },
+    "room_light": {
+     "$ref": "#/$defs/RoomLight"
+    }
+   },
+   "required": [
+    "kind",
+    "material_id",
+    "thickness_mm",
+    "extent_mm",
+    "room_light"
+   ],
+   "title": "Background",
+   "type": "object"
+  },
+  "BeamSpec": {
+   "additionalProperties": false,
+   "properties": {
+    "profile": {
+     "default": "gaussian",
+     "enum": [
+      "gaussian",
+      "flat_top"
+     ],
+     "title": "Profile",
+     "type": "string"
+    },
+    "aperture_diameter_mm": {
+     "default": 8.0,
+     "exclusiveMinimum": 0,
+     "title": "Aperture Diameter Mm",
+     "type": "number"
+    },
+    "divergence_half_angle_deg": {
+     "default": 6.0,
+     "exclusiveMaximum": 80,
+     "minimum": 0,
+     "title": "Divergence Half Angle Deg",
+     "type": "number"
+    }
+   },
+   "required": [
+    "profile",
+    "aperture_diameter_mm",
+    "divergence_half_angle_deg"
+   ],
+   "title": "BeamSpec",
+   "type": "object"
+  },
+  "BlockLayer": {
+   "additionalProperties": false,
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "material_id": {
+     "title": "Material Id",
+     "type": "string"
+    },
+    "thickness": {
+     "$ref": "#/$defs/ThicknessProfile"
+    }
+   },
+   "required": [
+    "name",
+    "material_id",
+    "thickness"
+   ],
+   "title": "BlockLayer",
+   "type": "object"
+  },
+  "BoxShape": {
+   "additionalProperties": false,
+   "description": "Axis-aligned box centred on the local origin.",
+   "properties": {
+    "kind": {
+     "const": "box",
+     "default": "box",
+     "title": "Kind",
+     "type": "string"
+    },
+    "size_mm": {
+     "default": [
+      20.0,
+      5.0,
+      20.0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "title": "Size Mm",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    }
+   },
+   "required": [
+    "kind",
+    "size_mm"
+   ],
+   "title": "BoxShape",
+   "type": "object"
+  },
+  "CameraSpec": {
+   "additionalProperties": false,
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "position_mm": {
+     "default": [
+      0.0,
+      320.0,
+      0.0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "title": "Position Mm",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    },
+    "target_mm": {
+     "default": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "title": "Target Mm",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    },
+    "roll_deg": {
+     "default": 0.0,
+     "title": "Roll Deg",
+     "type": "number"
+    },
+    "lens": {
+     "$ref": "#/$defs/LensSpec"
+    },
+    "sensor": {
+     "$ref": "#/$defs/SensorSpec"
+    },
+    "filter": {
+     "$ref": "#/$defs/SpectralFilterSpec"
+    }
+   },
+   "required": [
+    "id",
+    "name",
+    "position_mm",
+    "target_mm",
+    "roll_deg",
+    "lens",
+    "sensor",
+    "filter"
+   ],
+   "title": "CameraSpec",
+   "type": "object"
+  },
+  "CuvetteShape": {
+   "additionalProperties": false,
+   "description": "Rectangular cuvette: inner cavity ``inner_mm`` (x, y, z), walls ``wall_mm``; outer bottom\non local ``y = 0``. Filled with the object's material to ``fill_height_mm``.",
+   "properties": {
+    "kind": {
+     "const": "cuvette",
+     "default": "cuvette",
+     "title": "Kind",
+     "type": "string"
+    },
+    "inner_mm": {
+     "default": [
+      10.0,
+      40.0,
+      10.0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "title": "Inner Mm",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    },
+    "wall_mm": {
+     "default": 1.25,
+     "exclusiveMinimum": 0,
+     "title": "Wall Mm",
+     "type": "number"
+    },
+    "fill_height_mm": {
+     "default": 30.0,
+     "minimum": 0,
+     "title": "Fill Height Mm",
+     "type": "number"
+    }
+   },
+   "required": [
+    "kind",
+    "inner_mm",
+    "wall_mm",
+    "fill_height_mm"
+   ],
+   "title": "CuvetteShape",
+   "type": "object"
+  },
+  "CylinderShape": {
+   "additionalProperties": false,
+   "description": "Solid cylinder, axis along local +Y, centred on the local origin.",
+   "properties": {
+    "kind": {
+     "const": "cylinder",
+     "default": "cylinder",
+     "title": "Kind",
+     "type": "string"
+    },
+    "radius_mm": {
+     "default": 10.0,
+     "exclusiveMinimum": 0,
+     "title": "Radius Mm",
+     "type": "number"
+    },
+    "height_mm": {
+     "default": 10.0,
+     "exclusiveMinimum": 0,
+     "title": "Height Mm",
+     "type": "number"
+    }
+   },
+   "required": [
+    "kind",
+    "radius_mm",
+    "height_mm"
+   ],
+   "title": "CylinderShape",
+   "type": "object"
+  },
+  "DropletShape": {
+   "additionalProperties": false,
+   "description": "Spherical cap: flat circular base on local ``y = 0`` (radius ``base_radius_mm``), apex at\n``y = height_mm``. ``height_mm <= base_radius_mm`` is a sessile drop (contact angle <= 90\u00b0).",
+   "properties": {
+    "kind": {
+     "const": "droplet",
+     "default": "droplet",
+     "title": "Kind",
+     "type": "string"
+    },
+    "base_radius_mm": {
+     "default": 3.0,
+     "exclusiveMinimum": 0,
+     "title": "Base Radius Mm",
+     "type": "number"
+    },
+    "height_mm": {
+     "default": 1.5,
+     "exclusiveMinimum": 0,
+     "title": "Height Mm",
+     "type": "number"
+    }
+   },
+   "required": [
+    "kind",
+    "base_radius_mm",
+    "height_mm"
+   ],
+   "title": "DropletShape",
+   "type": "object"
+  },
+  "DyeAmount": {
+   "additionalProperties": false,
+   "properties": {
+    "fluorophore": {
+     "title": "Fluorophore",
+     "type": "string"
+    },
+    "concentration_uM": {
+     "minimum": 0,
+     "title": "Concentration Um",
+     "type": "number"
+    }
+   },
+   "required": [
+    "fluorophore",
+    "concentration_uM"
+   ],
+   "title": "DyeAmount",
+   "type": "object"
+  },
+  "ExcitationStep": {
+   "additionalProperties": false,
+   "properties": {
+    "wavelength_nm": {
+     "exclusiveMaximum": 1100,
+     "exclusiveMinimum": 200,
+     "title": "Wavelength Nm",
+     "type": "number"
+    },
+    "power_mW": {
+     "default": 1.0,
+     "minimum": 0,
+     "title": "Power Mw",
+     "type": "number"
+    },
+    "exposure_ms": {
+     "default": 100.0,
+     "exclusiveMinimum": 0,
+     "title": "Exposure Ms",
+     "type": "number"
+    },
+    "enabled": {
+     "default": true,
+     "title": "Enabled",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "wavelength_nm",
+    "power_mW",
+    "exposure_ms",
+    "enabled"
+   ],
+   "title": "ExcitationStep",
+   "type": "object"
+  },
+  "FluorophoreSpec": {
+   "additionalProperties": false,
+   "description": "Parametric fluorophore (same parameters as :class:`spectraforge.Fluorophore`) plus the\nphotophysics the 3D engine adds. ``extinction`` is relative: ``1.0 == EXTINCTION_REFERENCE``.",
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "ex_peak_nm": {
+     "exclusiveMaximum": 1200,
+     "exclusiveMinimum": 150,
+     "title": "Ex Peak Nm",
+     "type": "number"
+    },
+    "ex_fwhm_nm": {
+     "exclusiveMinimum": 0,
+     "title": "Ex Fwhm Nm",
+     "type": "number"
+    },
+    "em_peak_nm": {
+     "exclusiveMaximum": 1500,
+     "exclusiveMinimum": 150,
+     "title": "Em Peak Nm",
+     "type": "number"
+    },
+    "em_fwhm_nm": {
+     "exclusiveMinimum": 0,
+     "title": "Em Fwhm Nm",
+     "type": "number"
+    },
+    "quantum_yield": {
+     "default": 0.5,
+     "maximum": 1,
+     "minimum": 0,
+     "title": "Quantum Yield",
+     "type": "number"
+    },
+    "extinction": {
+     "default": 1.0,
+     "minimum": 0,
+     "title": "Extinction",
+     "type": "number"
+    },
+    "em_skew": {
+     "default": 0.0,
+     "minimum": 0,
+     "title": "Em Skew",
+     "type": "number"
+    },
+    "vibronic": {
+     "default": 0.0,
+     "minimum": 0,
+     "title": "Vibronic",
+     "type": "number"
+    },
+    "bleach_quantum_yield": {
+     "default": 1e-07,
+     "maximum": 1,
+     "minimum": 0,
+     "title": "Bleach Quantum Yield",
+     "type": "number"
+    },
+    "display_color": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Display Color"
+    }
+   },
+   "required": [
+    "name",
+    "ex_peak_nm",
+    "ex_fwhm_nm",
+    "em_peak_nm",
+    "em_fwhm_nm",
+    "quantum_yield",
+    "extinction",
+    "em_skew",
+    "vibronic",
+    "bleach_quantum_yield",
+    "display_color"
+   ],
+   "title": "FluorophoreSpec",
+   "type": "object"
+  },
+  "FretPair": {
+   "additionalProperties": false,
+   "properties": {
+    "donor": {
+     "title": "Donor",
+     "type": "string"
+    },
+    "acceptor": {
+     "title": "Acceptor",
+     "type": "string"
+    },
+    "k_per_uM": {
+     "minimum": 0,
+     "title": "K Per Um",
+     "type": "number"
+    }
+   },
+   "required": [
+    "donor",
+    "acceptor",
+    "k_per_uM"
+   ],
+   "title": "FretPair",
+   "type": "object"
+  },
+  "LayeredBlockShape": {
+   "additionalProperties": false,
+   "description": "A rectangular block built from a stack of uniform layers, listed BOTTOM \u2192 TOP. Footprint\n``footprint_mm = (x, z)`` centred on the local origin; the bottom face lies on local ``y = 0``\nand every layer interface ``y = \u03a3_{j\u2264i} t_j(x, z)`` is a plane (uniform or linear profiles).\nLight transport inside is solved by the 3D layered Monte Carlo (``transport3d``), so buried\nlayers (e.g. a fluorophore under a scattering cover) are seen through everything above them.\n``SceneObject.material_id`` is ignored for this shape (each layer carries its own material).",
+   "properties": {
+    "kind": {
+     "const": "layered_block",
+     "default": "layered_block",
+     "title": "Kind",
+     "type": "string"
+    },
+    "footprint_mm": {
+     "default": [
+      40.0,
+      40.0
+     ],
+     "maxItems": 2,
+     "minItems": 2,
+     "title": "Footprint Mm",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    },
+    "layers": {
+     "items": {
+      "$ref": "#/$defs/BlockLayer"
+     },
+     "maxItems": 8,
+     "minItems": 1,
+     "title": "Layers",
+     "type": "array"
+    }
+   },
+   "required": [
+    "kind",
+    "footprint_mm",
+    "layers"
+   ],
+   "title": "LayeredBlockShape",
+   "type": "object"
+  },
+  "LensSpec": {
+   "additionalProperties": false,
+   "properties": {
+    "focal_length_mm": {
+     "default": 35.0,
+     "exclusiveMinimum": 0,
+     "title": "Focal Length Mm",
+     "type": "number"
+    },
+    "f_number": {
+     "default": 4.0,
+     "exclusiveMinimum": 0.5,
+     "title": "F Number",
+     "type": "number"
+    },
+    "focus_distance_mm": {
+     "default": 300.0,
+     "exclusiveMinimum": 0,
+     "title": "Focus Distance Mm",
+     "type": "number"
+    },
+    "transmission": {
+     "default": 0.9,
+     "exclusiveMinimum": 0,
+     "maximum": 1,
+     "title": "Transmission",
+     "type": "number"
+    },
+    "axial_chromatic_mm_per_100nm": {
+     "default": 0.05,
+     "minimum": 0,
+     "title": "Axial Chromatic Mm Per 100Nm",
+     "type": "number"
+    }
+   },
+   "required": [
+    "focal_length_mm",
+    "f_number",
+    "focus_distance_mm",
+    "transmission",
+    "axial_chromatic_mm_per_100nm"
+   ],
+   "title": "LensSpec",
+   "type": "object"
+  },
+  "LightSourceSpec": {
+   "additionalProperties": false,
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "kind": {
+     "default": "tunable_lamp",
+     "enum": [
+      "tunable_lamp",
+      "led_array",
+      "laser"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "position_mm": {
+     "default": [
+      -180.0,
+      220.0,
+      0.0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "title": "Position Mm",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    },
+    "target_mm": {
+     "default": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "title": "Target Mm",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    },
+    "roll_deg": {
+     "default": 0.0,
+     "title": "Roll Deg",
+     "type": "number"
+    },
+    "beam": {
+     "$ref": "#/$defs/BeamSpec"
+    },
+    "line_fwhm_nm": {
+     "default": 10.0,
+     "exclusiveMinimum": 0,
+     "title": "Line Fwhm Nm",
+     "type": "number"
+    },
+    "lamp_curve": {
+     "default": "xenon",
+     "enum": [
+      "flat",
+      "xenon"
+     ],
+     "title": "Lamp Curve",
+     "type": "string"
+    },
+    "excitation_filter_od": {
+     "default": 4.0,
+     "minimum": 0,
+     "title": "Excitation Filter Od",
+     "type": "number"
+    },
+    "power_drift_pct": {
+     "default": 0.0,
+     "minimum": 0,
+     "title": "Power Drift Pct",
+     "type": "number"
+    },
+    "sequence": {
+     "items": {
+      "$ref": "#/$defs/ExcitationStep"
+     },
+     "title": "Sequence",
+     "type": "array"
+    }
+   },
+   "required": [
+    "id",
+    "name",
+    "kind",
+    "position_mm",
+    "target_mm",
+    "roll_deg",
+    "beam",
+    "line_fwhm_nm",
+    "lamp_curve",
+    "excitation_filter_od",
+    "power_drift_pct",
+    "sequence"
+   ],
+   "title": "LightSourceSpec",
+   "type": "object"
+  },
+  "MaterialSpec": {
+   "additionalProperties": false,
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "dyes": {
+     "items": {
+      "$ref": "#/$defs/DyeAmount"
+     },
+     "title": "Dyes",
+     "type": "array"
+    },
+    "refractive_index": {
+     "default": 1.33,
+     "maximum": 3.0,
+     "minimum": 1.0,
+     "title": "Refractive Index",
+     "type": "number"
+    },
+    "scattering": {
+     "$ref": "#/$defs/ScatteringSpec"
+    },
+    "background_absorption": {
+     "$ref": "#/$defs/AbsorberSpec"
+    },
+    "surface_roughness": {
+     "default": 0.15,
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "Surface Roughness",
+     "type": "number"
+    },
+    "aqueous": {
+     "default": false,
+     "title": "Aqueous",
+     "type": "boolean"
+    },
+    "raman_strength": {
+     "default": 1.0,
+     "minimum": 0,
+     "title": "Raman Strength",
+     "type": "number"
+    },
+    "quenching_ksv_per_uM": {
+     "default": 0.0,
+     "minimum": 0,
+     "title": "Quenching Ksv Per Um",
+     "type": "number"
+    },
+    "fret": {
+     "items": {
+      "$ref": "#/$defs/FretPair"
+     },
+     "title": "Fret",
+     "type": "array"
+    },
+    "display_color": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Display Color"
+    }
+   },
+   "required": [
+    "id",
+    "name",
+    "dyes",
+    "refractive_index",
+    "scattering",
+    "background_absorption",
+    "surface_roughness",
+    "aqueous",
+    "raman_strength",
+    "quenching_ksv_per_uM",
+    "fret",
+    "display_color"
+   ],
+   "title": "MaterialSpec",
+   "type": "object"
+  },
+  "PetriDishShape": {
+   "additionalProperties": false,
+   "description": "Glass/plastic dish: a flat base disc plus a cylindrical wall, base bottom on local ``y = 0``,\naxis +Y. The object's ``material_id`` fills it to ``fill_height_mm`` above the inner base;\nthe vessel uses ``SceneObject.vessel_material_id``.",
+   "properties": {
+    "kind": {
+     "const": "petri_dish",
+     "default": "petri_dish",
+     "title": "Kind",
+     "type": "string"
+    },
+    "inner_radius_mm": {
+     "default": 43.0,
+     "exclusiveMinimum": 0,
+     "title": "Inner Radius Mm",
+     "type": "number"
+    },
+    "wall_mm": {
+     "default": 1.2,
+     "exclusiveMinimum": 0,
+     "title": "Wall Mm",
+     "type": "number"
+    },
+    "height_mm": {
+     "default": 15.0,
+     "exclusiveMinimum": 0,
+     "title": "Height Mm",
+     "type": "number"
+    },
+    "base_mm": {
+     "default": 1.2,
+     "exclusiveMinimum": 0,
+     "title": "Base Mm",
+     "type": "number"
+    },
+    "fill_height_mm": {
+     "default": 4.0,
+     "minimum": 0,
+     "title": "Fill Height Mm",
+     "type": "number"
+    }
+   },
+   "required": [
+    "kind",
+    "inner_radius_mm",
+    "wall_mm",
+    "height_mm",
+    "base_mm",
+    "fill_height_mm"
+   ],
+   "title": "PetriDishShape",
+   "type": "object"
+  },
+  "PhysicsToggles": {
+   "additionalProperties": false,
+   "description": "Every effect can be switched off (for teaching / ablation). All default ON except\n``indirect_bounce`` (costly) and ``room_light`` (controlled by ``Background.room_light``).",
+   "properties": {
+    "fluorescence": {
+     "default": true,
+     "title": "Fluorescence",
+     "type": "boolean"
+    },
+    "absorption": {
+     "default": true,
+     "title": "Absorption",
+     "type": "boolean"
+    },
+    "scattering": {
+     "default": true,
+     "title": "Scattering",
+     "type": "boolean"
+    },
+    "elastic_leak": {
+     "default": true,
+     "title": "Elastic Leak",
+     "type": "boolean"
+    },
+    "raman": {
+     "default": true,
+     "title": "Raman",
+     "type": "boolean"
+    },
+    "fresnel": {
+     "default": true,
+     "title": "Fresnel",
+     "type": "boolean"
+    },
+    "specular_glints": {
+     "default": true,
+     "title": "Specular Glints",
+     "type": "boolean"
+    },
+    "shadows": {
+     "default": true,
+     "title": "Shadows",
+     "type": "boolean"
+    },
+    "subsurface_spread": {
+     "default": true,
+     "title": "Subsurface Spread",
+     "type": "boolean"
+    },
+    "indirect_bounce": {
+     "default": false,
+     "title": "Indirect Bounce",
+     "type": "boolean"
+    },
+    "secondary_emission": {
+     "default": true,
+     "title": "Secondary Emission",
+     "type": "boolean"
+    },
+    "quenching": {
+     "default": true,
+     "title": "Quenching",
+     "type": "boolean"
+    },
+    "fret": {
+     "default": true,
+     "title": "Fret",
+     "type": "boolean"
+    },
+    "photobleaching": {
+     "default": true,
+     "title": "Photobleaching",
+     "type": "boolean"
+    },
+    "power_drift": {
+     "default": true,
+     "title": "Power Drift",
+     "type": "boolean"
+    },
+    "defocus": {
+     "default": true,
+     "title": "Defocus",
+     "type": "boolean"
+    },
+    "diffraction": {
+     "default": true,
+     "title": "Diffraction",
+     "type": "boolean"
+    },
+    "chromatic_aberration": {
+     "default": true,
+     "title": "Chromatic Aberration",
+     "type": "boolean"
+    },
+    "vignetting": {
+     "default": true,
+     "title": "Vignetting",
+     "type": "boolean"
+    },
+    "filter_angle_shift": {
+     "default": true,
+     "title": "Filter Angle Shift",
+     "type": "boolean"
+    },
+    "shot_noise": {
+     "default": true,
+     "title": "Shot Noise",
+     "type": "boolean"
+    },
+    "read_noise": {
+     "default": true,
+     "title": "Read Noise",
+     "type": "boolean"
+    },
+    "dark_current": {
+     "default": true,
+     "title": "Dark Current",
+     "type": "boolean"
+    },
+    "fixed_pattern_noise": {
+     "default": true,
+     "title": "Fixed Pattern Noise",
+     "type": "boolean"
+    },
+    "saturation": {
+     "default": true,
+     "title": "Saturation",
+     "type": "boolean"
+    },
+    "quantization": {
+     "default": true,
+     "title": "Quantization",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "fluorescence",
+    "absorption",
+    "scattering",
+    "elastic_leak",
+    "raman",
+    "fresnel",
+    "specular_glints",
+    "shadows",
+    "subsurface_spread",
+    "indirect_bounce",
+    "secondary_emission",
+    "quenching",
+    "fret",
+    "photobleaching",
+    "power_drift",
+    "defocus",
+    "diffraction",
+    "chromatic_aberration",
+    "vignetting",
+    "filter_angle_shift",
+    "shot_noise",
+    "read_noise",
+    "dark_current",
+    "fixed_pattern_noise",
+    "saturation",
+    "quantization"
+   ],
+   "title": "PhysicsToggles",
+   "type": "object"
+  },
+  "RoomLight": {
+   "additionalProperties": false,
+   "properties": {
+    "enabled": {
+     "default": false,
+     "title": "Enabled",
+     "type": "boolean"
+    },
+    "spectrum": {
+     "default": "fluorescent_tube",
+     "enum": [
+      "fluorescent_tube",
+      "white_led",
+      "daylight",
+      "incandescent"
+     ],
+     "title": "Spectrum",
+     "type": "string"
+    },
+    "illuminance_lux": {
+     "default": 5.0,
+     "minimum": 0,
+     "title": "Illuminance Lux",
+     "type": "number"
+    }
+   },
+   "required": [
+    "enabled",
+    "spectrum",
+    "illuminance_lux"
+   ],
+   "title": "RoomLight",
+   "type": "object"
+  },
+  "ScatteringSpec": {
+   "additionalProperties": false,
+   "description": "Reduced-scattering power law ``mus'(\u03bb) = mus_prime_500 \u00b7 (\u03bb/500 nm)^-power_b`` (1/mm) with\nHenyey-Greenstein anisotropy ``g`` (``mus = mus' / (1 - g)``). ``model='none'`` = clear medium.",
+   "properties": {
+    "model": {
+     "default": "none",
+     "enum": [
+      "none",
+      "power_law"
+     ],
+     "title": "Model",
+     "type": "string"
+    },
+    "mus_prime_500_per_mm": {
+     "default": 0.0,
+     "minimum": 0,
+     "title": "Mus Prime 500 Per Mm",
+     "type": "number"
+    },
+    "power_b": {
+     "default": 1.0,
+     "minimum": 0,
+     "title": "Power B",
+     "type": "number"
+    },
+    "g": {
+     "default": 0.9,
+     "maximum": 0.99,
+     "minimum": -0.99,
+     "title": "G",
+     "type": "number"
+    }
+   },
+   "required": [
+    "model",
+    "mus_prime_500_per_mm",
+    "power_b",
+    "g"
+   ],
+   "title": "ScatteringSpec",
+   "type": "object"
+  },
+  "SceneObject": {
+   "additionalProperties": false,
+   "properties": {
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "shape": {
+     "discriminator": {
+      "mapping": {
+       "box": "#/$defs/BoxShape",
+       "cuvette": "#/$defs/CuvetteShape",
+       "cylinder": "#/$defs/CylinderShape",
+       "droplet": "#/$defs/DropletShape",
+       "layered_block": "#/$defs/LayeredBlockShape",
+       "petri_dish": "#/$defs/PetriDishShape",
+       "sphere": "#/$defs/SphereShape"
+      },
+      "propertyName": "kind"
+     },
+     "oneOf": [
+      {
+       "$ref": "#/$defs/BoxShape"
+      },
+      {
+       "$ref": "#/$defs/SphereShape"
+      },
+      {
+       "$ref": "#/$defs/CylinderShape"
+      },
+      {
+       "$ref": "#/$defs/DropletShape"
+      },
+      {
+       "$ref": "#/$defs/PetriDishShape"
+      },
+      {
+       "$ref": "#/$defs/CuvetteShape"
+      },
+      {
+       "$ref": "#/$defs/LayeredBlockShape"
+      }
+     ],
+     "title": "Shape"
+    },
+    "transform": {
+     "$ref": "#/$defs/Transform"
+    },
+    "material_id": {
+     "title": "Material Id",
+     "type": "string"
+    },
+    "vessel_material_id": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Vessel Material Id"
+    },
+    "visible": {
+     "default": true,
+     "title": "Visible",
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "id",
+    "name",
+    "shape",
+    "transform",
+    "material_id",
+    "vessel_material_id",
+    "visible"
+   ],
+   "title": "SceneObject",
+   "type": "object"
+  },
+  "SensorSpec": {
+   "additionalProperties": false,
+   "properties": {
+    "width_px": {
+     "default": 348,
+     "maximum": 4096,
+     "minimum": 8,
+     "title": "Width Px",
+     "type": "integer"
+    },
+    "height_px": {
+     "default": 256,
+     "maximum": 4096,
+     "minimum": 8,
+     "title": "Height Px",
+     "type": "integer"
+    },
+    "pixel_pitch_um": {
+     "default": 6.45,
+     "exclusiveMinimum": 0,
+     "title": "Pixel Pitch Um",
+     "type": "number"
+    },
+    "binning": {
+     "default": 4,
+     "maximum": 16,
+     "minimum": 1,
+     "title": "Binning",
+     "type": "integer"
+    },
+    "qe_curve": {
+     "default": "ccd_bv",
+     "enum": [
+      "ccd_bv",
+      "ccd_uv",
+      "scmos",
+      "flat"
+     ],
+     "title": "Qe Curve",
+     "type": "string"
+    },
+    "full_well_e": {
+     "default": 60000.0,
+     "exclusiveMinimum": 0,
+     "title": "Full Well E",
+     "type": "number"
+    },
+    "read_noise_e": {
+     "default": 8.0,
+     "minimum": 0,
+     "title": "Read Noise E",
+     "type": "number"
+    },
+    "dark_current_e_per_s": {
+     "default": 0.5,
+     "minimum": 0,
+     "title": "Dark Current E Per S",
+     "type": "number"
+    },
+    "gain_e_per_adu": {
+     "default": 1.5,
+     "exclusiveMinimum": 0,
+     "title": "Gain E Per Adu",
+     "type": "number"
+    },
+    "offset_adu": {
+     "default": 100.0,
+     "minimum": 0,
+     "title": "Offset Adu",
+     "type": "number"
+    },
+    "bit_depth": {
+     "default": 16,
+     "enum": [
+      12,
+      14,
+      16
+     ],
+     "title": "Bit Depth",
+     "type": "integer"
+    },
+    "prnu_pct": {
+     "default": 1.0,
+     "minimum": 0,
+     "title": "Prnu Pct",
+     "type": "number"
+    },
+    "dsnu_e": {
+     "default": 2.0,
+     "minimum": 0,
+     "title": "Dsnu E",
+     "type": "number"
+    },
+    "hot_pixel_fraction": {
+     "default": 0.0001,
+     "maximum": 0.1,
+     "minimum": 0,
+     "title": "Hot Pixel Fraction",
+     "type": "number"
+    }
+   },
+   "required": [
+    "width_px",
+    "height_px",
+    "pixel_pitch_um",
+    "binning",
+    "qe_curve",
+    "full_well_e",
+    "read_noise_e",
+    "dark_current_e_per_s",
+    "gain_e_per_adu",
+    "offset_adu",
+    "bit_depth",
+    "prnu_pct",
+    "dsnu_e",
+    "hot_pixel_fraction"
+   ],
+   "title": "SensorSpec",
+   "type": "object"
+  },
+  "SpectralFilterSpec": {
+   "additionalProperties": false,
+   "description": "Emission-side spectral selection. ``lctf``: liquid-crystal tunable filter (Nuance-like),\n``filter_wheel``: interference band-pass filters (angle-dependent blue shift).\n``band_start_policy='excitation_offset'`` starts the band list at ``max(band_start_nm,\nexcitation + start_offset_nm)`` (the real Nuance protocol for 415/430 nm excitation).",
+   "properties": {
+    "kind": {
+     "default": "lctf",
+     "enum": [
+      "lctf",
+      "filter_wheel"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "band_start_nm": {
+     "default": 420.0,
+     "title": "Band Start Nm",
+     "type": "number"
+    },
+    "band_step_nm": {
+     "default": 10.0,
+     "exclusiveMinimum": 0,
+     "title": "Band Step Nm",
+     "type": "number"
+    },
+    "n_bands": {
+     "default": 31,
+     "maximum": 512,
+     "minimum": 1,
+     "title": "N Bands",
+     "type": "integer"
+    },
+    "band_start_policy": {
+     "default": "excitation_offset",
+     "enum": [
+      "fixed",
+      "excitation_offset"
+     ],
+     "title": "Band Start Policy",
+     "type": "string"
+    },
+    "start_offset_nm": {
+     "default": 20.0,
+     "title": "Start Offset Nm",
+     "type": "number"
+    },
+    "fwhm_nm": {
+     "default": 20.0,
+     "exclusiveMinimum": 0,
+     "title": "Fwhm Nm",
+     "type": "number"
+    },
+    "peak_transmission_curve": {
+     "default": "lctf_vis",
+     "enum": [
+      "lctf_vis",
+      "flat"
+     ],
+     "title": "Peak Transmission Curve",
+     "type": "string"
+    },
+    "interference_n_eff": {
+     "default": 2.0,
+     "exclusiveMinimum": 1.0,
+     "title": "Interference N Eff",
+     "type": "number"
+    },
+    "emission_longpass_nm": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": 415.0,
+     "title": "Emission Longpass Nm"
+    },
+    "longpass_od": {
+     "default": 5.0,
+     "minimum": 0,
+     "title": "Longpass Od",
+     "type": "number"
+    }
+   },
+   "required": [
+    "kind",
+    "band_start_nm",
+    "band_step_nm",
+    "n_bands",
+    "band_start_policy",
+    "start_offset_nm",
+    "fwhm_nm",
+    "peak_transmission_curve",
+    "interference_n_eff",
+    "emission_longpass_nm",
+    "longpass_od"
+   ],
+   "title": "SpectralFilterSpec",
+   "type": "object"
+  },
+  "SphereShape": {
+   "additionalProperties": false,
+   "description": "Sphere centred on the local origin.",
+   "properties": {
+    "kind": {
+     "const": "sphere",
+     "default": "sphere",
+     "title": "Kind",
+     "type": "string"
+    },
+    "radius_mm": {
+     "default": 10.0,
+     "exclusiveMinimum": 0,
+     "title": "Radius Mm",
+     "type": "number"
+    }
+   },
+   "required": [
+    "kind",
+    "radius_mm"
+   ],
+   "title": "SphereShape",
+   "type": "object"
+  },
+  "ThicknessProfile": {
+   "additionalProperties": false,
+   "description": "Thickness of one block layer across the footprint. ``uniform``: ``thickness_mm`` everywhere.\n``linear``: a wedge that varies linearly along local ``axis`` from ``thickness_mm`` at the\nnegative edge (axis = \u2212size/2) to ``end_thickness_mm`` at the positive edge (axis = +size/2).\nBecause every profile is linear, every interface of a layered block is an exact PLANE.",
+   "properties": {
+    "kind": {
+     "default": "uniform",
+     "enum": [
+      "uniform",
+      "linear"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "thickness_mm": {
+     "default": 1.0,
+     "minimum": 0,
+     "title": "Thickness Mm",
+     "type": "number"
+    },
+    "end_thickness_mm": {
+     "default": 1.0,
+     "minimum": 0,
+     "title": "End Thickness Mm",
+     "type": "number"
+    },
+    "axis": {
+     "default": "x",
+     "enum": [
+      "x",
+      "z"
+     ],
+     "title": "Axis",
+     "type": "string"
+    }
+   },
+   "required": [
+    "kind",
+    "thickness_mm",
+    "end_thickness_mm",
+    "axis"
+   ],
+   "title": "ThicknessProfile",
+   "type": "object"
+  },
+  "Transform": {
+   "additionalProperties": false,
+   "properties": {
+    "position_mm": {
+     "default": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "title": "Position Mm",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    },
+    "rotation_deg": {
+     "default": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "title": "Rotation Deg",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    }
+   },
+   "required": [
+    "position_mm",
+    "rotation_deg"
+   ],
+   "title": "Transform",
+   "type": "object"
+  },
+  "VolumeMCSettings": {
+   "additionalProperties": false,
+   "description": "Quality knobs of the 3D layered-block Monte Carlo (``transport3d``). Photon counts are per\nexcitation step (excitation pass) and per emission wavelength node (emission pass); previews\nuse ``preview_fraction`` of them. Tallies use a layer-conforming grid: ``lateral_cell_mm`` in\nx/z and ``sublayers`` cells across each layer's (local) thickness.",
+   "properties": {
+    "excitation_photons": {
+     "default": 2000000,
+     "maximum": 200000000,
+     "minimum": 10000,
+     "title": "Excitation Photons",
+     "type": "integer"
+    },
+    "emission_photons": {
+     "default": 2000000,
+     "maximum": 200000000,
+     "minimum": 10000,
+     "title": "Emission Photons",
+     "type": "integer"
+    },
+    "preview_fraction": {
+     "default": 0.1,
+     "exclusiveMinimum": 0,
+     "maximum": 1,
+     "title": "Preview Fraction",
+     "type": "number"
+    },
+    "lateral_cell_mm": {
+     "default": 0.5,
+     "exclusiveMinimum": 0.01,
+     "title": "Lateral Cell Mm",
+     "type": "number"
+    },
+    "sublayers": {
+     "default": 8,
+     "maximum": 64,
+     "minimum": 1,
+     "title": "Sublayers",
+     "type": "integer"
+    },
+    "exit_cell_mm": {
+     "default": 0.5,
+     "exclusiveMinimum": 0.01,
+     "title": "Exit Cell Mm",
+     "type": "number"
+    },
+    "emission_node_step_nm": {
+     "default": 20.0,
+     "maximum": 100.0,
+     "minimum": 2.0,
+     "title": "Emission Node Step Nm",
+     "type": "number"
+    },
+    "acceptance_half_angle_deg": {
+     "default": 12.0,
+     "exclusiveMinimum": 0.5,
+     "maximum": 60.0,
+     "title": "Acceptance Half Angle Deg",
+     "type": "number"
+    }
+   },
+   "required": [
+    "excitation_photons",
+    "emission_photons",
+    "preview_fraction",
+    "lateral_cell_mm",
+    "sublayers",
+    "exit_cell_mm",
+    "emission_node_step_nm",
+    "acceptance_half_angle_deg"
+   ],
+   "title": "VolumeMCSettings",
+   "type": "object"
+  }
+ },
+ "additionalProperties": false,
+ "properties": {
+  "schema_version": {
+   "default": "1.0",
+   "title": "Schema Version",
+   "type": "string"
+  },
+  "name": {
+   "default": "Untitled experiment",
+   "title": "Name",
+   "type": "string"
+  },
+  "description": {
+   "default": "",
+   "title": "Description",
+   "type": "string"
+  },
+  "fluorophores": {
+   "items": {
+    "$ref": "#/$defs/FluorophoreSpec"
+   },
+   "title": "Fluorophores",
+   "type": "array"
+  },
+  "materials": {
+   "items": {
+    "$ref": "#/$defs/MaterialSpec"
+   },
+   "title": "Materials",
+   "type": "array"
+  },
+  "objects": {
+   "items": {
+    "$ref": "#/$defs/SceneObject"
+   },
+   "title": "Objects",
+   "type": "array"
+  },
+  "background": {
+   "$ref": "#/$defs/Background"
+  },
+  "sources": {
+   "items": {
+    "$ref": "#/$defs/LightSourceSpec"
+   },
+   "title": "Sources",
+   "type": "array"
+  },
+  "cameras": {
+   "items": {
+    "$ref": "#/$defs/CameraSpec"
+   },
+   "title": "Cameras",
+   "type": "array"
+  },
+  "active_source_id": {
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "title": "Active Source Id"
+  },
+  "active_camera_id": {
+   "anyOf": [
+    {
+     "type": "string"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "title": "Active Camera Id"
+  },
+  "acquisition": {
+   "$ref": "#/$defs/AcquisitionSettings"
+  }
+ },
+ "required": [
+  "schema_version",
+  "name",
+  "description",
+  "fluorophores",
+  "materials",
+  "objects",
+  "background",
+  "sources",
+  "cameras",
+  "active_source_id",
+  "active_camera_id",
+  "acquisition"
+ ],
+ "title": "Experiment",
+ "type": "object"
+}

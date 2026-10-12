@@ -99,6 +99,21 @@ spectra.to_pickle("synthetic.pkl")                   # loads in the Analyzer / G
 The output drops straight into `spectral-select-gui` (Step 1) or `Analyzer`, and
 `GroundTruth.informative_bands()` tells you which wavelengths *should* be selected.
 
+## SpectralForge Studio — 3D experiment designer and HSI simulator
+
+A browser-based 3D bench for designing virtual multi-excitation fluorescence experiments (samples, tunable
+lamp / LED / laser, LCTF or filter-wheel camera) and simulating them physically: ray tracing, Monte Carlo
+light transport, fluorescence photophysics, photobleaching and a full detector model, with perfect ground
+truth. Captures export as `SpectraData` pickles that load in the existing pipeline.
+
+```bash
+pip install -e ".[studio]" numba && (cd apps/studio-web && npm install && npm run build)   # once
+python -m spectraforge.studio --open        # engine + web app on http://127.0.0.1:8765  (guided tour: /?tour=1)
+```
+
+Docs: [`docs/studio/`](docs/studio/README.md) (user guide, how the simulation works, architecture, developer
+guide, physics validation) and the [component guide](docs/onboarding/components/07-spectralforge-studio.md).
+
 ## Repository Structure
 
 Uses a `src/` layout (install with `pip install -e .`, then `import spectral_select`).
