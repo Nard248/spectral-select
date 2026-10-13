@@ -764,6 +764,17 @@ def create_app(capture_fn: Callable | None = None, preview_fn: Callable | None =
         return Response(np.ascontiguousarray(a, dtype="<f4").tobytes(), media_type="application/octet-stream",
                         headers={"X-Dims": ",".join(str(d) for d in a.shape), "Access-Control-Expose-Headers": _EXPOSE})
 
+    # ------------------------------------------------------------------ v1.2: studies, methods text, inverse
+    from . import routes_study
+    app.include_router(routes_study.router)
+    import importlib.util
+    if importlib.util.find_spec(f"{__package__}.routes_inverse") is not None:   # W4's router is optional
+        try:
+            from . import routes_inverse
+            app.include_router(routes_inverse.router)
+        except Exception as exc:  # noqa: BLE001 - a broken optional module must not take the server down
+            print(f"warning: routes_inverse not loaded: {type(exc).__name__}: {exc}", flush=True)
+
     # ------------------------------------------------------------------ SPA
     dist = Path(dist_dir) if dist_dir is not None else DEFAULT_DIST
     if (dist / "index.html").is_file():

@@ -194,6 +194,8 @@ class CaptureResult:
     warnings: list[str] = field(default_factory=list)
     timings_s: dict[str, float] = field(default_factory=dict)
     engine_version: str = "studio-1.0"
+    # ---- v1.2: provenance / free-form metadata (``meta["provenance"]`` = provenance.provenance())
+    meta: dict = field(default_factory=dict)
     # ---- v1.1: layered blocks (3D Monte Carlo) --------------------------------------------
     blocks: list[dict] = field(default_factory=list)
     #   [{"object_id", "layer_names", "footprint_mm", "world_from_local" (4x4 list)}]
@@ -233,6 +235,15 @@ class BlockGeometry:
     layer_material: list[int]               # index into experiment.materials, bottom → top
     plane_coeffs: np.ndarray                # (L, 3) [a, b, c] of the TOP interface of each layer
     world_from_local: np.ndarray            # (4, 4) homogeneous transform (rotation + translation)
+    # ---- v1.2: inclusions (optional; empty = a plain layered block, bit-identical to v1.1) --------
+    inclusion_names: list = field(default_factory=list)        # region r = index + 1 (later inclusion wins overlaps)
+    inclusion_material: list = field(default_factory=list)     # index into experiment.materials
+    inclusions: list = field(default_factory=list)             # schema.Inclusion objects (analytic shapes)
+    _cache: dict = field(default_factory=dict, repr=False, compare=False)   # voxelisation cache
+
+    @property
+    def n_inclusions(self) -> int:
+        return len(self.inclusion_names)
 
     def top_height(self, layer: int, x, z):
         a, b, c = self.plane_coeffs[layer]
@@ -288,6 +299,54 @@ class RegionOptics:
     mus_per_mm: np.ndarray                  # (L,)
     g: np.ndarray                           # (L,)
     n: np.ndarray                           # (L,)
+    # v1.2: optics of the inclusion regions (length R). Inclusions are index-matched to their host layer, so
+    # there is no ``n`` here. Empty arrays = no inclusions.
+    incl_mua: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    incl_mus: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    incl_g: np.ndarray = field(default_factory=lambda: np.zeros(0))
+
+
+@dataclass
+class InclusionMap:
+    """Regular Cartesian voxel map of the inclusions over the block's bounding box (v1.2).
+
+    Axis order ``(nx, ny, nz)`` (x, y = up, z), voxel ``(ix, iy, iz)`` spans ``origin + (ix, iy, iz) * voxel_mm`` ..
+    ``+ voxel_mm``; ``origin_mm = (-X/2, 0, -Z/2)``.  ``region[ix, iy, iz]`` is a uint8 region id: ``0`` = the layer
+    material at that point, ``r >= 1`` = inclusion ``r`` (``names[r - 1]``).  Built by ``k^3`` supersampling of the
+    analytic shapes (``k = 2``); overlaps: the LATER inclusion wins; mixed voxels are NOT averaged: a voxel takes
+    the majority id among its in-block samples (ties go to the inclusion).  ``occ_*`` list the occupied voxels
+    (region >= 1) -- the tally and source arrays of the Monte Carlo are indexed by that list.
+    """
+
+    voxel_mm: float
+    origin_mm: tuple
+    shape: tuple                            # (nx, ny, nz)
+    region: np.ndarray                      # (nx, ny, nz) uint8
+    names: list
+    occ_flat: np.ndarray                    # (Nocc,) int64 flat voxel index ((ix * ny + iy) * nz + iz)
+    occ_region: np.ndarray                  # (Nocc,) uint8
+    occ_volume_mm3: np.ndarray              # (Nocc,) volume of the voxel inside the block (mm^3)
+    requested_voxel_mm: float = 0.0         # differs from voxel_mm if the map was coarsened to fit the memory cap
+    coarse_block: int = 4                   # edge (voxels) of the coarse occupancy cells used to skip empty space
+    coarse: np.ndarray | None = None        # (cnx, cny, cnz) uint8 occupancy
+    occ_index: np.ndarray | None = None     # (nx*ny*nz,) int32 flat voxel -> occupied index (-1 = none)
+    supersample: int = 2                    # k of the k^3 supersampling
+    n_in_block: np.ndarray | None = None    # (Nocc,) uint8 number of the k^3 samples inside the block
+
+    @property
+    def n_occupied(self) -> int:
+        return int(self.occ_flat.size)
+
+    def dense(self, values: np.ndarray, fill: float = 0.0) -> np.ndarray:
+        """Scatter per-occupied-voxel ``values`` (Nocc, ...) into a dense ``(nx, ny, nz, ...)`` array."""
+        v = np.asarray(values)
+        out = np.full((int(np.prod(self.shape)),) + v.shape[1:], fill, dtype=v.dtype)
+        out[self.occ_flat] = v
+        return out.reshape(self.shape + v.shape[1:])
+
+    def volume_of(self, r: int) -> float:
+        """Total in-block volume (mm^3) of inclusion ``r`` (1-based)."""
+        return float(self.occ_volume_mm3[self.occ_region == r].sum())
 
 
 @dataclass
@@ -303,6 +362,14 @@ class ExcitationTallies:
     absorbed_fraction: float                # (diagnostic; R + T + A ≈ 1 − specular)
     n_photons: int = 0
     info: dict = field(default_factory=dict)
+    # ---- v1.2 ----------------------------------------------------------------------------------
+    # Layer tallies (absorbed_mW / fluence_mW_mm2) describe the HOST material only (the part of every layer voxel
+    # that is not covered by an inclusion voxel); the inclusion tallies below describe the inclusion regions.
+    # layers + inclusions together conserve the absorbed power.
+    top_exit_mW: np.ndarray | None = None   # (nu, nv) power leaving the TOP face per exit cell, all directions
+    inclusion_map: "InclusionMap | None" = None
+    inclusion_absorbed_mW: np.ndarray | None = None        # (nx, ny, nz) dense over the inclusion map
+    inclusion_fluence_mW_mm2: np.ndarray | None = None     # (nx, ny, nz)
 
 
 @dataclass
@@ -319,3 +386,5 @@ class EmissionTallies:
     origin_layer_fraction: dict[str, np.ndarray] | None = None  # face -> (nu, nv, L)
     n_photons: int = 0
     info: dict = field(default_factory=dict)
+    origin_inclusion_fraction: dict[str, np.ndarray] | None = None  # v1.2: face -> (nu, nv, R); with the layer
+                                            #   fractions it sums to 1 where light escapes
