@@ -108,7 +108,8 @@ def set_many(exp: Experiment, values: dict[str, Any]) -> Experiment:
 # ------------------------------------------------------------------------------------------ capture
 def capture(exp: Experiment, mode: str = "preview", seed: int | None = None, *, excitations=None,
             scale: float | None = None, progress=None, cancel=None, transport=None, tracer=None):
-    """Run the simulation.  ``mode``: ``preview`` | ``full`` | ``sample`` | ``dark`` | ``white_reference``.
+    """Run the simulation.  ``mode``: ``preview`` (1st excitation, reduced res) | ``fast`` (all
+    excitations, reduced res + preview MC photons) | ``full`` | ``sample`` | ``dark`` | ``white_reference``.
 
     ``seed`` overrides ``acquisition.seed`` (same seed -> same result).  The returned ``CaptureResult`` carries
     ``res.meta['provenance']`` (versions, git commit, experiment hash, wall time)."""
@@ -120,11 +121,15 @@ def capture(exp: Experiment, mode: str = "preview", seed: int | None = None, *, 
     if mode == "preview":
         ex = None if excitations is None else list(excitations)[0]
         res = cap.preview(exp, excitation_nm=ex, scale=scale, **kw)
+    elif mode == "fast":
+        # every enabled excitation at the preview resolution (and preview MC photon fraction)
+        res = cap.capture(exp, mode="sample", scale=scale or exp.acquisition.preview_scale,
+                          excitations=excitations, **kw)
     elif mode in ("full", "sample", "dark", "white_reference"):
         res = cap.capture(exp, mode="sample" if mode == "full" else mode, scale=scale or 1.0,
                           excitations=excitations, **kw)
     else:
-        raise ValueError(f"mode must be preview|full|sample|dark|white_reference, got {mode!r}")
+        raise ValueError(f"mode must be preview|fast|full|sample|dark|white_reference, got {mode!r}")
     attach(res, exp, requested_mode=mode, seed=int(exp.acquisition.seed))
     return res
 

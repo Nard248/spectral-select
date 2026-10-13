@@ -331,7 +331,7 @@ CaptureFn = Callable[..., Any]
 
 def _default_capture(exp: Experiment, mode: str, excitations):
     from . import api
-    return api.capture(exp, mode="preview" if mode == "preview" else "full",
+    return api.capture(exp, mode=mode if mode in ("preview", "fast") else "full",
                        excitations=excitations)
 
 

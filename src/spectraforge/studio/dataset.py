@@ -119,7 +119,7 @@ def generate_dataset(spec: DatasetSpec, out_dir: str | Path, *, resume: bool = T
             if capture_fn is not None:
                 res = capture_fn(exp, spec.mode, spec.excitations)
             else:
-                res = api.capture(exp, mode="preview" if spec.mode == "preview" else "full",
+                res = api.capture(exp, mode=spec.mode if spec.mode in ("preview", "fast") else "full",
                                   excitations=spec.excitations)
             lab, names = label_map(res, spec.label_scheme)
             maps = {f"map:{k}": np.asarray(analysis._gt_map(res, k), dtype=np.float32) for k in spec.maps}

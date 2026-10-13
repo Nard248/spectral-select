@@ -133,7 +133,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=_cmd_serve)
     r = sub.add_parser("run", help="run one capture")
     r.add_argument("experiment", help="experiment JSON file or preset name")
-    r.add_argument("--mode", choices=["preview", "full", "sample", "dark", "white_reference"], default="full")
+    r.add_argument("--mode", choices=["preview", "fast", "full", "sample", "dark", "white_reference"], default="full")
     r.add_argument("--out", required=True)
     r.add_argument("--png", action="store_true", help="also write true-colour PNGs")
     r.add_argument("--seed", type=int, default=None)

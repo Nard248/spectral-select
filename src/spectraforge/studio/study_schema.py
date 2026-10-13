@@ -128,7 +128,7 @@ class StudySpec(_M):
     parameters: list[ParameterSpec] = Field(min_length=1, max_length=64)
     design: DesignSpec = Field(default_factory=DesignSpec)
     replicates: int = Field(1, ge=1, le=1000)
-    mode: Literal["preview", "full"] = "preview"
+    mode: Literal["preview", "fast", "full"] = "preview"
     excitations: list[F] | None = None
     metrics: list[MetricSpec] = Field(min_length=1)
     max_runs: int = Field(20_000, ge=1)
@@ -182,7 +182,7 @@ class DatasetSpec(_M):
     n: int = Field(16, ge=1, le=100_000)
     design: Literal["random", "lhs", "sobol"] = "lhs"
     seed: int = 0
-    mode: Literal["preview", "full"] = "preview"
+    mode: Literal["preview", "fast", "full"] = "preview"
     excitations: list[F] | None = None
     label_scheme: str = "origin_layer"
     maps: list[str] = Field(default_factory=list)
