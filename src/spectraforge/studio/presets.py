@@ -89,7 +89,13 @@ def _mat(id_, name, color, dyes=(), **kw) -> MaterialSpec:
 
 
 def builtin_materials() -> list[MaterialSpec]:
-    return _base_materials() + _layered_materials()
+    """Base + layer materials + the literature tissue library (:mod:`presets_tissue`)."""
+    from spectraforge.studio.presets_tissue import tissue_materials
+
+    out = {m.id: m for m in _base_materials() + _layered_materials()}
+    for m in tissue_materials():
+        out.setdefault(m.id, m)
+    return list(out.values())
 
 
 def _layered_materials() -> list[MaterialSpec]:
@@ -437,6 +443,15 @@ PRESETS = {
     "tissue_under_collagen": tissue_under_collagen,
     "pencil_beam_penetration": pencil_beam_penetration,
 }
+
+
+def _register_tissue_presets() -> None:
+    from spectraforge.studio.presets_tissue import TISSUE_PRESETS
+
+    PRESETS.update(TISSUE_PRESETS)
+
+
+_register_tissue_presets()
 
 
 def preset(name: str) -> Experiment:

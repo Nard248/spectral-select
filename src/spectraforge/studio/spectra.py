@@ -9,6 +9,10 @@ not alias.
 
 Contents
 --------
+* NOTE (v1.2): these two coarse legacy absorber tables (water, haemoglobin) are kept bit-for-bit so the
+  v1/v1.1 presets and validation numbers do not move (an A/B swap to the full tables shifted one
+  tight regression threshold by 3.5 %).  The full-resolution literature tables live in
+  :mod:`spectraforge.studio.tissue_optics` and drive ``MaterialSpec.tissue``.
 * absorbers: :func:`water_mua_per_mm`, :func:`hemoglobin_shape`, :func:`melanin_shape`,
   :func:`carbon_black_shape`, :func:`absorber_mua_per_mm`
 * detector / filter curves: :func:`qe`, :func:`filter_peak_transmission`
