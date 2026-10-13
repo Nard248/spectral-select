@@ -101,7 +101,7 @@ repeated 488 nm step decays as exp(−k n) (left; k = 0.094 per step for 150 mW 
 exposure per step, Φ_b = 3·10⁻⁵).  The acquisition *order* matters (centre): with identical total dose, the
 sequence 300 mW → 40 mW records 76 %/55 % of the un-bleached signals, 40 mW → 300 mW records 96 %/71 %.  The
 survival map (right) is a ground-truth layer (`bleached:<dye>`).
-*References:* Song, Gao, Kuhn & Ho, *Biophys. J.* 68, 2588 (1995); Eggeling et al., *Anal. Chem.* 70, 2651 (1998).
+*References:* Song, Hennink, Young & Tanke, *Biophys. J.* 68, 2588 (1995); Eggeling et al., *Anal. Chem.* 70, 2651 (1998).
 
 ## 8. Noise statistics: photon transfer curve
 
