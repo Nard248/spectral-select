@@ -31,6 +31,9 @@ export interface SampleMeshProps extends HardwareCommon {
   /** layered blocks only: one material per layer (bottom → top), glows per layer, cutaway, annotations, light-field texture */
   layerMaterials?: MaterialSpec[]
   layerGlows?: (LayerGlow | null)[]
+  /** layered blocks only: inclusions with their materials (see `LayeredBlockMeshProps.inclusions`) */
+  inclusions?: import('./layers/InclusionMeshes').InclusionItem[]
+  highlightInclusion?: number | null
   section?: BlockSection | null
   /** draw layer names / thickness callouts on the section face */
   sectionLabels?: boolean

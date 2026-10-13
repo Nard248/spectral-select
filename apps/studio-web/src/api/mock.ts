@@ -1,7 +1,8 @@
 /** In-browser stand-in for the Python engine, used when `/api/health` is unreachable.
  *  Not physically rigorous: Gaussian dye spectra over analytically ray-cast material regions, but it speaks
  *  the exact `Engine` contract so every UI path (preview, capture progress, explorer, pixel explain) works offline. */
-import type { Experiment, MaterialSpec } from '../generated/experiment'
+import type { Experiment, Inclusion, MaterialSpec } from '../generated/experiment'
+import { chordAt } from '../lib/inclusions'
 import type {
   BandStats, CaptureMeta, CaptureRequest, JobEvent, JobStatus, NormSpec, PhysicsWarning, PixelExplain, PreviewRequest, SweepEvent, SweepRequest, SweepStatus, ValidationResult,
 } from './types'
@@ -119,7 +120,8 @@ function blockComps(c: MockCapture, si: number, k: number): Record<string, Float
   if (ob.shape.kind !== 'layered_block') return null
   const lx = c.maps.lx[k], lz = c.maps.lz[k]
   const stk = stackAt(ob.shape, lx, lz)
-  const key = `${si}|${c.maps.obj[k]}|${stk.t.map((t) => Math.round(t * 200)).join(',')}`
+  const incKey = (ob.shape.inclusions as Inclusion[]).map((inc) => { const ch = chordAt(inc, lx, lz); return ch ? `${Math.round(ch[0] * 100)}:${Math.round(ch[1] * 100)}` : '-' }).join(';')
+  const key = `${si}|${c.maps.obj[k]}|${stk.t.map((t) => Math.round(t * 200)).join(',')}|${incKey}`
   let r = c.blockSpectra.get(key)
   if (!r) {
     const st = c.steps[si]

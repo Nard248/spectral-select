@@ -2,8 +2,9 @@ import { create } from 'zustand'
 import { produce } from 'immer'
 import type { Experiment } from '../generated/experiment'
 import type { CaptureMeta, PhysicsWarning, ValidationIssue } from '../api/types'
-import { DEFAULT_PRESET, presetExperiment, clone, BUNDLE } from './presets'
+import { DEFAULT_PRESET, presetExperiment, clone } from './presets'
 import { uniqueId } from '../lib/ids'
+import { libraryMaterial } from './tissueLibrary'
 import { LIBRARY_SHAPES, newCamera, newMaterial, newSource } from './library'
 
 export type SelKind = 'object' | 'source' | 'camera' | 'background' | 'acquisition' | 'material' | 'experiment'
@@ -151,7 +152,7 @@ export const useStudio = create<StudioState>()((set, get) => ({
     const glass = exp.materials.find((m) => m.id === 'glass')?.id ?? null
     get().edit((e) => {
       for (const rid of lib.requires ?? []) {   // layered-block items bring their library materials along
-        const m = BUNDLE.materials.find((x) => x.id === rid)
+        const m = libraryMaterial(rid)
         if (m && !e.materials.some((x) => x.id === rid)) e.materials.push(clone(m))
       }
       const o = lib.make(id, matId, glass)

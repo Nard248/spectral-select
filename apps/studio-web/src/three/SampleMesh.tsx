@@ -147,7 +147,7 @@ function Shape({ obj, body, fill, vessel, block }: { obj: SceneObject; body: Mat
 /** Sample geometry that matches the physics shapes exactly (mm). Glass vessels use a transmissive physical material
  *  (ior 1.52); liquids/gels/turbid solids get class-appropriate PBR from the material's optics; `glowColor` drives an
  *  emissive fluorescence glow (bloom picks it up). */
-export function SampleMesh({ object, material, vesselMaterial, selected, hovered, glowColor, glowIntensity = 0.6, layerMaterials, layerGlows, section, sectionLabels, lightField }: SampleMeshProps) {
+export function SampleMesh({ object, material, vesselMaterial, selected, hovered, glowColor, glowIntensity = 0.6, layerMaterials, layerGlows, section, sectionLabels, lightField, inclusions, highlightInclusion }: SampleMeshProps) {
   const t = object.transform
   const glow = useMemo(() => (glowColor ? new THREE.Color(glowColor) : null), [glowColor])
   const s = object.shape
@@ -163,7 +163,7 @@ export function SampleMesh({ object, material, vesselMaterial, selected, hovered
   }, [material, vesselMaterial, glow, glowIntensity, thick])
   if (!object.visible) return null
   const block = s.kind === 'layered_block' && layerMaterials?.length === s.layers.length
-    ? <LayeredBlockMesh shape={s} materials={layerMaterials} glows={layerGlows} section={section} sectionLabels={sectionLabels} lightField={lightField} selected={selected} hovered={hovered} />
+    ? <LayeredBlockMesh shape={s} materials={layerMaterials} glows={layerGlows} section={section} sectionLabels={sectionLabels} lightField={lightField} inclusions={inclusions} highlightInclusion={highlightInclusion} selected={selected} hovered={hovered} />
     : null
   const rot = t.rotation_deg.map((d) => (d * Math.PI) / 180) as [number, number, number]
   return (

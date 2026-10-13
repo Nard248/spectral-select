@@ -26,6 +26,9 @@ export const DEFAULT_SECTION: SectionState = { on: false, axis: 'z', position_mm
 
 interface LayerViewState {
   sections: Record<string, SectionState>
+  /** inclusion highlighted in the 3D view, per block object id (view-only) */
+  incSel: Record<string, number | null>
+  setIncSel: (id: string, i: number | null) => void
   lf: LightFieldState
   /** a status line for the light-field loader (shown in the inspector) */
   lfStatus: { state: 'idle' | 'loading' | 'ready' | 'none' | 'error'; message?: string }
@@ -43,6 +46,8 @@ interface LayerViewState {
 
 export const useLayerView = create<LayerViewState>()((set, get) => ({
   sections: {},
+  incSel: {},
+  setIncSel: (id, i) => set((s) => (s.incSel[id] === i ? s : { incSel: { ...s.incSel, [id]: i } })),
   lf: { on: false, kind: 'fluence', ex: null, channel: null, decades: 4, cmap: 'inferno' },
   lfStatus: { state: 'idle' },
   lfLegend: null,

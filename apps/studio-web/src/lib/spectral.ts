@@ -1,6 +1,7 @@
 /** Client-side spectral math, kept consistent with the Python engine
  *  (`spectraforge.fluorophore.Fluorophore`, `studio/optics.py`).
  *  ε(λ) = extinction · 55000 · exc(λ)  [M⁻¹cm⁻¹];  μa = ln10 · ε · c[M] / 10  [1/mm]. */
+import { musPrimeAt, tissueMua } from './tissueSpectra'
 import type { AbsorberSpec, FluorophoreSpec, MaterialSpec, ScatteringSpec } from '../generated/experiment'
 
 export const EXTINCTION_REFERENCE = 55000
@@ -44,9 +45,8 @@ export const epsilon = (f: FluorophoreSpec, wl: number): number =>
 export const muaDye = (f: FluorophoreSpec, wl: number, c_uM: number): number =>
   (Math.LN10 * epsilon(f, wl) * c_uM * 1e-6) / 10
 
-/** Reduced scattering μs′(λ) = a·(λ/500)^-b (1/mm). */
-export const musPrime = (s: ScatteringSpec, wl: number): number =>
-  s.model === 'none' ? 0 : s.mus_prime_500_per_mm * (wl / 500) ** -s.power_b
+/** Reduced scattering μs′(λ) (1/mm): power law a·(λ/500)^-b or Mie+Rayleigh (Jacques 2013 eq. 2). */
+export const musPrime = (s: ScatteringSpec, wl: number): number => musPrimeAt(s, wl)
 
 /** Approximate tabulated absorbers (1/mm) — shape-only stand-ins for the engine tables. */
 export function absorberMua(a: AbsorberSpec, wl: number): number {
@@ -79,6 +79,7 @@ export function absorberMua(a: AbsorberSpec, wl: number): number {
 
 export function materialMua(m: MaterialSpec, fl: Record<string, FluorophoreSpec>, wl: number): number {
   let mua = absorberMua(m.background_absorption, wl)
+  if (m.tissue) mua += tissueMua(m.tissue, wl)
   for (const d of m.dyes) {
     const f = fl[d.fluorophore]
     if (f) mua += muaDye(f, wl, d.concentration_uM)

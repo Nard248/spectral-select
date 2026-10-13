@@ -3,13 +3,14 @@ import { Plus } from 'lucide-react'
 import { useStudio } from '../state/store'
 import { LIBRARY_SHAPES, BLOCK_ITEMS } from '../state/library'
 import { BUNDLE, clone } from '../state/presets'
+import { libraryMaterial, tissueLibrary } from '../state/tissueLibrary'
 import { ShapeIcon, SourceIcon, CameraIcon } from '../ui/icons'
 import { Seg, Tip } from '../ui/controls'
 import { wavelengthToHex } from '../lib/color'
 import { toast } from '../ui/toast'
 import type { SceneObject } from '../generated/experiment'
 
-const KIND: Record<string, SceneObject['shape']['kind']> = { petri: 'petri_dish', cuvette: 'cuvette', slide: 'box', droplet: 'droplet', bead: 'sphere', block: 'box', puck: 'cylinder', block_wedge: 'layered_block', block_tissue: 'layered_block', block_two: 'layered_block' }
+const KIND: Record<string, SceneObject['shape']['kind']> = { petri: 'petri_dish', cuvette: 'cuvette', slide: 'box', droplet: 'droplet', bead: 'sphere', block: 'box', puck: 'cylinder', block_wedge: 'layered_block', block_tissue: 'layered_block', block_vessel: 'layered_block', block_tumour: 'layered_block', block_skin: 'layered_block', block_two: 'layered_block' }
 
 export function Library() {
   const [tab, setTab] = useState<'ware' | 'materials' | 'dyes' | 'hardware'>('ware')
@@ -22,7 +23,7 @@ export function Library() {
 
   const assignMaterial = (id: string) => {
     const matId = id
-    const preset = BUNDLE.materials.find((m) => m.id === id)!
+    const preset = libraryMaterial(id)!
     const existing = exp.materials.find((m) => m.id === id)
     if (!existing) edit((e) => { e.materials.push(clone(preset)) })
     if (sel?.kind === 'object') {
@@ -63,11 +64,20 @@ export function Library() {
         </>}
         {tab === 'materials' && <div className="tree" style={{ paddingBottom: 10 }}>
           <div className="hint" style={{ padding: '0 8px 6px' }}>{sel?.kind === 'object' ? 'Click to assign to the selected object.' : 'Click to add to the experiment.'}</div>
-          {BUNDLE.materials.map((m) => (
+          {BUNDLE.materials.filter((m) => !m.tissue).map((m) => (
             <div key={m.id} className="node" onClick={() => assignMaterial(m.id)}>
               <span className="swatch" style={{ background: m.display_color ?? '#888' }} /><span className="nm">{m.name}</span>
               <span className="acts"><Plus size={13} /></span>
             </div>
+          ))}
+          <div className="group-title" style={{ padding: '10px 8px 4px' }}>Tissue materials · chromophore optics</div>
+          {tissueLibrary().map((m) => (
+            <Tip key={m.id} title={m.name} text={`μs′(500) ${m.scattering.mus_prime_500_per_mm} /mm · blood ${((m.tissue?.blood_volume_fraction ?? 0) * 100).toFixed(1)} % · StO₂ ${((m.tissue?.oxygen_saturation ?? 0) * 100).toFixed(0)} % · water ${((m.tissue?.water_fraction ?? 0) * 100).toFixed(0)} %`}>
+              <div className="node" onClick={() => assignMaterial(m.id)}>
+                <span className="swatch" style={{ background: m.display_color ?? '#888' }} /><span className="nm">{m.name}</span>
+                <span className="acts"><Plus size={13} /></span>
+              </div>
+            </Tip>
           ))}
         </div>}
         {tab === 'dyes' && <div className="tree" style={{ paddingBottom: 10 }}>
