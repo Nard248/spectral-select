@@ -444,7 +444,7 @@ def make_figures(out, sur, fi_mid, fis, sel_sets, sel_out, ae, EPS, q):
         edges = np.concatenate([em_r - 5.0, [em_r[-1] + 5.0]])
         im = a.pcolormesh(edges, [r - 0.5, r + 0.5], np.maximum(ipc[m], 1e-300)[None, :], cmap="cividis", norm=norm, shading="flat")
     a.set_xlim(415, 725); a.set_ylim(-0.5, len(exs) - 0.5)
-    for e, mk, col, lab in ((0.0, "o", "white", "picks, photon-limited"), (0.05, "s", C.OI["verm"], "picks, $\\epsilon$ = 5 %")):
+    for e, mk, col, lab in ((0.0, "o", "black", "picks, photon-limited"), (0.05, "s", C.OI["verm"], "picks, $\\epsilon$ = 5 %")):
         fe = with_eps_fisher(f_ta, e)
         d = info.optimal_design(fe, min(8, len(sel_out["thick"]["0"]["optimal_sd_um_vs_k"])), TARGET, "channels", exhaustive_check=False)
         a.scatter([ch.em_nm[i] for i in d.selected], [exs.index(ch.ex_nm[i]) for i in d.selected], marker=mk, s=20, facecolor="none",

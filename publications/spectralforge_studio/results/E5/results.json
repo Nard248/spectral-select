@@ -14246,13 +14246,13 @@
    "bias_from_independent_sim_truth": "yes (truth = separate simulator evaluation off the surrogate grid)"
   }
  ],
- "elapsed_s": 117.71974611282349,
+ "elapsed_s": 317.6841242313385,
  "provenance": {
   "package": "spectral-select",
   "package_version": "0.1.0",
   "engine_version": "studio-1.0",
   "git": {
-   "commit": "f6e3a786de4636fbe8526a99ca7575d34b700cdf",
+   "commit": "6b9cfe39bb96445e548d0f54a7c9ea57d4168d39",
    "branch": "studio/v1.2-research",
    "dirty": true
   },
@@ -14266,7 +14266,7 @@
   "platform": "macOS-26.7.1-arm64-arm-64bit",
   "machine": "arm64",
   "cpu_count": 14,
-  "timestamp_utc": "2026-10-14T15:44:19+00:00",
+  "timestamp_utc": "2026-10-14T15:58:44+00:00",
   "scipy": "1.15.2"
  }
 }
