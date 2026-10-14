@@ -23,6 +23,11 @@
 \setcounter{dbltopnumber}{3}\renewcommand{\dbltopfraction}{0.95}\renewcommand{\dblfloatpagefraction}{0.6}
 \setlength{\dbltextfloatsep}{9pt}\setlength{\dblfloatsep}{8pt}
 \setlength{\abovecaptionskip}{0pt}\setlength{\belowcaptionskip}{0pt}
+% Studio figure: own float type (same counter and "Fig." label) so it may be placed
+% above Fig. 3 on the same page; LaTeX otherwise keeps same-type floats in order.
+\def\ftype@sfigure{8}\def\fps@sfigure{tbp}\def\ext@sfigure{lof}
+\let\c@sfigure\c@figure\def\thesfigure{\arabic{figure}}\def\fnum@sfigure{\fnum@figure}\let\p@sfigure\@empty\def\theHsfigure{\arabic{figure}}
+\newenvironment{sfigure*}{\@dblfloat{sfigure}}{\end@dblfloat}
 \renewcommand\section{\@startsection{section}{1}{\z@}{9pt}{4pt}{\normalfont\bfseries}}
 \renewcommand\subsection{\@startsection{subsection}{2}{\z@}{7pt}{3pt}{\normalfont\bfseries}}
 \renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}{6pt}{2pt}{\normalfont\itshape}}
@@ -172,6 +177,14 @@ highest-variance bands are uninformative (Fig.~\ref{fig:scene}) and variance ran
 \label{fig:scene}
 \end{figure}
 
+\begin{sfigure*}[!t]
+\centering
+\includegraphics[width=0.405\textwidth]{fig_studio_design_crop.png}\hfill
+\includegraphics[width=0.575\textwidth]{fig_studio_explore_crop.png}
+\caption{SpectralForge Studio (in development). (a) Design: lamp, LCTF camera and samples placed in 3D, with the camera view. (b) Explore: a band image and, for the selected pixel, its ground-truth physical components, spectra and EEM. The study below used the core generator of Sec.~2, not Studio's added physics.}
+\label{fig:gui}
+\end{sfigure*}
+
 \subsection{Artifacts, nonlinear physics, and clutter}\label{sec:artifacts}
 On top of the clean cube the generator adds Rayleigh scatter at
 $\lambda_\mathrm{em}=\lambda_\mathrm{ex}$ (with a second-order ghost at
@@ -203,24 +216,16 @@ Every render returns a ground-truth sidecar with concentration maps, clean cubes
 per-fluorophore emission peaks, which enables a tight \emph{peak-recovery} metric (did a selected
 band land within a tolerance of a true emission peak; a random selector scores about $0.33$) in
 addition to information-retention metrics. The study scripts (\texttt{build\_dataset} in \texttt{reports/}, not library API) call \texttt{render} with explicit knobs and record exact parameters. Parametric dyes can be replaced by measured spectra
-from a downloaded FPbase payload via a library importer (not yet exposed in the workbench). The in-development 3D workbench, SpectralForge Studio (Fig.~\ref{fig:gui}), lets a user place a lamp, camera, and samples in a 3D scene, render the 4D cube, and inspect it against ground truth.
+from a downloaded FPbase payload via a library importer (not yet exposed in the workbench). The in-development 3D workbench, SpectralForge Studio (Fig.~\ref{fig:gui}), lets a user place a lamp, camera, and samples in a 3D scene, render the 4D cube, and inspect it against ground truth. Each Studio scene is a plain JSON document with its seed and capture settings, so any capture can be saved, shared with collaborators and re-rendered exactly from that one file.
 
-\begin{figure*}[p]
-\centering
-\includegraphics[width=0.405\textwidth]{fig_studio_design_crop.png}\hfill
-\includegraphics[width=0.575\textwidth]{fig_studio_explore_crop.png}
-\caption{SpectralForge Studio (in development). (a) Design: lamp, LCTF camera and samples placed in 3D, with the camera view. (b) Explore: a band image and, for the selected pixel, its ground-truth physical components, spectra and EEM. The study below used the core generator of Sec.~2, not Studio's added physics.}
-\label{fig:gui}
-\end{figure*}
-
-\begin{figure*}[p]
+\begin{figure*}[!t]
 \centering
 \includegraphics[width=\textwidth]{fig_results_v2.png}
 \caption{The benchmark in use. Left: beat-random across five noise levels at $k=24$ of 564 bands (Sec.~\ref{sec:grid}): blind PCA and autoencoder beat the random $95$th percentile only on clean data; under clutter only supervised MI does. Middle: compression over 4 to 100 bands; the autoencoder tracks PCA (about $95\%$ of the full spectrum); labels compress about $2.7\times$ better. Right: spatial texture (block CV): per-pixel selectors fall below random and no learned spatial selector beats it.}
 \label{fig:results}
 \end{figure*}
 
-\begin{figure*}[p]
+\begin{figure*}[!t]
 \centering
 \includegraphics[width=\textwidth]{fig_realdata}
 \caption{Real-data validation. (a)~Drop 5 (median SAM): measured (markers) and predicted (lines) at held-out excitations. (b)~Collagen ROI 4 (median case of 24): measured, predicted and residual at held-out 310/325/340\,nm. (c)~Collagen held-out SAM, mean $\pm$ SD (24 cases).}

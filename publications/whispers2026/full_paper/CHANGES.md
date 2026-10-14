@@ -66,3 +66,8 @@ Title, authors, affiliations, acknowledgment/AI disclosure, early-access wording
 - Sec. 2.1 closes with a sentence pointing to the optional inner-filter/reabsorption/FRET effects (Sec. 2.4), filling page 1.
 - To keep 5 pages, 17 small wording tightenings (no numbers or claims changed), e.g. "without a gain refit" -> "without gain refit".
 - Page 1: Sec. 2.1 closing sentence extended ("so that each one can be studied in isolation by turning it on or off") and the stacked Sec. 2 / Sec. 2.1 heading gap reduced by 4 pt, so both page-1 columns end on the same baseline.
+
+## Layout pass 7 (2026-10-14)
+- No figure-only page: Fig. 4 (Studio) moved to the top of page 3; Figs. 5 and 6 at the top of page 4 with text below. Fig. 4 uses its own float type (`sfigure*`, same counter and "Fig." label) because LaTeX otherwise will not place it ahead of Fig. 3, which is placed later on the same page.
+- Fig. 6 back to 2.2 in height (page 4 now carries text).
+- Sec. 2.5 closes with: "Each Studio scene is a plain JSON document with its seed and capture settings, so any capture can be saved, shared with collaborators and re-rendered exactly from that one file." (fills the page-3 left column).

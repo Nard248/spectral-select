@@ -1,7 +1,7 @@
 \documentclass{article}
 %DIF LATEXDIFF DIFFERENCE FILE
 %DIF DEL main_accepted.tex   Wed Oct 14 12:27:50 2026
-%DIF ADD main.tex            Wed Oct 14 15:38:50 2026
+%DIF ADD main.tex            Wed Oct 14 15:48:02 2026
 \usepackage{stywhispers}
 %DIF 3a3-7
 \makeatletter % captions in 9 pt (\small of the 10 pt body) %DIF > 
@@ -28,6 +28,11 @@
 \setcounter{dbltopnumber}{3}\renewcommand{\dbltopfraction}{0.95}\renewcommand{\dblfloatpagefraction}{0.6} %DIF > 
 \setlength{\dbltextfloatsep}{9pt}\setlength{\dblfloatsep}{8pt} %DIF > 
 \setlength{\abovecaptionskip}{0pt}\setlength{\belowcaptionskip}{0pt} %DIF > 
+% Studio figure: own float type (same counter and "Fig." label) so it may be placed %DIF > 
+% above Fig. 3 on the same page; LaTeX otherwise keeps same-type floats in order. %DIF > 
+\def\ftype@sfigure{8}\def\fps@sfigure{tbp}\def\ext@sfigure{lof} %DIF > 
+\let\c@sfigure\c@figure\def\thesfigure{\arabic{figure}}\def\fnum@sfigure{\fnum@figure}\let\p@sfigure\@empty\def\theHsfigure{\arabic{figure}} %DIF > 
+\newenvironment{sfigure*}{\@dblfloat{sfigure}}{\end@dblfloat} %DIF > 
 \renewcommand\section{\@startsection{section}{1}{\z@}{9pt}{4pt}{\normalfont\bfseries}} %DIF > 
 \renewcommand\subsection{\@startsection{subsection}{2}{\z@}{7pt}{3pt}{\normalfont\bfseries}} %DIF > 
 \renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}{6pt}{2pt}{\normalfont\itshape}} %DIF > 
@@ -257,7 +262,15 @@ variance against per-band discriminability. The }\DIFdelendFL \DIFaddbeginFL \DI
 \label{fig:scene}
 \end{figure}
 
-\subsection{Artifacts, nonlinear physics, and clutter}\DIFaddbegin \label{sec:artifacts}
+\DIFaddbegin \begin{sfigure*}[!t]
+\centering
+\includegraphics[width=0.405\textwidth]{fig_studio_design_crop.png}\hfill
+\includegraphics[width=0.575\textwidth]{fig_studio_explore_crop.png}
+\caption{\DIFadd{SpectralForge Studio (in development). (a) Design: lamp, LCTF camera and samples placed in 3D, with the camera view. (b) Explore: a band image and, for the selected pixel, its ground-truth physical components, spectra and EEM. The study below used the core generator of Sec.~2, not Studio's added physics.}}
+\label{fig:gui}
+\end{sfigure*}
+
+\DIFaddend \subsection{Artifacts, nonlinear physics, and clutter}\DIFaddbegin \label{sec:artifacts}
 \DIFaddend On top of the clean cube the generator adds Rayleigh scatter at
 $\lambda_\mathrm{em}=\lambda_\mathrm{ex}$ (with a second-order ghost at
 $2\lambda_\mathrm{ex}$) and a water Raman line at a fixed wavenumber offset
@@ -298,41 +311,64 @@ sampling, nuisance brightness, scatter, noise, clutter, and nonlinear physics; a
 re-runs every simulation and records exact parameters, so figures and numbers are
 reproducible}\DIFdelend \DIFaddbegin \DIFadd{and record exact parameters}\DIFaddend . Parametric dyes can be replaced by \DIFdelbegin \DIFdel{real measured spectra
 imported from FPbase, and an interactive workbench}\DIFdelend \DIFaddbegin \DIFadd{measured spectra
-from a downloaded FPbase payload via a library importer (not yet exposed in the workbench). The in-development 3D workbench, SpectralForge Studio (Fig.~\ref{fig:gui}), }\DIFaddend lets a user \DIFdelbegin \DIFdel{paint concentration maps, render, and validate a selection }\DIFdelend \DIFaddbegin \DIFadd{place a lamp, camera, and samples in a 3D scene, render the 4D cube, and inspect it }\DIFaddend against ground truth.
-\DIFdelbegin \DIFdel{This makes SpectralForge usable both as a controlled benchmark and as adesign tool for real 4D fluorescence experiments. As an
-interactive application (}\DIFdelend \DIFaddbegin 
+from a downloaded FPbase payload via a library importer (not yet exposed in the workbench). The in-development 3D workbench, SpectralForge Studio (Fig.~\ref{fig:gui}), }\DIFaddend lets a user \DIFdelbegin \DIFdel{paint concentration maps, render, and validate a selection }\DIFdelend \DIFaddbegin \DIFadd{place a lamp, camera, and samples in a 3D scene, render the 4D cube, and inspect it }\DIFaddend against ground truth. \DIFdelbegin \DIFdel{This makes SpectralForge usable both as a controlled benchmark and as a design tool for real 4D fluorescence experiments.
+As an
+interactive application (Fig.~\ref{fig:gui}), a user picks or defines fluorophores in a
+library (Fig.~\ref{fig:gui_library}: excitation and emission peaks and widths,quantum
+yield, extinction), mixes them into materials that are concentration recipes, paints those
+materials onto a canvas as layers, then acquires, renders the 4D cube, selects bands, and validates against ground truth , all in onewindow. }\DIFdelend \DIFaddbegin \DIFadd{Each Studio scene is a plain JSON document with its seed and capture settings, so any capture can be saved, shared with collaborators and re-rendered exactly from that one file.
+}\DIFaddend 
 
-\begin{figure*}[p]
-\centering
-\includegraphics[width=0.405\textwidth]{fig_studio_design_crop.png}\hfill
-\includegraphics[width=0.575\textwidth]{fig_studio_explore_crop.png}
-\caption{\DIFaddFL{SpectralForge Studio (in development). (a) Design: lamp, LCTF camera and samples placed in 3D, with the camera view. (b) Explore: a band image and, for the selected pixel, its ground-truth physical components, spectra and EEM. The study below used the core generator of Sec.~2, not Studio's added physics.}}
-\label{fig:gui}
-\end{figure*}
-
-\begin{figure*}[p]
-\centering
-\includegraphics[width=\textwidth]{fig_results_v2.png}
-\caption{\DIFaddFL{The benchmark in use. Left: beat-random across five noise levels at $k=24$ of 564 bands (Sec.~\ref{sec:grid}): blind PCA and autoencoder beat the random $95$th percentile only on clean data; under clutter only supervised MI does. Middle: compression over 4 to 100 bands; the autoencoder tracks PCA (about $95\%$ of the full spectrum); labels compress about $2.7\times$ better. Right: spatial texture (block CV): per-pixel selectors fall below random and no learned spatial selector beats it.}}
+\DIFdelbegin %DIFDELCMD < \begin{figure}[t]
+%DIFDELCMD < %%%
+\DIFdelendFL \DIFaddbeginFL \begin{figure*}[!t]
+\DIFaddendFL \centering
+\DIFdelbeginFL %DIFDELCMD < \includegraphics[width=0.80\linewidth]{fig_gui_library.png}
+%DIFDELCMD < %%%
+%DIFDELCMD < \caption{%
+{%DIFAUXCMD
+\DIFdelFL{Defining a fluorophore in the workbench library: choose a built-in dye or enter
+excitation and emission peaks and widths, quantum yield, and extinction. Materials are
+concentration mixtures of these fluorophores.}}
+%DIFAUXCMD
+%DIFDELCMD < \label{fig:gui_library}
+%DIFDELCMD < \end{figure}
+%DIFDELCMD < %%%
+\DIFdelend \DIFaddbegin \includegraphics[width=\textwidth]{fig_results_v2.png}
+\caption{\DIFadd{The benchmark in use. Left: beat-random across five noise levels at $k=24$ of 564 bands (Sec.~\ref{sec:grid}): blind PCA and autoencoder beat the random $95$th percentile only on clean data; under clutter only supervised MI does. Middle: compression over 4 to 100 bands; the autoencoder tracks PCA (about $95\%$ of the full spectrum); labels compress about $2.7\times$ better. Right: spatial texture (block CV): per-pixel selectors fall below random and no learned spatial selector beats it.}}
 \label{fig:results}
 \end{figure*}
+\DIFaddend 
 
-\begin{figure*}[p]
-\centering
-\includegraphics[width=\textwidth]{fig_realdata}
+\DIFdelbegin %DIFDELCMD < \begin{figure*}[!tb]
+%DIFDELCMD < %%%
+\DIFdelendFL \DIFaddbeginFL \begin{figure*}[!t]
+\DIFaddendFL \centering
+\DIFdelbeginFL %DIFDELCMD < \includegraphics[width=0.84\textwidth]{fig_gui.png}
+%DIFDELCMD < %%%
+%DIFDELCMD < \caption{%
+{%DIFAUXCMD
+\DIFdelFL{The SpectralForge workbench. Left: fluorophore recipes (materials) with a live spectrum.
+Centre: the painted canvas (a collagen and NADH patch, an FAD spot, an EGFP stripe), coloured by
+class label. Right: the layer stack. Bottom: acquire, render, and one-click validation against
+ground truth, here previewing a rendered emission band at 340\,nm.}}
+%DIFAUXCMD
+%DIFDELCMD < \label{fig:gui}
+%DIFDELCMD < %%%
+\DIFdelendFL \DIFaddbeginFL \includegraphics[width=\textwidth]{fig_realdata}
 \caption{\DIFaddFL{Real-data validation. (a)~Drop 5 (median SAM): measured (markers) and predicted (lines) at held-out excitations. (b)~Collagen ROI 4 (median case of 24): measured, predicted and residual at held-out 310/325/340\,nm. (c)~Collagen held-out SAM, mean $\pm$ SD (24 cases).}}
 \label{fig:realdata}
-\end{figure*}
+\DIFaddendFL \end{figure*}
 
-\subsection{\DIFadd{Validation against real acquisitions}}\label{sec:real}
+\DIFaddbegin \subsection{\DIFadd{Validation against real acquisitions}}\label{sec:real}
 \DIFadd{Fitting Eq.~(1), through a model of our tunable-lamp/LCTF instrument~\mbox{%DIFAUXCMD
 \cite{ref_chil4d}}\hskip0pt%DIFAUXCMD
-, to 4 excitations (310/340/385/415\,nm) of 16 fluorescent drops predicts the 3 held-out excitations without gain refit (median $R^2=0.96$, SAM $6.0^\circ$, Fig.~\ref{fig:realdata}a). For collagen, whose intensities are incomparable across excitations, only shape is testable: after per-excitation gain and smooth throughput correction, held-out SAM is $8.4\pm1.8^\circ$ and shape $R^2=0.83\pm0.13$ (24 cases; }\DIFaddend Fig.~\DIFdelbegin \DIFdel{\ref{fig:gui}), a user picks or defines fluorophores in a library (}\DIFdelend \DIFaddbegin \DIFadd{\ref{fig:realdata}b,c), slightly worse than copying another sample's spectrum ($7.7^\circ$).
+, to 4 excitations (310/340/385/415\,nm) of 16 fluorescent drops predicts the 3 held-out excitations without gain refit (median $R^2=0.96$, SAM $6.0^\circ$, Fig.~\ref{fig:realdata}a). For collagen, whose intensities are incomparable across excitations, only shape is testable: after per-excitation gain and smooth throughput correction, held-out SAM is $8.4\pm1.8^\circ$ and shape $R^2=0.83\pm0.13$ (24 cases; Fig.~\ref{fig:realdata}b,c), slightly worse than copying another sample's spectrum ($7.7^\circ$).
 }
 
 
-\section{\DIFadd{Evaluation Protocol}}
-\DIFadd{Two questions are kept apart: simulator fidelity, covered by the linearity tests of Sec.~2.2 and the real-data check of Sec.~\ref{sec:real}; and benchmark validity, covered by known ground truth plus random and full-spectrum controls, which need no claim that a simulated cube equals a real one. Table~\ref{tab:setup} summarizes the setup.
+\DIFaddend \section{Evaluation Protocol}
+\DIFaddbegin \DIFadd{Two questions are kept apart: simulator fidelity, covered by the linearity tests of Sec.~2.2 and the real-data check of Sec.~\ref{sec:real}; and benchmark validity, covered by known ground truth plus random and full-spectrum controls, which need no claim that a simulated cube equals a real one. Table~\ref{tab:setup} summarizes the setup.
 }
 
 \begin{table}[t]
@@ -350,52 +386,17 @@ interactive application (}\DIFdelend \DIFaddbegin
 \DIFaddFL{Noise }& \DIFaddFL{5 levels: photon scale $5\!\times\!10^4$ to $200$, Rayleigh $0.1$ to $0.7$, clutter $0$ to $4.5$ }& \DIFaddFL{gain under degradation }\\
 \DIFaddFL{Classifiers }& \DIFaddFL{k-NN, RF, MLP, LR; macro-F1; CV (block CV for texture) }& \DIFaddFL{scored by downstream use }\\
 \DIFaddFL{Controls }& \DIFaddFL{random subsets (95th pct.); full spectrum }& \DIFaddFL{chance; ceiling }\\
-\DIFaddFL{Seeds }& \DIFaddFL{6 (Table~\ref{tab:battery}); 2 (}\DIFaddendFL Fig.~\DIFdelbeginFL \DIFdelFL{\ref{fig:gui_library}: excitation and emission peaks and widths, quantum
-yield, extinction) , mixes them into materials that are concentration recipes, paints those
-materials onto a canvas as layers, then acquires, renders the 4D cube, selects bands, and
-validates against ground truth, all in one window}\DIFdelendFL \DIFaddbeginFL \DIFaddFL{\ref{fig:results}); 3 (texture) }& \DIFaddFL{paired CIs }\\
+\DIFaddFL{Seeds }& \DIFaddFL{6 (Table~\ref{tab:battery}); 2 (Fig.~\ref{fig:results}); 3 (texture) }& \DIFaddFL{paired CIs }\\
 \DIFaddFL{Scene, grid }& \DIFaddFL{$64{\times}64$ px (Table~\ref{tab:battery}: $40{\times}40$), 3 classes; 564 or 228 bands (Sec.~\ref{sec:grid}) }& \DIFaddFL{known labels, peaks }\\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{\DIFadd{Spectral grid}}\label{sec:grid}
-\DIFadd{The study uses 4 excitations (405, 470, 488, 506\,nm) and emission from 420 to 700\,nm: every 2\,nm for Fig.~\ref{fig:results} ($141$ bands, $4\times141=564$ excitation-emission bands, the ``full-564'' classifier) and every 5\,nm for Table~\ref{tab:battery} ($57$ bands, $228$ features)}\DIFaddend .
+\DIFadd{The study uses 4 excitations (405, 470, 488, 506\,nm) and emission from 420 to 700\,nm: every 2\,nm for Fig.~\ref{fig:results} ($141$ bands, $4\times141=564$ excitation-emission bands, the ``full-564'' classifier) and every 5\,nm for Table~\ref{tab:battery} ($57$ bands, $228$ features).
+}
 
-\DIFdelbegin %DIFDELCMD < \begin{figure}[t]
-%DIFDELCMD < \centering
-%DIFDELCMD < \includegraphics[width=0.80\linewidth]{fig_gui_library.png}
-%DIFDELCMD < %%%
-%DIFDELCMD < \caption{%
-{%DIFAUXCMD
-\DIFdelFL{Defining a fluorophore in the workbench library: choose a built-in dye or enter
-excitation and emission peaks and widths, quantum yield, and extinction. Materials are
-concentration mixtures of these fluorophores.}}
-%DIFAUXCMD
-%DIFDELCMD < \label{fig:gui_library}
-%DIFDELCMD < \end{figure}
-%DIFDELCMD < 
-
-%DIFDELCMD < \begin{figure*}[!tb]
-%DIFDELCMD < \centering
-%DIFDELCMD < \includegraphics[width=0.84\textwidth]{fig_gui.png}
-%DIFDELCMD < %%%
-%DIFDELCMD < \caption{%
-{%DIFAUXCMD
-\DIFdelFL{The SpectralForge workbench. Left: fluorophore recipes (materials) with a live spectrum.
-Centre: the painted canvas (a collagen and NADH patch, an FAD spot, an EGFP stripe), coloured by
-class label. Right: the layer stack. Bottom: acquire, render, and one-click validation against
-ground truth, here previewing a rendered emission band at 340\,nm.}}
-%DIFAUXCMD
-%DIFDELCMD < \label{fig:gui}
-%DIFDELCMD < \end{figure*}
-%DIFDELCMD < 
-
-%DIFDELCMD < %%%
-\section{\DIFdel{Evaluation Protocol}}
-%DIFAUXCMD
-\addtocounter{section}{-1}%DIFAUXCMD
-\DIFdelend Selection quality is the accuracy of a downstream classifier \DIFdelbegin \DIFdel{trained }\DIFdelend on the selected bands, \DIFdelbegin \DIFdel{using labels
+\DIFaddend Selection quality is the accuracy of a downstream classifier \DIFdelbegin \DIFdel{trained }\DIFdelend on the selected bands, \DIFdelbegin \DIFdel{using labels
 }\DIFdelend \DIFaddbegin \DIFadd{with labels
 used }\DIFaddend only at evaluation time. We score each subset with a classifier
 panel (k-nearest neighbors, random forest, MLP, logistic regression), cross-validated,
