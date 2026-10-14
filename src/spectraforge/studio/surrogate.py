@@ -44,7 +44,7 @@ import hashlib
 import json
 import os
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Callable, Sequence
 
@@ -252,38 +252,46 @@ class NoiseModel:
     read: bool = True
     quantization: bool = True
     full_well_e: float = 1e30
+    #: systematic model / calibration error, relative to the signal: adds ``(eps * S)^2`` to every channel variance
+    #: (not reduced by pixel averaging, it is common to all pixels of the ROI).  0 = photon / read noise only.
+    model_error_rel: float = 0.0
+
+    def with_model_error(self, eps: float) -> "NoiseModel":
+        return replace(self, model_error_rel=float(eps))
 
     def variance_e(self, signal_e: np.ndarray) -> np.ndarray:
-        """Variance of the ROI mean in e-^2 (``signal_e`` may be (C,) or (N, C))."""
+        """Variance of the ROI mean in e-^2 (``signal_e`` may be (C,) or (N, C)); includes the optional systematic
+        term ``(model_error_rel * S)^2``."""
         s = np.maximum(np.asarray(signal_e, dtype=float), 0.0)
         v = (s + self.dark_e) if self.shot else np.zeros_like(s)
         if self.read:
             v = v + self.read_e ** 2
         if self.quantization:
             v = v + self.gain_e_per_adu ** 2 / 12.0
-        return v / self.n_pix
+        v = v / self.n_pix
+        if self.model_error_rel:
+            v = v + (self.model_error_rel * s) ** 2
+        return v
 
     def variance_adu(self, signal_e: np.ndarray) -> np.ndarray:
         return self.variance_e(signal_e) / self.gain_e_per_adu ** 2
 
     def subset(self, mask: np.ndarray) -> "NoiseModel":
-        return NoiseModel(self.gain_e_per_adu, self.read_e, self.dark_e[mask], self.n_pix, self.shot, self.read,
-                          self.quantization, self.full_well_e)
+        return replace(self, dark_e=self.dark_e[mask])
 
     def with_n_pix(self, n: float) -> "NoiseModel":
-        return NoiseModel(self.gain_e_per_adu, self.read_e, self.dark_e, float(n), self.shot, self.read,
-                          self.quantization, self.full_well_e)
+        return replace(self, n_pix=float(n))
 
     def to_json(self) -> dict:
         return {"gain_e_per_adu": self.gain_e_per_adu, "read_e": self.read_e, "dark_e": self.dark_e.tolist(),
                 "n_pix": self.n_pix, "shot": self.shot, "read": self.read, "quantization": self.quantization,
-                "full_well_e": self.full_well_e}
+                "full_well_e": self.full_well_e, "model_error_rel": self.model_error_rel}
 
     @staticmethod
     def from_json(d: dict) -> "NoiseModel":
         return NoiseModel(float(d["gain_e_per_adu"]), float(d["read_e"]), np.asarray(d["dark_e"], float),
                           float(d["n_pix"]), bool(d["shot"]), bool(d["read"]), bool(d["quantization"]),
-                          float(d.get("full_well_e", 1e30)))
+                          float(d.get("full_well_e", 1e30)), float(d.get("model_error_rel", 0.0)))
 
 
 def noise_model_for(exp: Experiment, table: ChannelTable, exposure_ms: dict[float, float],

@@ -162,3 +162,33 @@ def test_compare_with_channel_selection_runs_on_simulated_dataset():
     out = info.compare_with_channel_selection(fi, sd, k=4, epochs=15)
     u, o = out["unsupervised"]["crlb_sd"][0], out["information_optimal"]["crlb_sd"][0]
     assert o <= u * (1 + 1e-9) and o >= out["all_channels"]["crlb_sd"][0] * (1 - 1e-9)
+
+
+def test_model_error_adds_relative_variance_and_caps_precision():
+    """var_c += (eps S_c)^2: analytic Fisher, default eps=0 unchanged, CRLB floor ~ eps/|dlnS/dtheta| for many channels."""
+    A, k = 500.0, 0.9
+    g = np.linspace(0.1, 2.0, 12)
+    nm = NoiseModel(1.0, 0.0, np.zeros(1), n_pix=25.0, read=False, quantization=False)
+    sur = Surrogate([SP], g[:, None], (A * np.exp(-k * g))[:, None], ChannelTable(np.array([400.0]), np.array([500.0])),
+                    nm, grid_axes=[g])
+    th = 0.7
+    mu = A * np.exp(-k * th)
+    f0 = info.fisher_from_surrogate(sur, [th])
+    assert f0.noise.model_error_rel == 0.0
+    eps = 0.02
+    fe = info.fisher_from_surrogate(sur, [th], model_error_rel=eps)
+    mu = float(fe.mean_e[0])
+    var = mu / 25.0 + (eps * mu) ** 2
+    assert fe.var_e[0] == pytest.approx(var, rel=1e-12)
+    assert fe.fisher[0, 0] == pytest.approx((k * mu) ** 2 / var, rel=2e-4)
+    # large signal: photon term vanishes, CRLB sd -> eps / k (relative-sensitivity floor)
+    assert fe.sd[0] == pytest.approx(np.sqrt(var) / abs(fe.jac_e[0, 0]), rel=1e-9)
+    assert fe.sd[0] > f0.sd[0]
+    assert NoiseModel.from_json(fe.noise.to_json()).model_error_rel == eps
+    assert nm.with_model_error(eps).subset(np.array([True])).model_error_rel == eps
+    from dataclasses import replace
+    fx = replace(fe, exposure_s=np.array([0.5]))
+    i1 = info.information_at_exposure(fx, [0], np.array([0.5]))[0, 0, 0]       # reference exposure
+    assert i1 == pytest.approx(fe.fisher[0, 0], rel=1e-9)
+    i2 = info.information_at_exposure(fx, [0], np.array([50.0]))[0, 0, 0]      # 100x exposure: photon term vanishes
+    assert i2 == pytest.approx((100 * fe.jac_e[0, 0]) ** 2 / (eps * 100 * mu) ** 2, rel=0.03)

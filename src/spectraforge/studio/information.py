@@ -42,7 +42,7 @@ from __future__ import annotations
 
 import itertools
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Sequence
 
 import numpy as np
@@ -176,11 +176,14 @@ def fisher_from_jacobian(names: Sequence[str], theta, jac_e: np.ndarray, mean_e:
 # from a surrogate (smooth Jacobian, microseconds)
 # --------------------------------------------------------------------------------------------
 def fisher_from_surrogate(sur: Surrogate, theta=None, *, noise: NoiseModel | None = None, bands="all",
-                          excitations="all", exposure_scale: float = 1.0) -> FisherResult:
+                          excitations="all", exposure_scale: float = 1.0,
+                          model_error_rel: float | None = None) -> FisherResult:
     """Fisher information at ``theta`` from the surrogate's interpolant.
 
     ``noise`` defaults to the surrogate's own instrument noise model.  ``exposure_scale`` multiplies every
-    exposure (signal and dark scale linearly, read noise does not)."""
+    exposure (signal and dark scale linearly, read noise does not).  ``model_error_rel`` (eps) overrides the noise
+    model's systematic relative error: per-channel variance gains ``(eps * S_c)^2`` (see
+    :class:`~spectraforge.studio.surrogate.NoiseModel`); default keeps the noise model's own value (0)."""
     nm = noise or sur.noise
     if nm is None:
         raise InverseError("this surrogate has no noise model; pass noise=")
@@ -193,8 +196,9 @@ def fisher_from_surrogate(sur: Surrogate, theta=None, *, noise: NoiseModel | Non
     nm = nm.subset(mask)
     if exposure_scale != 1.0:
         mean, jac = mean * exposure_scale, jac * exposure_scale
-        nm = NoiseModel(nm.gain_e_per_adu, nm.read_e, nm.dark_e * exposure_scale, nm.n_pix, nm.shot, nm.read,
-                        nm.quantization, nm.full_well_e)
+        nm = replace(nm, dark_e=nm.dark_e * exposure_scale)
+    if model_error_rel is not None:
+        nm = nm.with_model_error(model_error_rel)
     ch = ChannelTable(sur.channels.ex_nm[mask], sur.channels.em_nm[mask])
     expo = None
     if sur.meta.get("exposure_ms"):
@@ -452,7 +456,8 @@ def information_at_exposure(fi: FisherResult, sel: Sequence[int], t_s: np.ndarra
     D = nm.dark_e[sel] * r
     v = ((S + D) if nm.shot else 0.0 * S)
     v = v + (nm.read_e ** 2 if nm.read else 0.0) + (nm.gain_e_per_adu ** 2 / 12.0 if nm.quantization else 0.0)
-    return channel_information(J, v / nm.n_pix)
+    v = v / nm.n_pix + (nm.model_error_rel * S) ** 2
+    return channel_information(J, v)
 
 
 def max_exposure_s(fi: FisherResult, sel: Sequence[int], fill: float = 0.9) -> np.ndarray:
