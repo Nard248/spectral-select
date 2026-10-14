@@ -35,6 +35,15 @@ Final: main.pdf = 5 pages including references (checked with pdfinfo). No font, 
 - Old Figs. 4-5 replaced by one figure* (Fig. 4) with panels (a) 01-design.png, (b) 04-explore.png (copied to figures/fig_studio_design.png, fig_studio_explore.png). Caption states it is the in-development workbench and that the study used the core generator, not Studio physics.
 - Sec. 2.5 workbench sentences rewritten for the 3D workflow; one clause appended to Discussion limitations noting Studio's 3D Monte Carlo transport and acquisition-order photobleaching.
 
+## Author request (acknowledgment)
+- Removed the United States R44 HL120511 award. Text now reads exactly: "Financial support from the European Union NAS SAR-101087403 award is gratefully acknowledged." AI-disclosure sentence unchanged.
+
+## Author request (collagen error figure)
+- Fig. (real-data validation) redesigned as three panels: (a) drop at held-out excitations; (b) real collagen ROI (pepsin ROI 4, split D, the median-SAM case of 24) measured vs twin-predicted spectra at held-out 310/325/340 nm with a residual strip (measured - predicted, per-peak normalised); (c) compact SAM bars (twin / empirical copy / nominal / flat).
+- New error numbers over all 24 collagen cases (2 datasets, 6 ROIs, 4 held-out splits), mean +- SD: SAM 8.4 +- 1.8 deg, shape R2 0.83 +- 0.13, relative RMS 0.097 +- 0.023 of the peak. Computed by validation/run_collagen_error.py (same fits/seeds as run_validation.py; per-excitation gain refit; pooled R2 and rms_rel from calibration._diagnostics); saved under collagen.error_twin_corrected in validation/validation_numbers.json (no keys removed; representative-case curves in validation/collagen_rep_curves.json). Figure by validation/make_fig_realdata.py.
+- Sec. 2.6 text and caption updated; caveats kept (throughput correction, gain step, emission shape only, empirical copy slightly better).
+- To stay at 5 pages: Figs. 1, 2, 3 and the benchmark figure shrunk; the benchmark figure moved to before Sec. 2.6 in the source (so it is Fig. 5 and the real-data figure is Fig. 6); a few redundant sentences removed in Secs. 2.2, 2.4, 2.5, 3, 4 and Discussion (no content, citation or limitation removed).
+
 ## Kept as is
 Title, authors, affiliations, acknowledgment/AI disclosure, early-access wording, limitations content.
 

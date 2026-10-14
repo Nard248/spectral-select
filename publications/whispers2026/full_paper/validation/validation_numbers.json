@@ -573,6 +573,37 @@
     "empirical": 7.235140021882426,
     "in_sample": 5.8855553911731535
    }
+  },
+  "error_twin_corrected": {
+   "r2_shape": {
+    "mean": 0.8343806736215056,
+    "sd": 0.1349848929137977,
+    "n": 24
+   },
+   "r2_shape_mean_per_excitation": {
+    "mean": 0.7432068870305942,
+    "sd": 0.43128002822999917,
+    "n": 24
+   },
+   "rel_rms": {
+    "mean": 0.09670448558826415,
+    "sd": 0.022635885990143406,
+    "n": 24
+   },
+   "sam_deg_check": {
+    "mean": 8.434745063429991,
+    "sd": 1.747505295304816,
+    "n": 24
+   },
+   "representative": {
+    "roi": "pepsin:4",
+    "split": "D",
+    "sam_deg": 8.382724018165455,
+    "r2": 0.8689019843461728,
+    "rel_rms": 0.10050534346019897,
+    "median_sam_all": 8.3036941297228
+   },
+   "how": "Twin_corrected fits (response_degree=2, n_starts=8, seed as run_validation.py) on 3 training excitations, evaluated on the 3 held-out excitations of each of 4 splits x 6 ROIs = 24 cases; per-excitation nuisance gain refitted on the held-out spectra (shape only). Each spectrum normalised by its own peak. R2 = 1 - SSres/SStot pooled over the 3 held-out excitations (calibration._diagnostics 'r2'); rel_rms = RMS of (measured-predicted)/peak, averaged over the 3 excitations ('rms_rel'). mean +- SD (population SD) over 24 cases."
   }
  },
  "notes": {

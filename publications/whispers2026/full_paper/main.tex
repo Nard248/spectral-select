@@ -89,7 +89,7 @@ planning, prototyping, and teaching.
 
 \begin{figure*}[!tb]
 \centering
-\includegraphics[width=0.68\textwidth]{fig_cube4d.png}
+\includegraphics[width=0.58\textwidth]{fig_cube4d.png}
 \caption{A rendered 4D fluorescence cube from SpectralForge, an example scene with each dye laid
 down as a shape. (a) Slices at each dye's emission peak reveal its painted region; every pixel
 effectively stores an EEM. (b) The mean EEM: each fluorophore is a smooth blob at its excitation
@@ -124,7 +124,7 @@ superposition,
 F(x,y,\lambda_\mathrm{ex},\lambda_\mathrm{em}) = g \sum_k
 c_k(x,y)\,\varepsilon_k\,\Phi_k\,a_k(\lambda_\mathrm{ex})\,e_k(\lambda_\mathrm{em}),
 \end{equation}
-where $g$ folds lamp, exposure, and power. This is Kasha's rule written as algebra; widths are $\mathrm{FWHM}/(2\sqrt{2\ln 2})$ and
+where $g$ folds lamp, exposure, and power. Widths are $\mathrm{FWHM}/(2\sqrt{2\ln 2})$ and
 brightness is $\varepsilon_k\Phi_k$.
 With all optional physics and artifacts off the model is \emph{exactly linear},
 $\mathrm{render}(A{+}B)=\mathrm{render}(A){+}\mathrm{render}(B)$, an invariant the
@@ -134,7 +134,7 @@ fluorophores. Fig.~\ref{fig:fluoro} shows the fluorophore model.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.75\linewidth]{fig_fluorophores.png}
+\includegraphics[width=0.66\linewidth]{fig_fluorophores.png}
 \caption{Parametric fluorophore spectra. Left: three discriminative dyes (dashed,
 excitation; solid, emission) of modest brightness with overlapping emission and
 distinct excitation. Right: two bright nuisance autofluorophores that dominate band
@@ -155,7 +155,7 @@ cannot solve the task.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.62\linewidth]{fig_scene.png}
+\includegraphics[width=0.54\linewidth]{fig_scene.png}
 \caption{Variance is decoupled from informativeness. Each point is a band: per-band
 variance against per-band discriminability. The high-variance bands are nuisance and
 scatter bands, not the discriminative ones (correlation near zero), so ranking bands by
@@ -193,13 +193,8 @@ meet), \emph{realistic}, \emph{clutter}, \emph{nonlinear} (reabsorption or FRET)
 Every render returns a ground-truth sidecar with concentration maps, clean cubes, and
 per-fluorophore emission peaks, which enables a tight \emph{peak-recovery} metric (did a selected
 band land within a tolerance of a true emission peak; a random selector scores about $0.33$) in
-addition to information-retention metrics. The library's \texttt{render} call exposes explicit knobs for size, emission
-sampling, nuisance brightness, scatter, noise, clutter, and nonlinear physics; the study scripts
-(\texttt{build\_dataset} in \texttt{reports/}, not part of the library) build each
-scene and record exact parameters. Parametric dyes can be replaced by measured spectra
-from a downloaded FPbase payload via a library importer (not yet exposed in the workbench). The in-development 3D workbench, SpectralForge Studio (Fig.~\ref{fig:gui}), lets a user define
-fluorophores and materials, place a lamp, camera, and samples in a 3D scene, preview the
-camera's view, render the 4D cube, and inspect it against ground truth.
+addition to information-retention metrics. The study scripts (\texttt{build\_dataset} in \texttt{reports/}, not library API) call \texttt{render} with explicit knobs and record exact parameters. Parametric dyes can be replaced by measured spectra
+from a downloaded FPbase payload via a library importer (not yet exposed in the workbench). The in-development 3D workbench, SpectralForge Studio (Fig.~\ref{fig:gui}), lets a user place a lamp, camera, and samples in a 3D scene, render the 4D cube, and inspect it against ground truth.
 
 \begin{figure*}[!tb]
 \centering
@@ -214,18 +209,28 @@ band-selection study below used the core generator of Sec.~2, not Studio's added
 \label{fig:gui}
 \end{figure*}
 
+\begin{figure*}[!tb]
+\centering
+\includegraphics[width=0.8\textwidth]{fig_results.png}
+\caption{The benchmark in use. Left: beat-random across five noise levels at $k=24$ of the 564 bands (Sec.~\ref{sec:grid}): blind
+PCA and autoencoder selection beat the random $95$th percentile only on clean data; under clutter only supervised mutual information does. Middle: compression over budgets of 4 to 100 bands: the
+autoencoder tracks PCA, both reaching about $95\%$ of the full spectrum; labels compress about $2.7\times$ better. Right: spatial-texture regime (block CV): per-pixel selectors fall below random because
+the classes share per-pixel spectra, and no learned spatial selector beats random.}
+\label{fig:results}
+\end{figure*}
+
 \subsection{Validation against real acquisitions}\label{sec:real}
-We fitted Eq.~(1), projected through a model of our instrument (a tunable lamp and a Nuance LCTF camera, bands from 420\,nm~\cite{ref_chil4d}), to measured excitation-emission data. For 16 fluorescent drops, whose dyes are not recorded and so are fitted rather than taken from a library, eight parameters were calibrated at 310/340/385/415\,nm; emission at held-out 325/365/400\,nm was predicted with no gain refit (median $R^2=0.96$, IQR $0.95$--$0.96$; SAM $6.0^\circ$; peak error $\approx17\%$, Fig.~\ref{fig:realdata}a). Collagen needed a smooth throughput correction, and its intensities are not comparable across excitations (an unexplained $\approx1000\times$ gain step between 340 and 365\,nm), so only emission shape was tested: held-out SAM was $8.4\pm1.8^\circ$ (nominal twin $14.2^\circ$, flat $23.7^\circ$), slightly worse than copying another sample's spectrum ($7.7^\circ$; Fig.~\ref{fig:realdata}b).
+We fitted Eq.~(1), projected through a model of our instrument (a tunable lamp and a Nuance LCTF camera, bands from 420\,nm~\cite{ref_chil4d}), to measured excitation-emission data. For 16 fluorescent drops, whose dyes are not recorded and so are fitted rather than taken from a library, eight parameters were calibrated at 310/340/385/415\,nm; emission at held-out 325/365/400\,nm was predicted with no gain refit (median $R^2=0.96$, IQR $0.95$--$0.96$; SAM $6.0^\circ$; peak error $\approx17\%$, Fig.~\ref{fig:realdata}a). Collagen needed a smooth throughput correction, and its intensities are not comparable across excitations (an unexplained $\approx1000\times$ gain step between 340 and 365\,nm), so only emission shape was tested: after a per-excitation gain, spectra at held-out excitations (4 splits of 3+3 excitations, 6 ROIs from two datasets, 24 cases; each spectrum normalised to its peak) had SAM $8.4\pm1.8^\circ$, shape $R^2=0.83\pm0.13$ and relative RMS error $0.097\pm0.023$ of the peak (nominal twin $14.2^\circ$, flat $23.7^\circ$), slightly worse than copying another sample's spectrum ($7.7^\circ$; Fig.~\ref{fig:realdata}b,c). The residual is systematic: too narrow on the blue edge, too low in the red tail.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.8\columnwidth]{fig_realdata}
-\caption{Real-data validation. (a)~Drop 5 (median SAM): measured emission and twin prediction at held-out excitations. (b)~Collagen held-out-excitation SAM, mean $\pm$ SD over 24 splits (pepsin and acetic-acid ROIs).}
+\includegraphics[width=\columnwidth]{fig_realdata}
+\caption{Real-data validation. (a)~Drop 5 (median SAM): measured (markers) and predicted (lines) emission at held-out excitations. (b)~Collagen, pepsin ROI 4 (median-SAM case of 24; SAM $8.4^\circ$, $R^2=0.87$): measured and predicted spectra at held-out 310/325/340\,nm after a per-excitation gain, and residual (measured $-$ predicted, in units of each spectrum's peak). All 24 cases: $R^2=0.83\pm0.13$, relative RMS $0.097\pm0.023$. (c)~Collagen held-out SAM, mean $\pm$ SD over 24 cases; the empirical copy is slightly better. Collagen tests emission shape only.}
 \label{fig:realdata}
 \end{figure}
 
 \section{Evaluation Protocol}
-Two questions must be kept apart. (a) \emph{Is the simulator physically faithful?} This is
+Two questions are kept apart. (a) \emph{Is the simulator physically faithful?} This is
 covered by the linearity invariant tests of Sec.~2.2 and by the real-data check of
 Sec.~\ref{sec:real}. (b) \emph{Is the benchmark valid for comparing selectors?} This is
 covered by the known ground truth together with the random and full-spectrum controls below,
@@ -254,7 +259,7 @@ Scene, grid & $64{\times}64$ px (Table~\ref{tab:battery}: $40{\times}40$), 3 cla
 \end{table}
 
 \subsection{Spectral grid}\label{sec:grid}
-The simulator accepts an arbitrary excitation list and emission range and step. The reported
+The reported
 study uses $4$ excitations (405, 470, 488, 506\,nm) and emission from 420 to 700\,nm. For
 Fig.~\ref{fig:results}, emission is sampled every 2\,nm ($141$ bands), giving
 $4\times141=564$ excitation-emission bands; ``full-564'' is the classifier on all of them and the
@@ -271,7 +276,7 @@ baseline: a method that cannot beat the $95$th percentile of random band subsets
 nothing. And the \textbf{full spectrum}: the accuracy ceiling a selector tries to
 approach. Where
 discrimination is spatial we use spatial-block cross-validation to remove
-spatial-autocorrelation leakage. These controls guard against reporting a gain that a random subset already reaches.
+spatial-autocorrelation leakage.
 
 \section{Using the Benchmark}
 Band selection, which removes non-informative bands to shrink a real hyperspectral
@@ -279,9 +284,7 @@ acquisition~\cite{ref_guan,ref_scirep,ref_bsnet}, is one thing SpectralForge is 
 panel of standard selectors: variance ranking, PCA loadings~\cite{ref_jolliffe}, supervised mutual information (a
 labels-using reference), and a fully unsupervised autoencoder~\cite{ref_hinton}-with-latent-perturbation
 selector, which reconstructs the standardized cube, perturbs each latent dimension, and
-turns the per-band reconstruction sensitivity into a per-band influence. The question is not which selector wins but whether the benchmark behaves as designed,
-that is, whether decoupling variance from informativeness makes it discriminate methods and
-regimes.
+turns the per-band reconstruction sensitivity into a per-band influence. The question is whether decoupling variance from informativeness makes the benchmark discriminate methods and regimes.
 
 It does. On confounded scenes a variance ranker does no better than, and usually below, random subsets (e.g.\ $0.40$ vs $0.45$ on the realistic regime). PCA loadings is the
 strongest blind selector only in the idealized \emph{clean} regime, where the informative
@@ -294,8 +297,7 @@ $d\approx+0.94$, but paired Wilcoxon $p=0.16$, so the gain is marginal; the AE-M
 information $+0.014$, the conv-AE $-0.001$, against $-0.016$ for PCA loadings; Table~\ref{tab:battery}). The pattern is a general one:
 \emph{informative implies has variance implies PCA-selectable}, so a nonlinear
 \emph{classification} task need not imply a nonlinear \emph{selection} task, and the
-benchmark separates the two. This regime map, not a single winner, is what the benchmark
-reports.
+benchmark separates the two.
 
 \begin{table}[t]
 \caption{Label-free autoencoder vs.\ the strongest blind baseline (PCA loadings):
@@ -319,19 +321,6 @@ FRET & 0.635 & 0.642 & tie \\
 \end{tabular}
 \end{table}
 
-\begin{figure*}[!tb]
-\centering
-\includegraphics[width=0.86\textwidth]{fig_results.png}
-\caption{The benchmark in use. Left: beat-random across five noise levels at a budget of $k=24$ of the 564 bands (Sec.~\ref{sec:grid}): blind
-PCA and autoencoder selection beat the random $95$th percentile only on clean data, and
-under clutter only supervised mutual information does. Middle: compression curve over budgets of 4 to 100 of the 564 bands: the
-autoencoder tracks PCA at every budget, both reaching about $95\%$ of the full spectrum,
-while labels compress about $2.7\times$ better. Right: the spatial-texture regime under
-block cross-validation: per-pixel selectors are the worst (below random) because
-the classes have identical per-pixel spectra, and none of the learned spatial selectors beats random; only the known discriminative bands
-reach the oracle.}
-\label{fig:results}
-\end{figure*}
 
 The random and full-spectrum controls also mark the limits (Fig.~\ref{fig:results}).
 Under fixed-pattern clutter no blind selector beats a random subset, because clutter is
@@ -340,13 +329,12 @@ beats the full spectrum, so selection buys compression, not accuracy, and blind 
 are unstable band to band (Jaccard about $0.1$ to $0.2$), which favors selecting spectral
 regions or consensus sets. And when class is carried by spatial texture, so that every
 class shares the same per-pixel spectrum, per-pixel selection falls below random (three seeds, $0.52$ against a random $0.71$), the oracle bands reach $0.75$, and none of the spatial selectors we tried
-(texture variance or MI, $0.66$ to $0.69$; a spatial CNN, $0.53$ in a separate finer configuration with random $0.58$) beats random, so spatial selection remains open. The benchmark thus shows when to select bands, when to keep the spectrum, and when the problem is
-spatial.
+(texture variance or MI, $0.66$ to $0.69$; a spatial CNN, $0.53$ in a separate finer configuration with random $0.58$) beats random, so spatial selection remains open.
 
 \section{Discussion and Conclusion}
 SpectralForge gives 4D fluorescence imaging an open, physically realistic source of cubes
 with perfect ground truth, so methods can be tested before scarce instrument time is spent.
-The band-selection study is one demonstration. With random and full-spectrum controls, the simulator turns ``does this selector help'' into a measured, reproducible question, and its answer is specific: PCA loadings is the strongest blind
+With random and full-spectrum controls, the simulator turns ``does this selector help'' into a measured, reproducible question, and its answer is specific: PCA loadings is the strongest blind
 baseline only in the idealized clean regime that no real acquisition reaches, ties
 label-free selection once realistic scatter and noise enter, and is only marginally overtaken where
 the physics is nonlinear.
@@ -370,8 +358,7 @@ on request (please contact the corresponding author by email); the full experime
 accompanying this study is released for reproducible use.
 
 \section*{Acknowledgment}
-Financial support from the European Union NAS SAR-101087403 and the United States
-R44 HL120511 awards is gratefully acknowledged. A large-language-model assistant was
+Financial support from the European Union NAS SAR-101087403 award is gratefully acknowledged. A large-language-model assistant was
 used for code scaffolding, figure generation, and language editing; the design,
 analysis, and conclusions are the authors' own and were verified by them.
 
