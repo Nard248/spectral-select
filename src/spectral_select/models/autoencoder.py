@@ -90,11 +90,14 @@ class HyperspectralCAEWithMasking(nn.Module):
         for ex in self.excitation_wavelengths:
             key = self.ex_to_key[ex]
             num_bands = self.emission_bands[ex]
+            # odd kernel <= num_bands so 'same' padding preserves the size (identical to min(5, n) for n >= 5)
+            kb = max(1, min(5, int(num_bands)))
+            kb -= (kb % 2 == 0)
             self.enc_conv1[key] = nn.Conv3d(
                 in_channels=1,  # One channel per excitation
                 out_channels=k1,
-                kernel_size=(filter_size, filter_size, min(5, num_bands)),
-                padding=(padding, padding, min(5, num_bands) // 2)
+                kernel_size=(filter_size, filter_size, kb),
+                padding=(padding, padding, kb // 2)
             )
 
         # Third layer: Convolution on shared feature maps

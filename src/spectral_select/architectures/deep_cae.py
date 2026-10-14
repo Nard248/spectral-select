@@ -40,7 +40,8 @@ class DeepSpectralCAE(nn.Module):
 
         fs = filter_size
         pad = fs // 2
-        kb = min(5, self.n_bands)               # depth (band-axis) kernel
+        kb = max(1, min(5, self.n_bands))       # depth (band-axis) kernel
+        kb -= (kb % 2 == 0)                     # odd, so 'same' padding keeps the band axis (n >= 5 unchanged)
         padb = kb // 2
 
         # per-excitation input stem (depth kernel over the band axis, NO pooling)
