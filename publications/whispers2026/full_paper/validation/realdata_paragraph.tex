@@ -1,0 +1,10 @@
+% Paste as a subsection (e.g. after the forward-model section). Needs fig_realdata.{png,pdf} in figures/.
+\subsection{Validation against real acquisitions}
+We fitted Eq.~(1), projected through a model of our instrument (a tunable lamp and a Nuance LCTF camera, bands from 420\,nm~\cite{ref_chil4d}), to measured excitation-emission data. For 16 fluorescent drops, whose dyes are not recorded and so are fitted rather than taken from a library, eight parameters were calibrated at 310/340/385/415\,nm; emission at held-out 325/365/400\,nm was predicted with no gain refit (median $R^2=0.96$, IQR $0.95$--$0.96$; SAM $6.0^\circ$; peak error $\approx17\%$, Fig.~\ref{fig:realdata}a). Collagen needed a smooth throughput correction, and its intensities are not comparable across excitations (an unexplained $\approx1000\times$ gain step between 340 and 365\,nm), so only emission shape was tested: held-out SAM was $8.4\pm1.8^\circ$ (nominal twin $14.2^\circ$, flat $23.7^\circ$), slightly worse than copying another sample's spectrum ($7.7^\circ$; Fig.~\ref{fig:realdata}b).
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{fig_realdata}
+\caption{Real-data validation. (a)~Drop 5 (median SAM): measured emission and twin prediction at held-out excitations. (b)~Collagen held-out-excitation SAM, mean $\pm$ SD over 24 splits (pepsin and acetic-acid ROIs).}
+\label{fig:realdata}
+\end{figure}

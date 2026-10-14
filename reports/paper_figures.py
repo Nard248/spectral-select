@@ -131,8 +131,8 @@ def fig_results():
             "AE": [0.467, 0.532, 0.552, 0.573, 0.616, 0.632, 0.639, 0.657, 0.667],
             "mutInfo": [0.495, 0.571, 0.604, 0.622, 0.659, 0.658, 0.673, 0.680, 0.680],
             "random": [0.461, 0.509, 0.547, 0.581, 0.638, 0.618, 0.636, 0.662, 0.668], "full": 0.683}
-    spatial = {"method": ["per-pixel\nvariance", "per-pixel\nmutInfo", "random", "texture-var", "texture-MI", "spatial-CNN", "oracle"],
-               "F1": [0.516, 0.517, 0.710, 0.657, 0.688, 0.534, 0.751]}
+    spatial = {"method": ["per-pixel\nvariance", "per-pixel\nmutInfo", "random", "texture-var", "texture-MI", "oracle\nbands"],
+               "F1": [0.516, 0.517, 0.710, 0.657, 0.688, 0.751]}
     fig, ax = plt.subplots(1, 3, figsize=(13, 3.6))
     x = np.arange(len(beat["regime"])); w = 0.2
     for i, m in enumerate(["random95", "PCA", "AE", "mutInfo"]):
@@ -143,10 +143,10 @@ def fig_results():
         ax[1].plot(comp["k"], comp[m], marker="o", ms=3, label=m)
     ax[1].axhline(comp["full"], ls="--", c="k", label="full-564")
     ax[1].set_title("Compression: accuracy vs #bands"); ax[1].set_xlabel("k (selected bands)"); ax[1].legend(fontsize=7)
-    cols = ["#c44", "#c44", "#888", "#4a4", "#4a4", "#48c", "#444"]
+    cols = ["#c44", "#c44", "#888", "#4a4", "#4a4", "#444"]
     ax[2].bar(range(len(spatial["method"])), spatial["F1"], color=cols)
     ax[2].set_xticks(range(len(spatial["method"]))); ax[2].set_xticklabels(spatial["method"], fontsize=6.5, rotation=0)
-    ax[2].set_title("Spatial-texture regime (per-pixel BLIND)"); ax[2].set_ylabel("block-CV macro-F1")
+    ax[2].set_title("Spatial-texture regime (3 seeds)"); ax[2].set_ylabel("block-CV macro-F1")
     save(fig, "fig_results.png")
     PARAMS["fig_results"] = {"beat_random": beat, "compression": comp, "spatial": spatial,
                              "source_scripts": ["beat_random.py", "compression_curve.py", "spatial_regime.py"]}
