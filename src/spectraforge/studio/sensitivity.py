@@ -5,7 +5,8 @@ doi:10.1016/j.cpc.2009.09.018).  For a model Y = f(X), X in [0,1]^k with indepen
 AB_i (A with column i from B), N base samples:
 
     Var(Y)  = sample variance of the 2N values [f(A), f(B)]
-    V_i     = (1/N) sum_j f(B)_j ( f(AB_i)_j - f(A)_j )              first-order effect   (Saltelli 2010, eq. 6)
+    V_i     = (1/N) sum_j f(B)_j ( f(AB_i)_j - f(A)_j )              first-order effect   (Saltelli 2010, eq. 6);
+              outputs are first centred on mean(f(A), f(B)) (variance reduction, as SALib's standardisation)
     VT_i    = (1/2N) sum_j ( f(A)_j - f(AB_i)_j )^2                  total effect         (Jansen 1999, eq. 4.3,
               Comput. Phys. Commun. 117:35, doi:10.1016/S0010-4655(98)00154-4)
     S_i = V_i / Var(Y),  ST_i = VT_i / Var(Y)
@@ -83,6 +84,13 @@ def saltelli_matrices(n: int, k: int, seed: int = 0) -> tuple[np.ndarray, np.nda
 
 def _sobol_point(fA: np.ndarray, fB: np.ndarray, fAB: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """fAB (k, n) -> (S1, ST) for one (re)sample."""
+    # Centre on c = mean(fA, fB).  E[fAB - fA] = 0, so centring leaves S1 unbiased, but the uncentred product
+    # fB*(fAB - fA) has variance growing with mean(Y)^2: for a band signal of 3200 +- 32 the estimate is noise
+    # (observed S1 = -5.7).  S_T is shift-invariant; it is centred only for consistency.  c is recomputed inside
+    # every bootstrap resample because _sobol_point is called on each resample, so the bootstrap CIs include the
+    # (small) uncertainty of c, exactly as the point estimate does.
+    c = 0.5 * (fA.mean() + fB.mean())
+    fA, fB, fAB = fA - c, fB - c, fAB - c
     var = np.var(np.concatenate([fA, fB]), ddof=1)
     if not var > 0:
         return np.full(fAB.shape[0], np.nan), np.full(fAB.shape[0], np.nan)
