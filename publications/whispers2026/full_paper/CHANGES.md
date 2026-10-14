@@ -60,3 +60,8 @@ Title, authors, affiliations, acknowledgment/AI disclosure, early-access wording
 - Regenerated main_diff.tex/.pdf and the camera_ready_upload files (PDF, changes-marked PDF, Overleaf zip).
 - Final polish: Fig. 5 regenerated as figures/fig_results_v2.png/.pdf (validation/regen_fig5_results.py; 7.0x2.0 in, serif, same data, full text width; original kept); Fig. 4 slightly narrowed; fixed spacing everywhere (aggedbottom, parskip 0, fixed float/section skips); bibliography: [15] now 'under review, 2026', added Zenodo dataset refs [16,17] cited in Sec. 4; still exactly 5 pages; diff, upload PDFs and Overleaf zip regenerated.
 - Table 2 enlarged to full column width at body size (tabular*, caption unchanged); Fig. 6 redrawn (validation/make_fig_realdata.py, cached JSON): aligned y/x labels, wider panel gutter, shorter bar labels, uniform panel letters/fonts; still exactly 5 pages; diff, upload PDFs and Overleaf zip regenerated.
+
+## Layout pass 6 (2026-10-14)
+- Page 4 is now a float-only page (Figs. 4, 5, 6 as `figure*[p]`); no body text between figures. Fig. 4 widened slightly, Fig. 6 redrawn at 2.4 in height.
+- Sec. 2.1 closes with a sentence pointing to the optional inner-filter/reabsorption/FRET effects (Sec. 2.4), filling page 1.
+- To keep 5 pages, 17 small wording tightenings (no numbers or claims changed), e.g. "without a gain refit" -> "without gain refit".

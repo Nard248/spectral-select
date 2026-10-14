@@ -20,6 +20,7 @@
 \raggedbottom
 \setlength{\parskip}{0pt}
 \setlength{\textfloatsep}{9pt}\setlength{\floatsep}{8pt}\setlength{\intextsep}{8pt}
+\setcounter{dbltopnumber}{3}\renewcommand{\dbltopfraction}{0.95}\renewcommand{\dblfloatpagefraction}{0.6}
 \setlength{\dbltextfloatsep}{9pt}\setlength{\dblfloatsep}{8pt}
 \setlength{\abovecaptionskip}{0pt}\setlength{\belowcaptionskip}{0pt}
 \renewcommand\section{\@startsection{section}{1}{\z@}{9pt}{4pt}{\normalfont\bfseries}}
@@ -54,15 +55,15 @@ obeying the standard laws of fluorescence photophysics (Kasha, Vavilov, Franck-C
 Stokes shift), with optional inner-filter attenuation, reabsorption, Foerster resonance
 energy transfer (FRET), scatter, photon and read noise, and instrument clutter. Because
 every rendered cube comes with its concentration maps and true emission peaks, a method can
-be developed, tested, and compared before any measurement is taken. As one worked
-example, we use the simulator to study spectral band selection, where the goal is to keep
+be developed, tested, and compared before any measurement is taken. As a worked
+example, we study spectral band selection, where the goal is to keep
 only the informative bands and so acquire or process less. Scenes are built so that band
 variance is decoupled from class informativeness (measured correlation $\approx -0.1$), so the
 task is not solved by variance ranking, and two controls, a random baseline and the full
 spectrum, tell a real gain from a chance one. Fitting the model to measured drop and collagen spectra tests it against real data, and running a panel of selectors through the
 simulator shows it behaving as designed and marks where label-free selection helps and
 where it does not. SpectralForge and its workbench are in active development, with early
-access available to interested labs on request; the full study is released for reproducible
+access for interested labs on request; the full study is released for reproducible
 use in 4D fluorescence imaging.
 \end{abstract}
 
@@ -82,8 +83,8 @@ autofluorescence~\cite{ref_mercader,ref_gil}. Added excitations separate overlap
 fluorophores that a single-excitation image cannot, improving tissue and material
 classification~\cite{ref_chil4d,ref_chillichen,ref_hunanyan}, but each one multiplies the
 acquisition by a full emission scan, signals are weak against scatter and autofluorescence,
-and the illumination photobleaches the sample. A single 4D cube can consume hours of
-instrument time, and labeled real cubes remain scarce.
+and illumination photobleaches the sample. A single 4D cube can consume hours of
+instrument time and labeled real cubes remain scarce.
 
 Planning an acquisition, prototyping a processing method, or comparing algorithms all
 ideally happen before instrument time is committed, yet each needs representative data, and
@@ -127,7 +128,7 @@ By \emph{Vavilov's rule} the quantum yield is, to first order, independent of
 excitation; only the amount absorbed changes. The \emph{Franck-Condon} principle sets
 the broadened, roughly mirror-image band envelopes and an optional vibronic shoulder
 about $1300\,\mathrm{cm}^{-1}$ to the red. The \emph{Stokes shift} red-shifts emission
-relative to absorption.
+relative to absorption. Together these rules fix the structure of the forward model below; the departures from them that matter in practice (inner-filter attenuation, reabsorption, and FRET) enter as optional, switchable effects (Sec.~\ref{sec:artifacts}).
 
 \subsection{Trilinear render and the additive invariant}
 Each fluorophore $k$ is a parametric model with a peak-normalized Gaussian excitation
@@ -159,20 +160,19 @@ The central design choice is the scene generator. Discriminative dyes are painte
 smooth random concentration fields whose per-pixel argmax defines the class; they are
 dim and spectrally overlapping, so their content lives in low-variance band \emph{shape},
 while independent nuisance dyes are bright but class-irrelevant (Fig.~\ref{fig:cube4d}c).
-Scatter ridges, bright autofluorescence, and shot noise add further high-variance but class-irrelevant
+Scatter ridges, bright autofluorescence, and shot noise add high-variance but class-irrelevant
 signal. On a confounded scene the correlation between per-band variance and per-band
-discriminability is $\approx -0.1$, versus strongly positive on naive clean data, so the
-highest-variance bands carry no class information (Fig.~\ref{fig:scene}) and a variance ranker
-cannot solve the task.
+discriminability is $\approx -0.1$, versus strongly positive on clean data, so the
+highest-variance bands are uninformative (Fig.~\ref{fig:scene}) and variance ranking fails.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{fig_scene_v2.png}
-\caption{Variance is decoupled from informativeness. Left: class labels. Right: each point is a band (red: discriminative; blue: nuisance and scatter); the high-variance bands are nuisance and scatter bands, not discriminative ones (correlation near zero), so variance ranking fails.}
+\caption{Variance is decoupled from informativeness. Left: class labels. Right: each point is a band (red: discriminative; blue: nuisance and scatter); the high-variance bands are nuisance or scatter, not discriminative (correlation near zero), so variance ranking fails.}
 \label{fig:scene}
 \end{figure}
 
-\subsection{Artifacts, nonlinear physics, and clutter}
+\subsection{Artifacts, nonlinear physics, and clutter}\label{sec:artifacts}
 On top of the clean cube the generator adds Rayleigh scatter at
 $\lambda_\mathrm{em}=\lambda_\mathrm{ex}$ (with a second-order ghost at
 $2\lambda_\mathrm{ex}$) and a water Raman line at a fixed wavenumber offset
@@ -193,10 +193,10 @@ $s_{\mathrm{ie}},s_{\mathrm{re}}$ (not physical path lengths), reabsorption $A_{
 Raman line at $1/\lambda_R=1/\lambda_{\mathrm{ex}}-\Delta\bar\nu$. Finally,
 fixed-pattern clutter injects many class-irrelevant low-rank spatial fields on random
 band subsets, the analogue of illumination and detector artifacts and the dominant
-real-instrument confound. By dialing these knobs the generator spans \emph{clean}
-(variance $\approx$ informativeness, an idealized baseline that real acquisitions never
+real-instrument confound. By dialing these knobs it spans \emph{clean}
+(variance $\approx$ informativeness, an idealized baseline real acquisitions never
 meet), \emph{realistic}, \emph{clutter}, \emph{nonlinear} (reabsorption or FRET), and
-\emph{spatial-texture} regimes from a single call.
+\emph{spatial-texture} regimes in one call.
 
 \subsection{Ground truth, reproducibility, and real fluorophores}
 Every render returns a ground-truth sidecar with concentration maps, clean cubes, and
@@ -205,30 +205,31 @@ band land within a tolerance of a true emission peak; a random selector scores a
 addition to information-retention metrics. The study scripts (\texttt{build\_dataset} in \texttt{reports/}, not library API) call \texttt{render} with explicit knobs and record exact parameters. Parametric dyes can be replaced by measured spectra
 from a downloaded FPbase payload via a library importer (not yet exposed in the workbench). The in-development 3D workbench, SpectralForge Studio (Fig.~\ref{fig:gui}), lets a user place a lamp, camera, and samples in a 3D scene, render the 4D cube, and inspect it against ground truth.
 
-\begin{figure*}[!tb]
+\begin{figure*}[p]
 \centering
-\includegraphics[width=0.385\textwidth]{fig_studio_design_crop.png}\hfill
-\includegraphics[width=0.545\textwidth]{fig_studio_explore_crop.png}
+\includegraphics[width=0.405\textwidth]{fig_studio_design_crop.png}\hfill
+\includegraphics[width=0.575\textwidth]{fig_studio_explore_crop.png}
 \caption{SpectralForge Studio (in development). (a) Design: lamp, LCTF camera and samples placed in 3D, with the camera view. (b) Explore: a band image and, for the selected pixel, its ground-truth physical components, spectra and EEM. The study below used the core generator of Sec.~2, not Studio's added physics.}
 \label{fig:gui}
 \end{figure*}
 
-\begin{figure*}[!tb]
+\begin{figure*}[p]
 \centering
 \includegraphics[width=\textwidth]{fig_results_v2.png}
 \caption{The benchmark in use. Left: beat-random across five noise levels at $k=24$ of 564 bands (Sec.~\ref{sec:grid}): blind PCA and autoencoder beat the random $95$th percentile only on clean data; under clutter only supervised MI does. Middle: compression over 4 to 100 bands; the autoencoder tracks PCA (about $95\%$ of the full spectrum); labels compress about $2.7\times$ better. Right: spatial texture (block CV): per-pixel selectors fall below random and no learned spatial selector beats it.}
 \label{fig:results}
 \end{figure*}
 
-\subsection{Validation against real acquisitions}\label{sec:real}
-Fitting Eq.~(1), through a model of our tunable-lamp/LCTF instrument~\cite{ref_chil4d}, to 4 excitations (310/340/385/415\,nm) of 16 fluorescent drops predicts the 3 held-out excitations without a gain refit (median $R^2=0.96$, SAM $6.0^\circ$, Fig.~\ref{fig:realdata}a). For collagen, whose intensities are not comparable across excitations, only emission shape is testable: after a per-excitation gain and smooth throughput correction, held-out SAM is $8.4\pm1.8^\circ$ and shape $R^2=0.83\pm0.13$ (24 cases; Fig.~\ref{fig:realdata}b,c), slightly worse than copying another sample's spectrum ($7.7^\circ$).
-
-\begin{figure*}[!b]
+\begin{figure*}[p]
 \centering
 \includegraphics[width=\textwidth]{fig_realdata}
 \caption{Real-data validation. (a)~Drop 5 (median SAM): measured (markers) and predicted (lines) at held-out excitations. (b)~Collagen ROI 4 (median case of 24): measured, predicted and residual at held-out 310/325/340\,nm. (c)~Collagen held-out SAM, mean $\pm$ SD (24 cases).}
 \label{fig:realdata}
 \end{figure*}
+
+\subsection{Validation against real acquisitions}\label{sec:real}
+Fitting Eq.~(1), through a model of our tunable-lamp/LCTF instrument~\cite{ref_chil4d}, to 4 excitations (310/340/385/415\,nm) of 16 fluorescent drops predicts the 3 held-out excitations without gain refit (median $R^2=0.96$, SAM $6.0^\circ$, Fig.~\ref{fig:realdata}a). For collagen, whose intensities are incomparable across excitations, only shape is testable: after per-excitation gain and smooth throughput correction, held-out SAM is $8.4\pm1.8^\circ$ and shape $R^2=0.83\pm0.13$ (24 cases; Fig.~\ref{fig:realdata}b,c), slightly worse than copying another sample's spectrum ($7.7^\circ$).
+
 
 \section{Evaluation Protocol}
 Two questions are kept apart: simulator fidelity, covered by the linearity tests of Sec.~2.2 and the real-data check of Sec.~\ref{sec:real}; and benchmark validity, covered by known ground truth plus random and full-spectrum controls, which need no claim that a simulated cube equals a real one. Table~\ref{tab:setup} summarizes the setup.
@@ -340,13 +341,13 @@ A natural next step is to evaluate performance on complex, multi-component targe
 composites), where informative spectral structure is decoupled from overall band variance.
 SpectralForge and its workbench are in active development toward a production release, and
 the authors can provide exclusive early access to interested laboratories and individuals
-on request (please contact the corresponding author by email); the full experiment record
-accompanying this study is released for reproducible use.
+on request (contact the corresponding author by email); the full experiment record
+for this study is released for reproducible use.
 
 \section*{Acknowledgment}
-Financial support from the European Union NAS SAR-101087403 award is gratefully acknowledged. A large-language-model assistant was
+{\setlength{\emergencystretch}{2em}Financial support from the European Union NAS SAR-101087403 award is gratefully acknowledged. A large-language-model assistant was
 used for code scaffolding, figure generation, and language editing; the design,
-analysis, and conclusions are the authors' own and were verified by them.
+analysis, and conclusions are the authors' own and were verified by them.\par}
 
 \begin{thebibliography}{00}
 \bibitem{ref_lakowicz} J. R. Lakowicz, \emph{Principles of Fluorescence Spectroscopy},

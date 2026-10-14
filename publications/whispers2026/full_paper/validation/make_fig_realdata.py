@@ -11,7 +11,7 @@ num = json.load(open(H / "validation_numbers.json")); cur = json.load(open(H / "
 rows = num["drops"]["rows"]; med = np.median([r["sam_deg"] for r in rows])
 rep = min(rows, key=lambda r: abs(r["sam_deg"] - med))["drop"]
 cc = json.load(open(H / "collagen_rep_curves.json")); err = num["collagen"]["error_twin_corrected"]
-fig = plt.figure(figsize=(7.16, 2.1))
+fig = plt.figure(figsize=(7.16, 2.4))
 gs = fig.add_gridspec(1, 3, wspace=0.62, left=0.055, right=0.985, bottom=0.2, top=0.92, width_ratios=[1, 1, 0.8])
 gsr = gs[0, 1].subgridspec(2, 1, height_ratios=[2.0, 1.0], hspace=0.1)
 a = fig.add_subplot(gs[0, 0]); b = fig.add_subplot(gsr[0]); br = fig.add_subplot(gsr[1], sharex=b)
