@@ -294,10 +294,8 @@ benchmark separates the two.
 \caption{Label-free AE vs.\ the strongest blind baseline (PCA loadings): best-of-panel macro-F1, six seeds; bold is better. Clean margin: paired Wilcoxon $p=0.03$; reabsorption: bootstrap $95\%$ CI excludes zero but $p=0.16$ (marginal); rest are ties.}
 \label{tab:battery}
 \centering
-\footnotesize
-\setlength{\tabcolsep}{4.5pt}
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{}lccl@{}}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lccl@{}}
 \toprule
 Regime & AE & PCA-load & verdict \\
 \midrule
@@ -306,7 +304,7 @@ realistic & 0.527 & 0.531 & tie \\
 reabsorption & \textbf{0.449} & 0.431 & marginal AE gain \\
 FRET & 0.635 & 0.642 & tie \\
 \bottomrule
-\end{tabular}
+\end{tabular*}
 \end{table}
 
 

@@ -1,7 +1,7 @@
 \documentclass{article}
 %DIF LATEXDIFF DIFFERENCE FILE
 %DIF DEL main_accepted.tex   Wed Oct 14 12:27:50 2026
-%DIF ADD main.tex            Wed Oct 14 13:55:43 2026
+%DIF ADD main.tex            Wed Oct 14 14:00:44 2026
 \usepackage{stywhispers}
 %DIF 3a3-7
 \makeatletter % captions in 9 pt (\small of the 10 pt body) %DIF > 
@@ -447,11 +447,14 @@ reports.
 }\DIFdelendFL reabsorption\DIFdelbeginFL \DIFdelFL{margins are significant at }\DIFdelendFL \DIFaddbeginFL \DIFaddFL{: bootstrap }\DIFaddendFL $95\%$ \DIFdelbeginFL \DIFdelFL{, the }\DIFdelendFL \DIFaddbeginFL \DIFaddFL{CI excludes zero but $p=0.16$ (marginal); }\DIFaddendFL rest are ties.}
 \label{tab:battery}
 \centering
-\footnotesize
-\setlength{\tabcolsep}{4.5pt}
-\renewcommand{\arraystretch}{1.15}
-\begin{tabular}{@{}lccl@{}}
-\toprule
+\DIFdelbeginFL %DIFDELCMD < \footnotesize
+%DIFDELCMD < \setlength{\tabcolsep}{4.5pt}
+%DIFDELCMD < \renewcommand{\arraystretch}{1.15}
+%DIFDELCMD < \begin{tabular}{@{}lccl@{}}
+%DIFDELCMD < %%%
+\DIFdelendFL \DIFaddbeginFL \renewcommand{\arraystretch}{1.2}
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lccl@{}}
+\DIFaddendFL \toprule
 Regime & AE & PCA-load & verdict \\
 \midrule
 clean & 0.590 & \textbf{0.635} & linear suffices \\
@@ -459,8 +462,10 @@ realistic & 0.527 & 0.531 & tie \\
 reabsorption & \textbf{0.449} & 0.431 & \DIFdelbeginFL \DIFdelFL{label-free wins }\DIFdelendFL \DIFaddbeginFL \DIFaddFL{marginal AE gain }\DIFaddendFL \\
 FRET & 0.635 & 0.642 & tie \\
 \bottomrule
-\end{tabular}
-\end{table}
+\DIFdelbeginFL %DIFDELCMD < \end{tabular}
+%DIFDELCMD < %%%
+\DIFdelendFL \DIFaddbeginFL \end{tabular*}
+\DIFaddendFL \end{table}
 
 
 \DIFdelbegin %DIFDELCMD < \begin{figure*}[!tb]
