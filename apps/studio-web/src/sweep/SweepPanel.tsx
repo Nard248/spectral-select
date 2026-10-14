@@ -174,7 +174,7 @@ export function SweepPanel({ meta }: { meta: CaptureMeta | null }) {
   )
 }
 
-function ParamPicker({ params, value, onPick, onClose }: { params: ParamOption[]; value: string | null; onPick: (p: ParamOption) => void; onClose: () => void }) {
+export function ParamPicker({ params, value, onPick, onClose }: { params: ParamOption[]; value: string | null; onPick: (p: ParamOption) => void; onClose: () => void }) {
   const [q, setQ] = useState('')
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {

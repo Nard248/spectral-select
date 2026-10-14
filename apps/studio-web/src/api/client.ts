@@ -62,7 +62,7 @@ export function parseLooseJson<T>(text: string): T {
     return JSON.parse(text.replace(/(?<=[:,[]\s*)-?(?:NaN|Infinity)(?=\s*[,\]}])/g, 'null')) as T
   }
 }
-async function json<T>(url: string, init?: RequestInit): Promise<T> {
+export async function json<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, init)
   if (!r.ok) throw new ApiError(r.status, `${init?.method ?? 'GET'} ${url} → ${r.status} ${await r.text().catch(() => '')}`.slice(0, 400))
   return parseLooseJson<T>(await r.text())
@@ -76,7 +76,7 @@ export function nanify<T>(o: T): T {
   if (o && typeof o === 'object') { const out: Record<string, unknown> = {}; for (const [k, v] of Object.entries(o)) out[k] = nanify(v); return out as T }
   return o
 }
-const post = <T,>(url: string, body?: unknown) =>
+export const post = <T,>(url: string, body?: unknown) =>
   json<T>(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) })
 
 async function binary(url: string): Promise<{ buf: Float32Array; w: number; h: number; b: number }> {

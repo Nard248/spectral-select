@@ -767,6 +767,8 @@ def create_app(capture_fn: Callable | None = None, preview_fn: Callable | None =
     # ------------------------------------------------------------------ v1.2: studies, methods text, inverse
     from . import routes_study
     app.include_router(routes_study.router)
+    from . import routes_materials
+    app.include_router(routes_materials.router)
     import importlib.util
     if importlib.util.find_spec(f"{__package__}.routes_inverse") is not None:   # W4's router is optional
         try:

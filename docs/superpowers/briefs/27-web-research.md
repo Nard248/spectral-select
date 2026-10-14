@@ -40,3 +40,17 @@ eslint 0 errors, vitest for the new pure logic (parsers, CSV, design-size estima
 serving the dist or using the dev server per the README. Take them of the study results with Sobol bars,
 the optimal-design view and the methods text, save them to `apps/studio-web/screenshots/v12/`, look at
 them and iterate.
+
+## Addendum (lead)
+- **Engine-backed optics**: the phase-1 client-side spectra in `src/lib/tissueSpectra.ts` were typed from memory
+  (~10–15 % off). Add a small endpoint `POST /api/material_optics` (body `{material: MaterialSpec, nm_min, nm_max,
+  step}` → `{nm[], mua_per_mm[], mus_prime_per_mm[], g, n, components: {name: mua[]}}`) using
+  `optics.material_optics` + `tissue_optics` per-chromophore terms, in a NEW `src/spectraforge/studio/routes_materials.py`
+  (APIRouter `router`, JSON only, pydantic validation, size limits), include it in `server.py` like the other routers,
+  with a pytest in NEW `tests/studio/test_routes_materials.py`. The material inspector charts use it (debounced),
+  falling back to the client tables offline (mock). You may touch exactly these Python files.
+- Study modes are `preview` (1st excitation only) | `fast` (all excitations, preview res) | `full`; default the UI to
+  `fast` and explain the modes in a tooltip.
+- `docs/studio/INVERSE_API.md` / `SIM2REAL.md` may not exist yet (W4/W6 still finishing): build the study UI,
+  methods text, provenance and optics endpoint first; then poll for those docs (check every ~10 min of work) and build
+  the inverse panel and calibrated-fluorophore badges when they appear.

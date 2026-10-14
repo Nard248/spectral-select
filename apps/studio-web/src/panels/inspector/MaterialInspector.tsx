@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useResearch } from '../../research/store'
 import { Plus, X } from 'lucide-react'
 import { useStudio, activeSource } from '../../state/store'
 import { BUNDLE, fluorophoreMap } from '../../state/presets'
@@ -19,6 +20,7 @@ export function MaterialInspector({ id }: { id: string }) {
   const exp = useStudio((s) => s.exp)
   const edit = useStudio((s) => s.edit)
   const dupe = useStudio((s) => s.duplicateSelected), del = useStudio((s) => s.deleteSelected)
+  const calibrated = useResearch((r) => r.calibrated)
   const fl = useMemo(() => fluorophoreMap(exp), [exp])
   const src = activeSource(exp)
   const exs = src.sequence.filter((s) => s.enabled).map((s) => s.wavelength_nm)
@@ -49,6 +51,7 @@ export function MaterialInspector({ id }: { id: string }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span className="swatch" style={{ width: 10, height: 10, borderRadius: 3, background: dyeColor(f) }} />
                 <b style={{ flex: 1 }}>{d.fluorophore}</b>
+                {calibrated?.find((c) => c.spec.name === d.fluorophore) && <Tip text="Spectra fitted to real ME-HSI data (sim-to-real calibration)."><span className="tag" style={{ color: 'var(--ok)', background: 'rgba(78,242,138,.1)' }}>calibrated</span></Tip>}
                 {f && <span className="tag">{f.ex_peak_nm} → {f.em_peak_nm} nm</span>}
                 <button className="btn ghost icon sm" onClick={() => upd((m) => { m.dyes.splice(i, 1); m.fret = m.fret.filter((p) => p.donor !== d.fluorophore && p.acceptor !== d.fluorophore) })}><X size={13} /></button>
               </div>

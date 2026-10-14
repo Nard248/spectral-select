@@ -23,7 +23,7 @@ export function useHotkeys() {
       if (mod && k === 'd') { e.preventDefault(); st.duplicateSelected(); return }
       if (mod && k === 's') { e.preventDefault(); downloadExperiment(); return }
       if (mod || e.altKey) return
-      if (st.mode === 'explore' && !['1', '2', '3'].includes(k)) return   // Explorer owns the remaining keys
+      if ((st.mode === 'explore' || st.mode === 'research') && !['1', '2', '3', '4'].includes(k)) return   // Explorer owns the remaining keys
       if (k === 'g') st.setUi({ gizmo: 'translate' })
       else if (k === 'r') st.setUi({ gizmo: 'rotate' })
       else if (k === 's') st.setUi({ snap: !st.ui.snap })
@@ -36,6 +36,7 @@ export function useHotkeys() {
       else if (k === '1') st.setMode('design')
       else if (k === '2') st.setMode('acquire')
       else if (k === '3') st.setMode('explore')
+      else if (k === '4') st.setMode('research')
       else if (k === '[') st.setUi({ leftOpen: !st.ui.leftOpen })
       else if (k === ']') st.setUi({ rightOpen: !st.ui.rightOpen })
     }

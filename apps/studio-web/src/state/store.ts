@@ -9,7 +9,7 @@ import { LIBRARY_SHAPES, newCamera, newMaterial, newSource } from './library'
 
 export type SelKind = 'object' | 'source' | 'camera' | 'background' | 'acquisition' | 'material' | 'experiment'
 export interface Selection { kind: SelKind; id: string }
-export type Mode = 'design' | 'acquire' | 'explore'
+export type Mode = 'design' | 'acquire' | 'explore' | 'research'
 export type Gizmo = 'translate' | 'rotate'
 
 export interface JobState {
