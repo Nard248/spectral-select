@@ -1,7 +1,7 @@
 \documentclass{article}
 %DIF LATEXDIFF DIFFERENCE FILE
 %DIF DEL main_accepted.tex   Wed Oct 14 12:27:50 2026
-%DIF ADD main.tex            Wed Oct 14 13:28:05 2026
+%DIF ADD main.tex            Wed Oct 14 13:55:43 2026
 \usepackage{stywhispers}
 %DIF 3a3-7
 \makeatletter % captions in 9 pt (\small of the 10 pt body) %DIF > 
@@ -21,8 +21,16 @@
 \usepackage{dblfloatfix}
 
 \graphicspath{{figures/}}
-\setlength{\textfloatsep}{9pt plus 2pt minus 2pt}\setlength{\floatsep}{8pt plus 2pt minus 2pt} %DIF > 
-\setlength{\intextsep}{8pt plus 2pt minus 2pt}\setlength{\dbltextfloatsep}{9pt plus 2pt minus 2pt}\setlength{\dblfloatsep}{8pt plus 2pt minus 2pt} %DIF > 
+\makeatletter %DIF > 
+\raggedbottom %DIF > 
+\setlength{\parskip}{0pt} %DIF > 
+\setlength{\textfloatsep}{9pt}\setlength{\floatsep}{8pt}\setlength{\intextsep}{8pt} %DIF > 
+\setlength{\dbltextfloatsep}{9pt}\setlength{\dblfloatsep}{8pt} %DIF > 
+\setlength{\abovecaptionskip}{0pt}\setlength{\belowcaptionskip}{0pt} %DIF > 
+\renewcommand\section{\@startsection{section}{1}{\z@}{9pt}{4pt}{\normalfont\bfseries}} %DIF > 
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}{7pt}{3pt}{\normalfont\bfseries}} %DIF > 
+\renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}{6pt}{2pt}{\normalfont\itshape}} %DIF > 
+\makeatother %DIF > 
 %DIF PREAMBLE EXTENSION ADDED BY LATEXDIFF
 \RequirePackage[normalem]{ulem} %DIF PREAMBLE
 \RequirePackage{color} %DIF PREAMBLE
@@ -80,7 +88,7 @@ $^{4}$George Washington University, Washington, DC, USA \\
 \maketitle
 
 \begin{abstract}
-\noindent\fbox{\parbox{0.94\columnwidth}{\scriptsize\textbf{Changes vs.\ accepted version: additions in \textcolor[rgb]{0.85,0,0}{red}, deletions \textcolor[gray]{0.5}{\sout{struck through in grey}}.} (Review copy; this file may exceed five pages. The submission file is \texttt{main.pdf}, 5 pages.) Summary: a new Sec.~2.6 and Fig.~6 compare the Eq.~(1) model with real measurements: a drop at held-out excitations, and real collagen measured vs.\ predicted spectra at held-out excitations with a residual strip, with held-out error over 24 collagen cases (SAM $8.4\pm1.8^\circ$, shape $R^2=0.83\pm0.13$, relative RMS $0.097\pm0.023$; the empirical copy is slightly better, emission shape only). Also added: a two-level validity paragraph at the start of Sec.~3, a setup summary table (Table~1), a spectral-grid subsection (564 bands explained), the Studio workbench figure, and one abstract clause; Eq.~(2) corrected (inner filter and reabsorption), several numbers replaced by values from the correct runs, previously uncited references cited, and the Evaluation, Benchmark and Discussion text tightened to stay at five pages (limitations content kept). Layout: figures enlarged (Figs.~1--6), captions in 9~pt. Acknowledgment: the United States R44 HL120511 award was removed.}}\par\medskip
+\noindent\fbox{\parbox{0.94\columnwidth}{\scriptsize\textbf{Changes vs.\ accepted version: additions in \textcolor[rgb]{0.85,0,0}{red}, deletions \textcolor[gray]{0.5}{\sout{struck through in grey}}.} (Review copy; this file may exceed five pages. The submission file is \texttt{main.pdf}, 5 pages.) Summary: a new Sec.~2.6 and Fig.~6 compare the Eq.~(1) model with real measurements: a drop at held-out excitations, and real collagen measured vs.\ predicted spectra at held-out excitations with a residual strip, with held-out error over 24 collagen cases (SAM $8.4\pm1.8^\circ$, shape $R^2=0.83\pm0.13$, relative RMS $0.097\pm0.023$; the empirical copy is slightly better, emission shape only). Also added: a two-level validity paragraph at the start of Sec.~3, a setup summary table (Table~1), a spectral-grid subsection (564 bands explained), the Studio workbench figure, and one abstract clause; Eq.~(2) corrected (inner filter and reabsorption), several numbers replaced by values from the correct runs, previously uncited references cited, and the Evaluation, Benchmark and Discussion text tightened to stay at five pages (limitations content kept). Layout: figures enlarged (Figs.~1--6), captions in 9~pt. References: [15] status corrected to under review (2026); Zenodo collagen and lichen datasets added [16,17]. Acknowledgment: the United States R44 HL120511 award was removed.}}\par\medskip
 
 Acquiring four-dimensional fluorescence hyperspectral data is slow and costly. An
 instrument records a full emission spectrum at each of several excitation wavelengths and
@@ -292,15 +300,15 @@ interactive application (}\DIFdelend \DIFaddbegin
 
 \begin{figure*}[!tb]
 \centering
-\includegraphics[width=0.405\textwidth]{fig_studio_design_crop.png}\hfill
-\includegraphics[width=0.575\textwidth]{fig_studio_explore_crop.png}
+\includegraphics[width=0.385\textwidth]{fig_studio_design_crop.png}\hfill
+\includegraphics[width=0.545\textwidth]{fig_studio_explore_crop.png}
 \caption{\DIFaddFL{SpectralForge Studio (in development). (a) Design: lamp, LCTF camera and samples placed in 3D, with the camera view. (b) Explore: a band image and, for the selected pixel, its ground-truth physical components, spectra and EEM. The study below used the core generator of Sec.~2, not Studio's added physics.}}
 \label{fig:gui}
 \end{figure*}
 
 \begin{figure*}[!tb]
 \centering
-\includegraphics[width=0.8\textwidth]{fig_results.png}
+\includegraphics[width=\textwidth]{fig_results_v2.png}
 \caption{\DIFaddFL{The benchmark in use. Left: beat-random across five noise levels at $k=24$ of 564 bands (Sec.~\ref{sec:grid}): blind PCA and autoencoder beat the random $95$th percentile only on clean data; under clutter only supervised MI does. Middle: compression over 4 to 100 bands; the autoencoder tracks PCA (about $95\%$ of the full spectrum); labels compress about $2.7\times$ better. Right: spatial texture (block CV): per-pixel selectors fall below random and no learned spatial selector beats it.}}
 \label{fig:results}
 \end{figure*}
@@ -317,8 +325,10 @@ validates against ground truth, all in one window.
 }\DIFaddend 
 
 \DIFdelbegin %DIFDELCMD < \begin{figure}[t]
-%DIFDELCMD < \centering
-%DIFDELCMD < \includegraphics[width=0.80\linewidth]{fig_gui_library.png}
+%DIFDELCMD < %%%
+\DIFdelendFL \DIFaddbeginFL \begin{figure*}[!b]
+\DIFaddendFL \centering
+\DIFdelbeginFL %DIFDELCMD < \includegraphics[width=0.80\linewidth]{fig_gui_library.png}
 %DIFDELCMD < %%%
 %DIFDELCMD < \caption{%
 {%DIFAUXCMD
@@ -330,10 +340,9 @@ concentration mixtures of these fluorophores.}}
 %DIFDELCMD < \end{figure}
 %DIFDELCMD < 
 
-%DIFDELCMD < %%%
-\DIFdelend \begin{figure*}[!tb]
-\centering
-\DIFdelbeginFL %DIFDELCMD < \includegraphics[width=0.84\textwidth]{fig_gui.png}
+%DIFDELCMD < \begin{figure*}[!tb]
+%DIFDELCMD < \centering
+%DIFDELCMD < \includegraphics[width=0.84\textwidth]{fig_gui.png}
 %DIFDELCMD < %%%
 %DIFDELCMD < \caption{%
 {%DIFAUXCMD
@@ -399,8 +408,10 @@ Band selection, which removes non-informative bands to shrink a real hyperspectr
 acquisition~\DIFdelbegin \DIFdel{\mbox{%DIFAUXCMD
 \cite{ref_guan,ref_scirep}}\hskip0pt%DIFAUXCMD
 }\DIFdelend \DIFaddbegin \DIFadd{\mbox{%DIFAUXCMD
-\cite{ref_guan,ref_scirep,ref_bsnet}}\hskip0pt%DIFAUXCMD
-}\DIFaddend , is one thing SpectralForge is built to test, so we exercise it with a
+\cite{ref_guan,ref_scirep,ref_bsnet} }\hskip0pt%DIFAUXCMD
+(its collagen and lichen data are public~\mbox{%DIFAUXCMD
+\cite{ref_zen_collagen,ref_zen_lichens}}\hskip0pt%DIFAUXCMD
+)}\DIFaddend , is one thing SpectralForge is built to test, so we exercise it with a
 panel of standard selectors: variance ranking, PCA loadings\DIFaddbegin \DIFadd{~\mbox{%DIFAUXCMD
 \cite{ref_jolliffe}}\hskip0pt%DIFAUXCMD
 }\DIFaddend , supervised mutual information (a
@@ -561,7 +572,10 @@ atrial tissue in multi-excitation hyperspectral images,'' in \emph{Proc. \DIFdel
 Hyperspectral Imaging and Signal Processing: Evol. in Remote Sensing (}\DIFdelend WHISPERS\DIFdelbegin \DIFdel{)}\DIFdelend }\DIFdelbegin \DIFdel{. IEEE}\DIFdelend , 2025, pp.~1--5.
 \bibitem{ref_scirep} N. Meloyan and N. Sarvazyan, ``Unsupervised deep learning for
 wavelength selection in multi-excitation fluorescence imaging,'' \emph{Scientific Reports}
-(minor revision), 2025.
-\end{thebibliography}
+\DIFdelbegin \DIFdel{(minor revision), 2025.
+}\DIFdelend \DIFaddbegin \DIFadd{under review, 2026.
+}\bibitem{ref_zen_collagen} \DIFadd{K. Ghahramanyan, ``250929\_Collagen,'' dataset, Zenodo, 2026, doi: 10.5281/zenodo.20677504.
+}\bibitem{ref_zen_lichens} \raggedright \DIFadd{N. Chilingaryan and N. Sarvazyan, ``250707\_}\allowbreak \DIFadd{4DHSI\_}\allowbreak \DIFadd{Lichens\_}\allowbreak \DIFadd{Palette,'' dataset, Zenodo, 2026, doi:~10.5281/}\allowbreak \DIFadd{zenodo.18640119.
+}\DIFaddend \end{thebibliography}
 
 \end{document}

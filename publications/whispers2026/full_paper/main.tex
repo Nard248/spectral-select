@@ -16,8 +16,16 @@
 \usepackage{dblfloatfix}
 
 \graphicspath{{figures/}}
-\setlength{\textfloatsep}{9pt plus 2pt minus 2pt}\setlength{\floatsep}{8pt plus 2pt minus 2pt}
-\setlength{\intextsep}{8pt plus 2pt minus 2pt}\setlength{\dbltextfloatsep}{9pt plus 2pt minus 2pt}\setlength{\dblfloatsep}{8pt plus 2pt minus 2pt}
+\makeatletter
+\raggedbottom
+\setlength{\parskip}{0pt}
+\setlength{\textfloatsep}{9pt}\setlength{\floatsep}{8pt}\setlength{\intextsep}{8pt}
+\setlength{\dbltextfloatsep}{9pt}\setlength{\dblfloatsep}{8pt}
+\setlength{\abovecaptionskip}{0pt}\setlength{\belowcaptionskip}{0pt}
+\renewcommand\section{\@startsection{section}{1}{\z@}{9pt}{4pt}{\normalfont\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}{7pt}{3pt}{\normalfont\bfseries}}
+\renewcommand\subsubsection{\@startsection{subsubsection}{3}{\z@}{6pt}{2pt}{\normalfont\itshape}}
+\makeatother
 
 \begin{document}
 \ninept
@@ -199,15 +207,15 @@ from a downloaded FPbase payload via a library importer (not yet exposed in the 
 
 \begin{figure*}[!tb]
 \centering
-\includegraphics[width=0.405\textwidth]{fig_studio_design_crop.png}\hfill
-\includegraphics[width=0.575\textwidth]{fig_studio_explore_crop.png}
+\includegraphics[width=0.385\textwidth]{fig_studio_design_crop.png}\hfill
+\includegraphics[width=0.545\textwidth]{fig_studio_explore_crop.png}
 \caption{SpectralForge Studio (in development). (a) Design: lamp, LCTF camera and samples placed in 3D, with the camera view. (b) Explore: a band image and, for the selected pixel, its ground-truth physical components, spectra and EEM. The study below used the core generator of Sec.~2, not Studio's added physics.}
 \label{fig:gui}
 \end{figure*}
 
 \begin{figure*}[!tb]
 \centering
-\includegraphics[width=0.8\textwidth]{fig_results.png}
+\includegraphics[width=\textwidth]{fig_results_v2.png}
 \caption{The benchmark in use. Left: beat-random across five noise levels at $k=24$ of 564 bands (Sec.~\ref{sec:grid}): blind PCA and autoencoder beat the random $95$th percentile only on clean data; under clutter only supervised MI does. Middle: compression over 4 to 100 bands; the autoencoder tracks PCA (about $95\%$ of the full spectrum); labels compress about $2.7\times$ better. Right: spatial texture (block CV): per-pixel selectors fall below random and no learned spatial selector beats it.}
 \label{fig:results}
 \end{figure*}
@@ -215,7 +223,7 @@ from a downloaded FPbase payload via a library importer (not yet exposed in the 
 \subsection{Validation against real acquisitions}\label{sec:real}
 Fitting Eq.~(1), through a model of our tunable-lamp/LCTF instrument~\cite{ref_chil4d}, to 4 excitations (310/340/385/415\,nm) of 16 fluorescent drops predicts the 3 held-out excitations without a gain refit (median $R^2=0.96$, SAM $6.0^\circ$, Fig.~\ref{fig:realdata}a). For collagen, whose intensities are not comparable across excitations, only emission shape is testable: after a per-excitation gain and smooth throughput correction, held-out SAM is $8.4\pm1.8^\circ$ and shape $R^2=0.83\pm0.13$ (24 cases; Fig.~\ref{fig:realdata}b,c), slightly worse than copying another sample's spectrum ($7.7^\circ$).
 
-\begin{figure*}[!tb]
+\begin{figure*}[!b]
 \centering
 \includegraphics[width=\textwidth]{fig_realdata}
 \caption{Real-data validation. (a)~Drop 5 (median SAM): measured (markers) and predicted (lines) at held-out excitations. (b)~Collagen ROI 4 (median case of 24): measured, predicted and residual at held-out 310/325/340\,nm. (c)~Collagen held-out SAM, mean $\pm$ SD (24 cases).}
@@ -263,7 +271,7 @@ spatial-autocorrelation leakage.
 
 \section{Using the Benchmark}
 Band selection, which removes non-informative bands to shrink a real hyperspectral
-acquisition~\cite{ref_guan,ref_scirep,ref_bsnet}, is one thing SpectralForge is built to test, so we exercise it with a
+acquisition~\cite{ref_guan,ref_scirep,ref_bsnet} (its collagen and lichen data are public~\cite{ref_zen_collagen,ref_zen_lichens}), is one thing SpectralForge is built to test, so we exercise it with a
 panel of standard selectors: variance ranking, PCA loadings~\cite{ref_jolliffe}, supervised mutual information (a
 labels-using reference), and a fully unsupervised autoencoder~\cite{ref_hinton}-with-latent-perturbation
 selector, which reconstructs the standardized cube, perturbs each latent dimension, and
@@ -379,7 +387,9 @@ N. Sarvazyan, A. Butavyan, and V. Yeghiazaryan, ``Deep learning classification o
 atrial tissue in multi-excitation hyperspectral images,'' in \emph{Proc. WHISPERS}, 2025, pp.~1--5.
 \bibitem{ref_scirep} N. Meloyan and N. Sarvazyan, ``Unsupervised deep learning for
 wavelength selection in multi-excitation fluorescence imaging,'' \emph{Scientific Reports}
-(minor revision), 2025.
+under review, 2026.
+\bibitem{ref_zen_collagen} K. Ghahramanyan, ``250929\_Collagen,'' dataset, Zenodo, 2026, doi: 10.5281/zenodo.20677504.
+\bibitem{ref_zen_lichens} \raggedright N. Chilingaryan and N. Sarvazyan, ``250707\_\allowbreak 4DHSI\_\allowbreak Lichens\_\allowbreak Palette,'' dataset, Zenodo, 2026, doi:~10.5281/\allowbreak zenodo.18640119.
 \end{thebibliography}
 
 \end{document}
