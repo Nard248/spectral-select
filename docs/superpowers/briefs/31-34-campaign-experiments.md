@@ -91,3 +91,14 @@ before/after correction.
   degrades label-free tissue segmentation, and whether channel selection (information-optimal channels
   from E5 against all channels) changes it.
 - This is the bridge to the author's research line (4D hyperspectral unsupervised clustering).
+
+## C3 addendum (lead): model error matters
+W4's photon-noise-only CRLB for cover thickness is sub-micron (0.08–0.5 µm), while real retrieval errors are 25–200 µm,
+dominated by model mismatch. The paper must not present photon-limited CRLBs as achievable precision. In E5/E6:
+- Extend the noise model with a **systematic model-error term**: per-channel variance += (ε·S_c)² with ε a relative
+  model/calibration error. Implement it additively in `surrogate.NoiseModel` / `information.fisher*` (an option
+  `model_error_rel`, default 0 to keep current behaviour + tests; add a test). Use ε from the sim-to-real residuals
+  (`docs/studio/figures/sim2real_numbers.json`: ~5 % band ripple / spectral-angle 6–8° → derive ε and state how), and
+  report CRLB vs ε ∈ {0, 0.5 %, 1 %, 2 %, 5 %}: the precision floor and how the optimal channel set changes when
+  systematic error (not photons) dominates (expect it to favour channels with large *relative* sensitivity).
+- Report both the photon-limited and the model-error-limited numbers, clearly labelled.

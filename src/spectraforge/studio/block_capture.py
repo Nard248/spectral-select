@@ -156,8 +156,9 @@ class Channel:
     layer: int
     kind: str                     # dye name or "raman"
     label: str                    # "<layer name>|<dye>" (volumes / UI)
-    component: str                # "dye:<dye>@<layer>" | "raman@<layer>"
+    component: str                # "dye:<dye>@<layer or inclusion>" | "raman@<layer or inclusion>"
     fluo: bool
+    incl: int = -1                # inclusion index (0-based) for channels emitted inside an inclusion, else -1
 
     @property
     def mc_label(self) -> str:
@@ -200,6 +201,15 @@ class BlockRun:
     hit_x: np.ndarray | None = None
     hit_z: np.ndarray | None = None
     _sub: dict = field(default_factory=dict)
+    # ---- v1.2: inclusions ---------------------------------------------------------------------
+    imap: object = None                               # contracts.InclusionMap | None
+    incl_shapes: list = field(default_factory=list)   # schema.Inclusion (analytic shapes, ground truth)
+    incl_mats: list = field(default_factory=list)
+    incl_meta: list = field(default_factory=list)     # JSON-able description for the web
+    incl_fluence: dict = field(default_factory=dict)  # ex -> (nx, ny, nz) float32 over the inclusion map
+    incl_absorbed: dict = field(default_factory=dict)
+    incl_sources: dict = field(default_factory=dict)  # (ex, label) -> (nx, ny, nz) float32
+    origin_incl: dict | None = None                   # face -> (nu, nv, R)
 
     # ---------------------------------------------------------------- hit look-up
     def attach_hits(self, hit_info: dict, K: int, P: int) -> None:
@@ -311,7 +321,32 @@ class BlockRun:
         out["origin_depth_mm"] = od
         for li, name in enumerate(self.layer_names):
             out[f"origin_layer_fraction:{name}"] = of[:, li]
+        if self.incl_shapes:
+            from spectraforge.studio import inclusions as incl_geo
+            top = tops[-1]
+            oi = np.full((n, len(self.incl_shapes)), np.nan)
+            for code in np.unique(codes):
+                if code < 0 or code > 4 or self.origin_incl is None:
+                    continue
+                f = CODE_FACE[int(code)]
+                sel = np.nonzero(codes == code)[0]
+                if f in self.origin_incl:
+                    fg = self.faces[f]
+                    oi[sel] = _bilinear(self.origin_incl[f], fg.u_edges_mm, fg.v_edges_mm, u[sel], v[sel])
+            for j, shp in enumerate(self.incl_shapes):
+                mask, depth = incl_geo.footprint_depth(shp, x, z, top)
+                out[f"inclusion_mask:{shp.name}"] = mask.astype(float)
+                out[f"inclusion_depth_mm:{shp.name}"] = depth
+                out[f"origin_fraction:{shp.name}"] = oi[:, j]
         return out
+
+    def host_volumes(self) -> np.ndarray:
+        """Volume (mm^3) of the HOST material of every layer voxel (voxel volume minus the inclusion voxels in it)."""
+        vol = self.voxel_volumes()
+        if self.imap is None:
+            return vol
+        from spectraforge.studio import transport3d
+        return np.maximum(vol - transport3d.inclusion_covered_volume(self.geom, self.grid, self.imap), 0.0)
 
     def voxel_volumes(self) -> np.ndarray:
         """Exact voxel volumes (nx, nz, L, S) of the layer-conforming grid (mm³)."""
@@ -392,16 +427,20 @@ def build_launch(eng, ctx, oi: int, R: np.ndarray, p: np.ndarray, rng, n_top: fl
 # --------------------------------------------------------------------------------------------
 # running a block
 # --------------------------------------------------------------------------------------------
-def _region_optics(eng, layer_mats: list[int], lam_nm: float, line: np.ndarray | None) -> RegionOptics:
-    mua, mus, g, n = [], [], [], []
-    for m in layer_mats:
+def _region_optics(eng, layer_mats: list[int], lam_nm: float, line: np.ndarray | None,
+                   incl_mats: list[int] | None = None) -> RegionOptics:
+    def one(m):
         o = eng.optics[m]
-        mua.append(float(optics_mod.average_over_line(o.mua_per_mm, line)) if line is not None
-                   else float(o.interp(o.mua_per_mm, lam_nm)))
-        mus.append(float(o.interp(o.mus_per_mm, lam_nm)))
-        g.append(o.g)
-        n.append(o.n)
-    return RegionOptics(float(lam_nm), np.array(mua), np.array(mus), np.array(g), np.array(n))
+        mua = (float(optics_mod.average_over_line(o.mua_per_mm, line)) if line is not None
+               else float(o.interp(o.mua_per_mm, lam_nm)))
+        return mua, float(o.interp(o.mus_per_mm, lam_nm)), o.g, o.n
+
+    mua, mus, g, n = (list(t) for t in zip(*[one(m) for m in layer_mats]))
+    if not incl_mats:
+        return RegionOptics(float(lam_nm), np.array(mua), np.array(mus), np.array(g), np.array(n))
+    im, is_, ig, _ = (list(t) for t in zip(*[one(m) for m in incl_mats]))
+    return RegionOptics(float(lam_nm), np.array(mua), np.array(mus), np.array(g), np.array(n),
+                        np.array(im), np.array(is_), np.array(ig))
 
 
 def _seed(acq_seed: int, mode: str, *tags: int) -> int:
@@ -437,7 +476,18 @@ def run_block(eng, steps, oi: int, scene, mode: str, frac: float, progress=None,
     run = BlockRun(oi, obj.id, geom, grid, faces, [l.name for l in shape.layers], layer_mats, coeffs,
                    (float(X), float(Z)), W4, cam_dir)
     L, S = len(layer_mats), grid.sublayers
-    vol = run.voxel_volumes()
+    imap = None
+    if shape.inclusions:
+        imap = t3.make_inclusion_map(geom, vs)
+        run.imap = imap
+        run.incl_shapes = list(shape.inclusions)
+        run.incl_mats = [mat_ids.index(i.material_id) for i in shape.inclusions]
+        run.incl_meta = [{"name": i.name, "material_id": i.material_id, "kind": i.kind,
+                          "center_mm": list(i.center_mm), "radius_mm": i.radius_mm,
+                          "semi_axes_mm": list(i.semi_axes_mm), "size_mm": list(i.size_mm), "axis": i.axis,
+                          "length_mm": i.length_mm, "region": k + 1} for k, i in enumerate(shape.inclusions)]
+    ikw = {} if imap is None else {"inclusion_map": imap}
+    vol = run.host_volumes()
     pf = PEEL_PHOTON_FACTOR if PEEL_OFF else 1.0
     n_exc = max(10_000, int(round(vs.excitation_photons * frac * pf)))
     n_em = max(10_000, int(round(vs.emission_photons * frac * pf)))
@@ -467,6 +517,7 @@ def run_block(eng, steps, oi: int, scene, mode: str, frac: float, progress=None,
             run.absorbed[st.ex_nm] = np.zeros(grid.shape, np.float32)
             run.elastic[st.ex_nm] = {f: np.zeros((len(fg.u_edges_mm) - 1, len(fg.v_edges_mm) - 1))
                                      for f, fg in faces.items()}
+            _zero_incl(run, st.ex_nm)
             continue
         w = ls.w_per_mW * P
         if tg.absorption and ls.clear_path.shape[1] > 0 and np.any(ls.clear_path > 0):
@@ -479,11 +530,12 @@ def run_block(eng, steps, oi: int, scene, mode: str, frac: float, progress=None,
             run.absorbed[st.ex_nm] = np.zeros(grid.shape, np.float32)
             run.elastic[st.ex_nm] = {f: np.zeros((len(fg.u_edges_mm) - 1, len(fg.v_edges_mm) - 1))
                                      for f, fg in faces.items()}
+            _zero_incl(run, st.ex_nm)
             continue
         launch = BlockLaunch(st.ex_nm, ls.pts_local[used], ls.dirs_local[used], w[used])
-        ro = _region_optics(eng, layer_mats, st.ex_nm, st.line)
+        ro = _region_optics(eng, layer_mats, st.ex_nm, st.line, run.incl_mats)
         exc = t3.excitation_pass(geom, ro, launch, cam_dir, vs, n_photons=n_exc,
-                                 seed=_seed(acq.seed, mode, 1, si), toggles=tg, peel_off=PEEL_OFF)
+                                 seed=_seed(acq.seed, mode, 1, si), toggles=tg, peel_off=PEEL_OFF, **ikw)
         fl = np.asarray(exc.fluence_mW_mm2, float)
         ab = np.asarray(exc.absorbed_mW, float)
         run.fluence[st.ex_nm] = fl.astype(np.float32)
@@ -492,7 +544,15 @@ def run_block(eng, steps, oi: int, scene, mode: str, frac: float, progress=None,
                                  for f, a in exc.elastic_radiance.items()}
         run.diag[f"exc_{st.ex_nm:g}"] = {"R": exc.diffuse_reflectance, "T": exc.transmittance,
                                          "A": exc.absorbed_fraction}
-        _build_sources(eng, run, st, fl, ab, vol, bleach_state, sensitive, src_parts, cap)
+        fli = abi = None
+        if imap is not None:
+            run.incl_fluence[st.ex_nm] = np.asarray(exc.inclusion_fluence_mW_mm2, np.float32)
+            run.incl_absorbed[st.ex_nm] = np.asarray(exc.inclusion_absorbed_mW, np.float32)
+            fli = np.asarray(exc.inclusion_fluence_mW_mm2, float).reshape(-1)[imap.occ_flat]
+            abi = np.asarray(exc.inclusion_absorbed_mW, float).reshape(-1)[imap.occ_flat]
+            run.diag[f"exc_{st.ex_nm:g}"]["inclusion_absorbed_fraction"] = list(
+                exc.info.get("inclusion_absorbed_fraction", []))
+        _build_sources(eng, run, st, fl, ab, vol, bleach_state, sensitive, src_parts, cap, fli, abi)
     prog(0.5, f"simulating {steps[-1].ex_nm:g} nm ({nst}/{nst}) · 3D excitation")
     if cancel is not None and cancel():
         return None
@@ -506,8 +566,8 @@ def run_block(eng, steps, oi: int, scene, mode: str, frac: float, progress=None,
     # emission nodes only where some channel actually emits (density > 1e-3 of its peak) inside the bands
     ek_all = {}
     for c in (c for c, _ in src_parts):
-        e = (_raman_shape_for(steps, c.ex) if c.kind == "raman" else eng.optics[layer_mats[c.layer]].emission_density[c.kind])
-        ek_all[(c.ex, c.kind, c.layer)] = e
+        e = (_raman_shape_for(steps, c.ex) if c.kind == "raman" else _chan_mat(eng, run, c).emission_density[c.kind])
+        ek_all[(c.ex, c.kind, c.layer, c.incl)] = e
     emit = np.zeros(len(GRID), bool)
     for e in ek_all.values():
         emit |= e > 1e-3 * float(np.max(e))
@@ -517,7 +577,7 @@ def run_block(eng, steps, oi: int, scene, mode: str, frac: float, progress=None,
     lo, hi = (float(GRID[idx[0]]), float(GRID[idx[-1]])) if idx.size else (450.0, 650.0)
     if ADAPTIVE_NODES:
         nodes = choose_emission_nodes(
-            transport_proxy(eng, layer_mats, run.plane_coeffs, {c.layer for c, _ in src_parts}), lo, hi,
+            transport_proxy(eng, layer_mats, run.plane_coeffs, {c.layer for c, _ in src_parts if c.layer >= 0}), lo, hi,
             vs.emission_node_step_nm)
     else:
         nodes = np.linspace(lo, hi, max(2, int(np.ceil((hi - lo) / vs.emission_node_step_nm)) + 1))
@@ -525,6 +585,9 @@ def run_block(eng, steps, oi: int, scene, mode: str, frac: float, progress=None,
     run.nodes = nodes
     run.channels = [c for c, _ in src_parts]
     for c, arr in src_parts:
+        if c.incl >= 0:
+            run.incl_sources[(c.ex, c.label)] = imap.dense(np.asarray(arr, np.float32))
+            continue
         full = np.zeros(grid.shape, np.float32)
         full[:, :, c.layer, :] = arr
         run.sources[(c.ex, c.label)] = full
@@ -534,8 +597,15 @@ def run_block(eng, steps, oi: int, scene, mode: str, frac: float, progress=None,
         run.em_density = np.zeros((0, len(GRID)), np.float32)
         return run
     srcarr = np.zeros((C,) + grid.shape)
+    isrc = None if not any(c.incl >= 0 for c, _ in src_parts) else np.zeros((C,) + tuple(imap.shape))
     for ci, (c, arr) in enumerate(src_parts):
-        srcarr[ci, :, :, c.layer, :] = arr
+        if c.incl >= 0:
+            isrc[ci].reshape(-1)[imap.occ_flat] = arr
+        else:
+            srcarr[ci, :, :, c.layer, :] = arr
+    ekw = dict(ikw)
+    if isrc is not None:
+        ekw["inclusion_sources"] = isrc
     labels = [c.mc_label for c in run.channels]
     parts: dict[str, list[np.ndarray]] = {f: [] for f in faces}
     mid = ne // 2
@@ -543,9 +613,9 @@ def run_block(eng, steps, oi: int, scene, mode: str, frac: float, progress=None,
         if cancel is not None and cancel():
             return None
         prog(0.5 + 0.5 * j / ne, f"emission node {lam:g} nm ({j + 1}/{ne}) · 3D")
-        em = t3.emission_pass(geom, [_region_optics(eng, layer_mats, float(lam), None)], srcarr, labels, cam_dir, vs,
-                              n_photons=n_em, seed=_seed(acq.seed, mode, 2), toggles=tg,
-                              peel_off=PEEL_OFF)   # same seed per node = common random numbers
+        em = t3.emission_pass(geom, [_region_optics(eng, layer_mats, float(lam), None, run.incl_mats)], srcarr, labels,
+                              cam_dir, vs, n_photons=n_em, seed=_seed(acq.seed, mode, 2), toggles=tg,
+                              peel_off=PEEL_OFF, **ekw)   # same seed per node = common random numbers
         for f in faces:
             parts[f].append(np.asarray(em.radiance[f], float))
         if j == mid:
@@ -553,18 +623,31 @@ def run_block(eng, steps, oi: int, scene, mode: str, frac: float, progress=None,
                 f: np.asarray(a, float) for f, a in em.origin_depth_mm.items()}
             run.origin_frac = None if em.origin_layer_fraction is None else {
                 f: np.asarray(a, float) for f, a in em.origin_layer_fraction.items()}
+            oif = getattr(em, "origin_inclusion_fraction", None)
+            run.origin_incl = None if oif is None else {f: np.asarray(a, float) for f, a in oif.items()}
     prog(1.0, f"emission node {nodes[-1]:g} nm ({ne}/{ne}) · 3D")
     run.rad = {f: _smooth_face(np.concatenate(parts[f], axis=2), faces[f], smooth_sigma_mm(n_em, f)).astype(np.float32)
                for f in faces}
     ek = np.zeros((C, len(GRID)), np.float32)
     for ci, c in enumerate(run.channels):
         ek[ci] = (_raman_shape_for(steps, c.ex) if c.kind == "raman"
-                  else eng.optics[layer_mats[c.layer]].emission_density[c.kind])
+                  else _chan_mat(eng, run, c).emission_density[c.kind])
     run.em_density = ek
     run.diag["seconds"] = {"excitation": t_exc, "emission": time.perf_counter() - t_start - t_exc,
                            "n_nodes": int(ne), "n_channels": int(C), "n_photons_exc": int(n_exc),
                            "n_photons_em": int(n_em)}
     return run
+
+
+def _chan_mat(eng, run: BlockRun, c: Channel):
+    """MaterialOptics of the material that emits channel ``c`` (a layer's or an inclusion's)."""
+    return eng.optics[run.incl_mats[c.incl] if c.incl >= 0 else run.layer_mats[c.layer]]
+
+
+def _zero_incl(run: BlockRun, ex: float) -> None:
+    if run.imap is not None:
+        run.incl_fluence[ex] = np.zeros(run.imap.shape, np.float32)
+        run.incl_absorbed[ex] = np.zeros(run.imap.shape, np.float32)
 
 
 PROXY_TAU_CAP = 4.0           # per-layer optical depth beyond which the proxy stops changing (sources sit near the surface)
@@ -655,16 +738,23 @@ def _raman_shape_for(steps, ex: float) -> np.ndarray:
     return np.zeros(len(GRID))
 
 
-def _build_sources(eng, run: BlockRun, st, fl, ab, vol, bleach_state, sensitive, out_parts, cap) -> None:
+def _build_sources(eng, run: BlockRun, st, fl, ab, vol, bleach_state, sensitive, out_parts, cap,
+                   fl_i=None, ab_i=None) -> None:
     """Fluorescence / Raman source channels of one excitation step (also advances the bleaching state)."""
     tg, mats = eng.tg, eng.mats
     ex = st.ex_nm
     active = tg.photobleaching and sensitive and st.power_mW > 0
     t_total = st.exposure_ms * 1e-3 * len(st.centres)
-    for li, m in enumerate(run.layer_mats):
+    # regions: every layer (host material, arrays (nx, nz, S)), then every inclusion (arrays over the occupied voxels)
+    regions = [(li, m, run.layer_names[li], li, -1, fl[:, :, li, :], ab[:, :, li, :], vol[:, :, li, :])
+               for li, m in enumerate(run.layer_mats)]
+    if run.imap is not None and fl_i is not None:
+        for r, m in enumerate(run.incl_mats):
+            msk = (run.imap.occ_region == r + 1).astype(float)
+            regions.append((("incl", r), m, run.imap.names[r], -1, r, fl_i * msk, ab_i * msk,
+                            run.imap.occ_volume_mm3 * msk))
+    for key, m, name, li, ir, fl_l, ab_l, v_l in regions:
         opt, ms = eng.optics[m], mats[m]
-        name = run.layer_names[li]
-        fl_l, ab_l, v_l = fl[:, :, li, :], ab[:, :, li, :], vol[:, :, li, :]
         dyes = list(opt.mua_dyes_per_mm)
         if tg.fluorescence and dyes:
             mua_line = {d: float(optics_mod.average_over_line(a_, st.line)) for d, a_ in opt.mua_dyes_per_mm.items()}
@@ -672,26 +762,26 @@ def _build_sources(eng, run: BlockRun, st, fl, ab, vol, bleach_state, sensitive,
             absd, beff = {}, {}
             for d in dyes:
                 absd[d] = ab_l * (mua_line[d] / mua_tot) if tg.absorption else fl_l * v_l * mua_line[d]
-                s0 = bleach_state.get((li, d))
+                s0 = bleach_state.get((key, d))
                 if s0 is None:
                     s0 = np.ones_like(fl_l)
                 if active:
-                    key = (d, round(ex, 3), st.index)
-                    eps = eng.eps_line_cache.get(key)
+                    ekey = (d, round(ex, 3), st.index)
+                    eps = eng.eps_line_cache.get(ekey)
                     if eps is None:
                         spec = eng.fl[d]
                         eps = spec.extinction * cap.EXTINCTION_REFERENCE_M_CM * float(
                             optics_mod.average_over_line(optics_mod.to_legacy(spec).excitation(GRID), st.line))
-                        eng.eps_line_cache[key] = eps
+                        eng.eps_line_cache[ekey] = eps
                     photons_cm2_s = fl_l * 100.0 * ex * cap.sensor_mod.PHOTONS_PER_MW_S_PER_NM
                     dose = cap._SIGMA_CM2_PER_EPS * eps * photons_cm2_s * t_total
                     x = eng.phi_b[d] * dose
                     mean_f = np.where(x > 1e-9, -np.expm1(-x) / np.maximum(x, 1e-300), 1.0 - 0.5 * x)
                     beff[d] = s0 * mean_f
-                    bleach_state[(li, d)] = s0 * np.exp(-x)
+                    bleach_state[(key, d)] = s0 * np.exp(-x)
                 else:
                     beff[d] = s0
-                    bleach_state[(li, d)] = s0
+                    bleach_state[(key, d)] = s0
             conc = {dd.fluorophore: 0.0 for dd in ms.dyes}
             for dd in ms.dyes:
                 conc[dd.fluorophore] += dd.concentration_uM
@@ -713,11 +803,11 @@ def _build_sources(eng, run: BlockRun, st, fl, ab, vol, bleach_state, sensitive,
                             absd[pair.donor] * eff * beff[pair.donor] * opt.quantum_yields[pair.acceptor])
             for d in dyes:
                 if float(srcs[d].max()) > 0.0:
-                    out_parts.append((Channel(ex, li, d, f"{name}|{d}", f"dye:{d}@{name}", True), srcs[d]))
+                    out_parts.append((Channel(ex, li, d, f"{name}|{d}", f"dye:{d}@{name}", True, ir), srcs[d]))
         if ms.aqueous and tg.raman and st.raman is not None and sensitive:
             sr = fl_l * v_l * cap.raman_mu_phi_per_mm(ex) * ms.raman_strength
             if float(sr.max()) > 0.0:
-                out_parts.append((Channel(ex, li, "raman", f"{name}|raman", f"raman@{name}", False), sr))
+                out_parts.append((Channel(ex, li, "raman", f"{name}|raman", f"raman@{name}", False, ir), sr))
 
 
 # --------------------------------------------------------------------------------------------

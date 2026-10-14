@@ -1146,13 +1146,22 @@ def _block_results(res: CaptureResult, eng: _Engine, steps: list[_Step]) -> None
     for run in eng.blocks:
         res.blocks.append({"object_id": run.object_id, "layer_names": list(run.layer_names),
                            "footprint_mm": [float(run.footprint_mm[0]), float(run.footprint_mm[1])],
-                           "world_from_local": np.asarray(run.world_from_local, float).tolist()})
+                           "world_from_local": np.asarray(run.world_from_local, float).tolist(),
+                           "inclusions": [dict(m) for m in getattr(run, "incl_meta", [])]})
         res.volumes[run.object_id] = {
             "grid": run.grid, "layer_names": list(run.layer_names),
             "fluence": {ex: run.fluence[ex] for ex in run.ex_list},
             "absorbed": {ex: run.absorbed[ex] for ex in run.ex_list},
             "source": dict(run.sources),
             "units": {"fluence": "mW/mm^2", "absorbed": "mW", "source": "mW"}}
+        imap = getattr(run, "imap", None)
+        if imap is not None:       # v1.2: inclusion tallies on the inclusion map (axis order x, y, z)
+            res.volumes[run.object_id]["inclusions"] = {
+                "names": list(imap.names), "voxel_mm": imap.voxel_mm, "origin_mm": list(imap.origin_mm),
+                "shape": list(imap.shape), "region": imap.region,
+                "fluence": {ex: run.incl_fluence[ex] for ex in run.ex_list if ex in run.incl_fluence},
+                "absorbed": {ex: run.incl_absorbed[ex] for ex in run.ex_list if ex in run.incl_absorbed},
+                "source": dict(run.incl_sources)}
 
 
 # --------------------------------------------------------------------------------------------

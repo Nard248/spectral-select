@@ -96,6 +96,28 @@ returned radiance is in mW/(mm^2 sr) for those powers; multiply by the area-norm
 density ``e_k(lambda)`` [1/nm] to get mW/(mm^2 sr nm).  Common random numbers are used across
 emission nodes (same source samples and random streams), which smooths spectra.
 
+Inclusions (v1.2)
+-----------------
+``BlockGeometry.inclusions`` (sphere / ellipsoid / cylinder / box, :mod:`spectraforge.studio.inclusions`) are embedded in
+the layer stack.  The layer planes stay exact; the inclusions live on a regular Cartesian voxel map over the block's
+bounding box (:func:`make_inclusion_map`, voxel ``VolumeMCSettings.inclusion_voxel_mm``, ``k^3 = 8`` analytic
+supersamples per voxel, uint8 region id, ``0`` = layer material, ``r >= 1`` = inclusion ``r``).  Conventions:
+
+* **Overlaps**: the LATER inclusion (higher list index) wins, per sample point.
+* **Mixed voxels are not averaged**: a voxel takes the majority region id among its samples that lie inside the block
+  (ties go to the inclusion; a voxel with no sample inside the block uses all its samples, so that the sliver under a
+  slanted top surface is not left as a host crust); the voxel is then optically homogeneous.  Its volume inside the block is
+  ``voxel^3 x (samples in block)/8``.
+* **Index-matched**: no Fresnel / refraction at an inclusion boundary; the refractive index is the host layer's.
+* Photon stepping, tallies, sources and the peel-off estimator: see :mod:`spectraforge.studio.transport3d_mc`.
+* **Tally split**: the layer-conforming tallies (``absorbed_mW``, ``fluence_mW_mm2``, emission sources) describe the HOST
+  material only (fluence = host track length / host volume of the voxel, host volume = voxel volume minus the inclusion
+  voxels' volume it contains); ``inclusion_absorbed_mW`` / ``inclusion_fluence_mW_mm2`` (dense over the map) describe
+  the inclusions.  Both together conserve the absorbed power.
+* **Inclusion sources**: ``inclusion_sources`` (C, nx, ny, nz) emitted power per map voxel and channel; packets start
+  uniformly inside the in-block part of the voxel.  Host sources are never emitted from inside an inclusion voxel.
+* A block without inclusions takes exactly the v1.1 code path (bit-identical results).
+
 Determinism: photons are cut into fixed batches (size depends only on N), every batch re-seeds the
 generator from ``(seed, batch)`` and owns private tallies that are summed in batch order, so
 results are bit-identical for any thread count.  float64 accumulation.
@@ -114,6 +136,7 @@ from spectraforge.studio.contracts import (
     EmissionTallies,
     ExcitationTallies,
     FaceGrid,
+    InclusionMap,
     RegionOptics,
     VoxelGrid,
 )
@@ -162,6 +185,10 @@ def build_block_geometry(experiment: Experiment, object_index: int) -> BlockGeom
     T = np.eye(4)
     T[:3, :3] = R
     T[:3, 3] = p
+    try:
+        incl_mats = [ids.index(i.material_id) for i in shape.inclusions]
+    except ValueError as e:
+        raise KeyError(f"layered block {obj.id!r} has an inclusion with an unknown material: {e}") from None
     return BlockGeometry(
         object_index=object_index,
         footprint_mm=(float(shape.footprint_mm[0]), float(shape.footprint_mm[1])),
@@ -169,6 +196,9 @@ def build_block_geometry(experiment: Experiment, object_index: int) -> BlockGeom
         layer_material=mats,
         plane_coeffs=planes_from_layers(shape.footprint_mm, [l.thickness for l in shape.layers]),
         world_from_local=T,
+        inclusion_names=[i.name for i in shape.inclusions],
+        inclusion_material=incl_mats,
+        inclusions=list(shape.inclusions),
     )
 
 
@@ -291,6 +321,183 @@ def _split_faces(flat: np.ndarray, faces: dict[str, FaceGrid]) -> dict[str, np.n
 
 
 # ============================================================================================
+# Inclusion map (v1.2)
+# ============================================================================================
+INCLUSION_SUPERSAMPLE = 2          # k: k^3 analytic samples per map voxel
+INCLUSION_MAX_VOXELS = 8_000_000   # the voxel size is coarsened (x1.25 steps) until the map fits
+COARSE_BLOCK = 4                   # voxels per edge of the coarse occupancy cells (the kernels hard-code 2^2)
+
+
+def _sample_positions(imap_origin, v, k, ijk):
+    """Sample points ``(n, k^3, 3)`` of the voxels ``ijk`` (n, 3 ints)."""
+    off = (np.arange(k) + 0.5) / k
+    a, b, c = np.meshgrid(off, off, off, indexing="ij")
+    offs = np.stack([a.ravel(), b.ravel(), c.ravel()], 1)                                    # (k^3, 3)
+    org = np.asarray(imap_origin, float)
+    return org[None, None, :] + (ijk[:, None, :] + offs[None, :, :]) * v
+
+
+def _in_block(geom: BlockGeometry, pts) -> np.ndarray:
+    """Inside the block (``0 <= y <= top(x, z)``, within the footprint) for points ``(..., 3)``."""
+    X, Z = geom.footprint_mm
+    a, b, c = _top_plane(geom)
+    x, y, z = pts[..., 0], pts[..., 1], pts[..., 2]
+    return (np.abs(x) <= X / 2) & (np.abs(z) <= Z / 2) & (y >= 0.0) & (y <= a + b * x + c * z)
+
+
+def make_inclusion_map(geom: BlockGeometry, settings: VolumeMCSettings, k: int = INCLUSION_SUPERSAMPLE):
+    """Voxelise ``geom.inclusions`` on a regular map over the block's bounding box (see the module docstring).
+
+    Returns ``None`` when the block has no inclusion.  The result is cached on the geometry."""
+    if geom.n_inclusions == 0:
+        return None
+    from spectraforge.studio import inclusions as incl
+
+    v_req = float(settings.inclusion_voxel_mm)
+    key = ("imap", round(v_req, 12), int(k))
+    cached = geom._cache.get(key)
+    if cached is not None:
+        return cached
+    X, Z = geom.footprint_mm
+    ymax = max(_max_height(geom), 1e-6)
+    v = v_req
+    while (math.ceil(X / v - 1e-9) * math.ceil(ymax / v - 1e-9) * math.ceil(Z / v - 1e-9)) > INCLUSION_MAX_VOXELS:
+        v *= 1.25
+    nx, ny, nz = (max(1, int(math.ceil(X / v - 1e-9))), max(1, int(math.ceil(ymax / v - 1e-9))),
+                  max(1, int(math.ceil(Z / v - 1e-9))))
+    org = np.array([-X / 2, 0.0, -Z / 2])
+    R = geom.n_inclusions
+    if R > 255:
+        raise ValueError("at most 255 inclusions")
+    ns = k ** 3
+    off = (np.arange(k) + 0.5) / k
+    ids = np.zeros((ns, nx, ny, nz), np.uint8)
+    boxes = []
+    for j, inc in enumerate(geom.inclusions):
+        lo, hi = incl.bbox(inc)
+        i0 = np.maximum(np.floor((lo - org) / v).astype(int), 0)
+        i1 = np.minimum(np.floor((hi - org) / v).astype(int) + 1, [nx, ny, nz])
+        boxes.append((i0, i1))
+    s = 0
+    for a in range(k):
+        for b in range(k):
+            for c in range(k):
+                for j, inc in enumerate(geom.inclusions):
+                    i0, i1 = boxes[j]
+                    if np.any(i1 <= i0):
+                        continue
+                    xs = org[0] + (np.arange(i0[0], i1[0]) + off[a]) * v
+                    ys = org[1] + (np.arange(i0[1], i1[1]) + off[b]) * v
+                    zs = org[2] + (np.arange(i0[2], i1[2]) + off[c]) * v
+                    m = incl.inside(inc, xs[:, None, None], ys[None, :, None], zs[None, None, :])
+                    sub = ids[s, i0[0]:i1[0], i0[1]:i1[1], i0[2]:i1[2]]
+                    sub[m] = j + 1                                           # later inclusion wins
+                s += 1
+    flat = ids.reshape(ns, -1)
+    cand = np.nonzero((flat != 0).any(0))[0]
+    region = np.zeros(nx * ny * nz, np.uint8)
+    n_in_all = np.zeros(nx * ny * nz, np.uint8)
+    if cand.size:
+        ijk = np.stack(np.unravel_index(cand, (nx, ny, nz)), 1)
+        pts = _sample_positions(org, v, k, ijk)                                  # (n, ns, 3); sample order matches ids
+        inb = _in_block(geom, pts)                                               # (n, ns)
+        idc = flat[:, cand].T                                                    # (n, ns)
+        n_in_c = inb.sum(1)
+        # votes among the samples inside the block; a voxel that only grazes the block (no sample inside, e.g. the
+        # sliver under a slanted top surface) votes with all its samples so that it is not left as a host crust
+        use = np.where((n_in_c > 0)[:, None], inb, True)
+        votes = np.zeros((cand.size, R + 1), np.int32)
+        for r in range(R + 1):
+            votes[:, r] = ((idc == r) & use).sum(1)
+        incl_votes = votes[:, 1:]
+        best = R - np.argmax(incl_votes[:, ::-1], axis=1)                        # ties -> the higher id
+        bv = np.take_along_axis(votes, best[:, None], 1)[:, 0]
+        take = (bv > 0) & (bv >= votes[:, 0])
+        region[cand[take]] = best[take].astype(np.uint8)
+        n_in_all[cand] = n_in_c.astype(np.uint8)
+    occ_flat = np.nonzero(region)[0].astype(np.int64)
+    occ_index = np.full(region.size, -1, np.int32)
+    occ_index[occ_flat] = np.arange(occ_flat.size, dtype=np.int32)
+    n_in = n_in_all[occ_flat]
+    vol = (v ** 3) * n_in.astype(float) / ns
+    B = COARSE_BLOCK
+    cn = (-(-nx // B), -(-ny // B), -(-nz // B))
+    pad = np.zeros((cn[0] * B, cn[1] * B, cn[2] * B), np.uint8)
+    pad[:nx, :ny, :nz] = (region.reshape(nx, ny, nz) > 0)
+    coarse = pad.reshape(cn[0], B, cn[1], B, cn[2], B).max(axis=(1, 3, 5)).astype(np.uint8)
+    imap = InclusionMap(voxel_mm=float(v), origin_mm=(float(org[0]), float(org[1]), float(org[2])), shape=(nx, ny, nz),
+                        region=region.reshape(nx, ny, nz), names=list(geom.inclusion_names), occ_flat=occ_flat,
+                        occ_region=region[occ_flat], occ_volume_mm3=vol, requested_voxel_mm=v_req, coarse_block=B,
+                        coarse=coarse, occ_index=occ_index, supersample=int(k), n_in_block=n_in)
+    geom._cache[key] = imap
+    return imap
+
+
+def inclusion_covered_volume(geom: BlockGeometry, grid: VoxelGrid, imap) -> np.ndarray:
+    """``(nx, nz, L, S)`` volume (mm^3) of every layer-conforming tally voxel that is covered by inclusion voxels
+    (sample-based: each in-block sample of an occupied voxel carries ``voxel^3 / k^3``)."""
+    cov = np.zeros(grid.shape)
+    if imap is None or imap.n_occupied == 0:
+        return cov
+    k = imap.supersample
+    nx_, ny_, nz_ = imap.shape
+    ijk = np.stack(np.unravel_index(imap.occ_flat, imap.shape), 1)
+    pts = _sample_positions(imap.origin_mm, imap.voxel_mm, k, ijk)
+    inb = _in_block(geom, pts)
+    P = pts[inb]
+    if P.size == 0:
+        return cov
+    x, y, z = P[:, 0], P[:, 1], P[:, 2]
+    pc = geom.plane_coeffs
+    H = pc[None, :, 0] + pc[None, :, 1] * x[:, None] + pc[None, :, 2] * z[:, None]          # (n, L) layer tops
+    lay = np.minimum(np.argmax(y[:, None] <= H + 1e-12, axis=1), grid.n_layers - 1)
+    lo = np.where(lay > 0, H[np.arange(len(y)), np.maximum(lay - 1, 0)], 0.0)
+    t = H[np.arange(len(y)), lay] - lo
+    sub = np.clip(np.floor((y - lo) / np.maximum(t, 1e-300) * grid.sublayers).astype(int), 0, grid.sublayers - 1)
+    X, Z = geom.footprint_mm
+    ix = np.clip(np.floor((x + X / 2) / (X / grid.nx)).astype(int), 0, grid.nx - 1)
+    iz = np.clip(np.floor((z + Z / 2) / (Z / grid.nz)).astype(int), 0, grid.nz - 1)
+    np.add.at(cov, (ix, iz, lay, sub), imap.voxel_mm ** 3 / k ** 3)
+    return cov
+
+
+def host_voxel_volumes(geom: BlockGeometry, grid: VoxelGrid, imap) -> np.ndarray:
+    """Volume of the HOST material of every layer-conforming voxel: exact voxel volume minus the covered part."""
+    vol = voxel_volumes(geom, grid)
+    if imap is None:
+        return vol
+    return np.maximum(vol - inclusion_covered_volume(geom, grid, imap), 0.0)
+
+
+def _pack_inclusions(imap, mua_i=None, mus_i=None, g_i=None):
+    """``inc`` tuple of the Monte Carlo kernels (see :mod:`spectraforge.studio.transport3d_mc`)."""
+    if imap is None:
+        return (np.zeros(1, np.uint8), np.full(1, -1, np.int32), np.zeros(1, np.uint8),
+                np.zeros(10, np.int64), np.ones(5), np.zeros((3, 1)), np.zeros(1, np.int64))
+    R = len(imap.names)
+    prop = np.zeros((3, R + 1))
+    prop[0, 1:], prop[1, 1:], prop[2, 1:] = mua_i, mus_i, g_i
+    nx, ny, nz = imap.shape
+    cn = imap.coarse.shape
+    ii = np.array([nx, ny, nz, imap.coarse_block, cn[0], cn[1], cn[2], R, imap.n_occupied, 0], np.int64)
+    ff = np.array([imap.origin_mm[0], imap.origin_mm[1], imap.origin_mm[2], imap.voxel_mm, 1.0 / imap.voxel_mm])
+    return (np.ascontiguousarray(imap.region.ravel()), imap.occ_index, _coarse_distance(imap), ii, ff,
+            np.ascontiguousarray(prop), imap.occ_flat)
+
+
+def _coarse_distance(imap) -> np.ndarray:
+    """Flat uint8 field of the coarse cells: 0 for a zone cell (contains an inclusion voxel), else the chessboard
+    distance (in coarse cells, capped at 255) to the nearest zone cell.  Lets the photon stepper skip the coarse-cell
+    traversal when the segment is shorter than the free distance."""
+    from scipy.ndimage import distance_transform_cdt
+
+    z = imap.coarse == 0
+    if z.all():
+        return np.full(z.size, 255, np.uint8)
+    return np.ascontiguousarray(np.minimum(distance_transform_cdt(z, metric="chessboard"), 255).astype(np.uint8).ravel())
+
+
+# ============================================================================================
 # Launch preparation (entry Fresnel) -- vectorised numpy
 # ============================================================================================
 def _fresnel_np(n1, n2, c1):
@@ -392,10 +599,13 @@ def _seeds(seed: int, n_batches: int) -> np.ndarray:
 
 def _run(mode: int, geom: BlockGeometry, mua, mus, g, n, fres: bool, cam: np.ndarray, settings,
          faces, grid, n_photons: int, seed: int, pidx, lp, ld, llay, wph, src, qv, wscale: float,
-         C: int, do_vox: bool, peel: bool = True):
+         C: int, do_vox: bool, peel: bool = True, imap=None, incl_optics=None, per_photon: bool = False):
+    """One Monte Carlo pass.  Returns a dict: ``abs, flu`` (layer voxels), ``abs_i, flu_i`` (occupied inclusion
+    voxels), ``rad, orig, diag, topx, visible``."""
     from spectraforge.studio import transport3d_mc as k
 
     L = len(geom.layer_names)
+    R = 0 if imap is None else len(imap.names)
     cos_a = math.cos(math.radians(settings.acceptance_half_angle_deg))
     pl, pn = _plane_arrays(geom)
     fg, fgi, cnorm, visible = _face_tables(geom, faces, cam, cos_a)
@@ -408,42 +618,68 @@ def _run(mode: int, geom: BlockGeometry, mua, mus, g, n, fres: bool, cam: np.nda
     fp = np.array([X / 2, Z / 2, X / grid.nx, Z / grid.nz, cam[0], cam[1], cam[2], cos_a,
                    2.0 * math.pi * (1.0 - cos_a), *t1, *t2])
     peel = bool(peel and visible["top"])
-    ip = np.array([grid.nx, grid.nz, L, grid.sublayers, int(fres), mode, C, int(do_vox), int(peel)], np.int64)
+    has_incl = imap is not None
+    ip = np.array([grid.nx, grid.nz, L, grid.sublayers, int(fres), mode, C, int(do_vox), int(peel), int(has_incl),
+                   int(per_photon)], np.int64)
     lay = np.ascontiguousarray(np.stack([mua, mus, g, n]).astype(float))
+    if has_incl:
+        mua_i, mus_i, g_i = incl_optics
+        inc = _pack_inclusions(imap, mua_i, mus_i, g_i)
+        lay_min = lay.copy()                      # lower bound of mu_t anywhere (for the peel-off skip test)
+        mut_min = float(min(np.min(lay[0] + lay[1]), np.min(mua_i + mus_i)))
+        lay_min[0] = np.minimum(lay[0] + lay[1], mut_min)
+        lay_min[1] = 0.0
+        lay_min = np.ascontiguousarray(lay_min)
+    else:
+        inc = _pack_inclusions(None)
+        lay_min = lay
     nvox = grid.nx * grid.nz * L * grid.sublayers if do_vox else 1
+    nocc = imap.n_occupied if (has_incl and do_vox) else 1
+    ntop = int(fgi[0, 0] * fgi[0, 1]) if mode == 0 else 1
     bs = _batch_size(n_photons)
     nb_total = int(math.ceil(n_photons / bs))
     seeds = _seeds(seed, nb_total)
-    per_batch = 8 * (2 * nvox + ncell * C + ncell * (2 + L) + k.N_DIAG)
+    per_batch = 8 * (2 * nvox + 2 * nocc + ncell * C + ncell * (2 + L + R) + ntop + k.N_DIAG)
     chunk = int(min(128, max(8, 3.0e8 // max(per_batch, 1))))
     acc_abs = np.zeros(nvox)
     acc_flu = np.zeros(nvox)
+    acc_abs_i = np.zeros(nocc)
+    acc_flu_i = np.zeros(nocc)
     acc_rad = np.zeros((ncell, C))
-    acc_orig = np.zeros((ncell, 2 + L))
+    acc_orig = np.zeros((ncell, 2 + L + R))
     acc_diag = np.zeros(k.N_DIAG)
+    acc_top = np.zeros(ntop)
     for b0 in range(0, nb_total, chunk):
         nb = min(chunk, nb_total - b0)
         ab = np.zeros((nb, nvox))
         fl = np.zeros((nb, nvox))
+        abi = np.zeros((nb, nocc))
+        fli = np.zeros((nb, nocc))
         rd = np.zeros((nb, ncell, C))
-        og = np.zeros((nb, ncell, 2 + L))
+        og = np.zeros((nb, ncell, 2 + L + R))
         dg = np.zeros((nb, k.N_DIAG))
+        tp = np.zeros((nb, ntop))
         numba.set_parallel_chunksize(1)      # dynamic load balancing (P/E cores); results unaffected
         try:
-            k.run_chunk(b0, nb, bs, n_photons, seeds, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
-                        ld, llay, float(wph), src, qv, float(wscale), ab, fl, rd, og, dg)
+            k.run_chunk(b0, nb, bs, n_photons, seeds, fp, ip, pl, pn, lay, lay_min, fg, fgi, cnorm, pidx, lp,
+                        ld, llay, float(wph), src, qv, float(wscale), ab, fl, rd, og, dg, inc, abi, fli, tp)
         finally:
             numba.set_parallel_chunksize(0)
         acc_abs += ab.sum(0)
         acc_flu += fl.sum(0)
+        acc_abs_i += abi.sum(0)
+        acc_flu_i += fli.sum(0)
         acc_rad += rd.sum(0)
         acc_orig += og.sum(0)
         acc_diag += dg.sum(0)
-    return acc_abs, acc_flu, acc_rad, acc_orig, acc_diag, visible
+        acc_top += tp.sum(0)
+    return {"abs": acc_abs, "flu": acc_flu, "abs_i": acc_abs_i, "flu_i": acc_flu_i, "rad": acc_rad,
+            "orig": acc_orig, "diag": acc_diag, "topx": acc_top, "visible": visible}
 
 
 def _check_optics(geom: BlockGeometry, o: RegionOptics, toggles: PhysicsToggles | None):
     L = len(geom.layer_names)
+    R = geom.n_inclusions
     mua = np.asarray(o.mua_per_mm, float).reshape(-1)
     mus = np.asarray(o.mus_per_mm, float).reshape(-1)
     g = np.asarray(o.g, float).reshape(-1)
@@ -454,26 +690,59 @@ def _check_optics(geom: BlockGeometry, o: RegionOptics, toggles: PhysicsToggles 
         raise ValueError("invalid optical properties (mua, mus >= 0; n >= 1; |g| < 1)")
     if toggles is not None and not toggles.scattering:
         mus = np.zeros_like(mus)
-    return mua, mus, g, n
+    inc = None
+    if R:
+        ia = np.asarray(o.incl_mua, float).reshape(-1)
+        isc = np.asarray(o.incl_mus, float).reshape(-1)
+        ig = np.asarray(o.incl_g, float).reshape(-1)
+        if not (ia.size == isc.size == ig.size == R):
+            raise ValueError(f"RegionOptics must carry incl_mua/incl_mus/incl_g with one entry per inclusion ({R})")
+        if (ia < 0).any() or (isc < 0).any() or (np.abs(ig) >= 1).any():
+            raise ValueError("invalid inclusion optical properties (mua, mus >= 0; |g| < 1)")
+        if toggles is not None and not toggles.scattering:
+            isc = np.zeros_like(isc)
+        inc = (ia, isc, ig)
+    return mua, mus, g, n, inc
+
+
+def _imap_for(geom: BlockGeometry, settings: VolumeMCSettings, imap):
+    if geom.n_inclusions == 0:
+        return None
+    return imap if imap is not None else make_inclusion_map(geom, settings)
 
 
 def excitation_pass(geom: BlockGeometry, optics: RegionOptics, launch: BlockLaunch, camera_dir_local,
                     settings: VolumeMCSettings, *, n_photons: int, seed: int,
-                    toggles: PhysicsToggles | None = None, peel_off: bool = True) -> ExcitationTallies:
-    """Transport the excitation light through the block. See the module docstring for units."""
+                    toggles: PhysicsToggles | None = None, peel_off: bool = True,
+                    inclusion_map: InclusionMap | None = None, per_photon_streams: bool = False) -> ExcitationTallies:
+    """Transport the excitation light through the block. See the module docstring for units.
+
+    With inclusions (``geom.inclusions``; the optics must carry ``incl_mua/incl_mus/incl_g``) the layer tallies are
+    host-only and ``inclusion_absorbed_mW`` / ``inclusion_fluence_mW_mm2`` hold the inclusion tallies; ``info`` gains
+    ``inclusion_absorbed_fraction`` (per inclusion, fraction of the incident power) and ``inclusion_names``.
+
+    ``per_photon_streams=True`` gives every photon a private random stream (a function of the seed and the photon
+    index only): two runs that differ only in the optics of a small region are then identical photon by photon until
+    a photon reaches that region (common random numbers for finite differences).  The default (one stream per batch)
+    is the v1.1 behaviour, bit for bit."""
     t0 = time.perf_counter()
-    mua, mus, g, n = _check_optics(geom, optics, toggles)
+    mua, mus, g, n, incl_opt = _check_optics(geom, optics, toggles)
     fres = True if toggles is None else bool(toggles.fresnel)
     cam = _unit(camera_dir_local)
     grid = make_voxel_grid(geom, settings)
     faces = make_face_grids(geom, settings)
     L = len(geom.layer_names)
+    imap = _imap_for(geom, settings, inclusion_map)
+    R = 0 if imap is None else len(imap.names)
     pts, tdir, layer, Pt, spec_P, P_inc = _prepare_launch(geom, launch, n, fres)
     if P_inc <= 0:
         raise ValueError("launch carries no power")
     n_photons = int(n_photons)
     Ptot = float(Pt.sum())
     zero = lambda shape: np.zeros(shape)
+    ntop = (len(faces["top"].u_edges_mm) - 1, len(faces["top"].v_edges_mm) - 1)
+    top_exit = zero(ntop)
+    abs_i = flu_i = None
     if Ptot <= 0:
         res_abs = res_flu = zero(grid.shape)
         er = {f: zero((len(faces[f].u_edges_mm) - 1, len(faces[f].v_edges_mm) - 1)) for f in FACES}
@@ -485,15 +754,23 @@ def excitation_pass(geom: BlockGeometry, optics: RegionOptics, launch: BlockLaun
         cdf /= cdf[-1]
         u = (np.arange(n_photons) + rng.random(n_photons)) / n_photons
         pidx = np.minimum(np.searchsorted(cdf, u, side="right"), Pt.size - 1).astype(np.int64)
-        res_abs, res_flu, rad, _, diag, visible = _run(
+        out = _run(
             0, geom, mua, mus, g, n, fres, cam, settings, faces, grid, n_photons, seed, pidx,
             np.ascontiguousarray(pts), np.ascontiguousarray(tdir), layer, Ptot / n_photons,
-            np.zeros((1, 1)), np.ones(1), 1.0, 1, True, peel_off)
+            np.zeros((1, 1)), np.ones(1), 1.0, 1, True, peel_off, imap, incl_opt, per_photon_streams)
+        res_abs, res_flu, rad, diag, visible = out["abs"], out["flu"], out["rad"], out["diag"], out["visible"]
         vol = voxel_volumes(geom, grid).ravel()
         res_abs = res_abs.reshape(grid.shape)
-        res_flu = np.where(vol > 0, res_flu / np.maximum(vol, 1e-300), 0.0).reshape(grid.shape)
+        if imap is None:
+            res_flu = np.where(vol > 0, res_flu / np.maximum(vol, 1e-300), 0.0).reshape(grid.shape)
+        else:
+            vh = host_voxel_volumes(geom, grid, imap).ravel()
+            res_flu = np.where(vh > 1e-6 * vol, res_flu / np.maximum(vh, 1e-300), 0.0).reshape(grid.shape)
         er = _split_faces(rad, faces)
         er = {f: v[..., 0] for f, v in er.items()}
+        top_exit = out["topx"].reshape(ntop)
+        if imap is not None:
+            abs_i, flu_i = out["abs_i"], out["flu_i"]
     norm = 1.0 / P_inc
     info = {
         "specular": spec_P * norm, "lost_steps": float(diag[3]) * norm,
@@ -501,23 +778,40 @@ def excitation_pass(geom: BlockGeometry, optics: RegionOptics, launch: BlockLaun
         "R_top": float(diag[0]) * norm, "T_bottom": float(diag[1]) * norm, "T_sides": float(diag[2]) * norm,
         "layer_absorbed_fraction": [float(res_abs[:, :, l, :].sum()) * norm for l in range(L)],
         "seconds": time.perf_counter() - t0, "launch_samples": int(pts.shape[0]),
-        "mean_steps_per_photon": float(diag[6]) / n_photons,
+        "mean_steps_per_photon": float(diag[6]) / max(n_photons, 1),
     }
-    R, T = info["R_top"], info["T_bottom"] + info["T_sides"]
+    R_, T = info["R_top"], info["T_bottom"] + info["T_sides"]
     A = float(diag[5]) * norm
-    info["energy_balance"] = R + T + A + info["specular"] + info["lost_steps"] - info["roulette_net"]
+    info["energy_balance"] = R_ + T + A + info["specular"] + info["lost_steps"] - info["roulette_net"]
+    inc_abs_dense = inc_flu_dense = None
+    if imap is not None:
+        info["inclusion_names"] = list(imap.names)
+        info["inclusion_voxel_mm"] = imap.voxel_mm
+        if abs_i is None:
+            abs_i = np.zeros(imap.n_occupied)
+            flu_i = np.zeros(imap.n_occupied)
+        info["inclusion_absorbed_fraction"] = [
+            float(abs_i[imap.occ_region == r].sum()) * norm for r in range(1, R + 1)]
+        vi = np.maximum(imap.occ_volume_mm3, 1e-300)
+        inc_abs_dense = imap.dense(abs_i)
+        inc_flu_dense = imap.dense(np.where(imap.occ_volume_mm3 > 0, flu_i / vi, 0.0))
     return ExcitationTallies(
         ex_nm=launch.ex_nm, grid=grid, absorbed_mW=res_abs, fluence_mW_mm2=res_flu, elastic_radiance=er,
-        faces=faces, diffuse_reflectance=R, transmittance=T, absorbed_fraction=A, n_photons=n_photons,
-        info=info)
+        faces=faces, diffuse_reflectance=R_, transmittance=T, absorbed_fraction=A, n_photons=n_photons,
+        info=info, top_exit_mW=top_exit, inclusion_map=imap, inclusion_absorbed_mW=inc_abs_dense,
+        inclusion_fluence_mW_mm2=inc_flu_dense)
 
 
 def emission_pass(geom: BlockGeometry, optics_nodes: list[RegionOptics], sources: np.ndarray,
                   channels: list[str], camera_dir_local, settings: VolumeMCSettings, *, n_photons: int,
-                  seed: int, toggles: PhysicsToggles | None = None, peel_off: bool = True) -> EmissionTallies:
+                  seed: int, toggles: PhysicsToggles | None = None, peel_off: bool = True,
+                  inclusion_sources: np.ndarray | None = None,
+                  inclusion_map: InclusionMap | None = None, per_photon_streams: bool = False) -> EmissionTallies:
     """Radiance leaving each face toward the camera per source channel, per emission node.
 
     ``sources``: ``(C, nx, nz, L, S)`` emitted power per voxel (mW, before the spectral shape).
+    ``inclusion_sources`` (v1.2): ``(C, nx', ny', nz')`` emitted power per inclusion-map voxel and channel (mW), the
+    same channels as ``sources`` (a channel is normally non-zero in only one of the two).
     Returns radiance ``(nu, nv, Ne, C)`` per face in mW/(mm^2 sr) for those powers; multiply by
     ``e_k(lambda)`` [1/nm]. ``n_photons`` is per node.
 
@@ -531,6 +825,8 @@ def emission_pass(geom: BlockGeometry, optics_nodes: list[RegionOptics], sources
     grid = make_voxel_grid(geom, settings)
     faces = make_face_grids(geom, settings)
     L = len(geom.layer_names)
+    imap = _imap_for(geom, settings, inclusion_map)
+    R = 0 if imap is None else len(imap.names)
     sources = np.asarray(sources, float)
     C = sources.shape[0]
     if sources.shape[1:] != grid.shape:
@@ -543,11 +839,24 @@ def emission_pass(geom: BlockGeometry, optics_nodes: list[RegionOptics], sources
     nodes = list(optics_nodes)
     Ne = len(nodes)
     src = np.ascontiguousarray(np.moveaxis(sources, 0, -1).reshape(-1, C))       # (V, C)
+    if inclusion_sources is not None:
+        if imap is None:
+            raise ValueError("inclusion_sources given but the block has no inclusions")
+        isrc = np.asarray(inclusion_sources, float)
+        if isrc.shape != (C,) + tuple(imap.shape):
+            raise ValueError(f"inclusion_sources shape {isrc.shape} does not match {(C,) + tuple(imap.shape)}")
+        if (isrc < 0).any() or not np.isfinite(isrc).all():
+            raise ValueError("inclusion_sources must be finite and non-negative")
+        occ_src = np.ascontiguousarray(isrc.reshape(C, -1)[:, imap.occ_flat].T)            # (Nocc, C)
+        src = np.ascontiguousarray(np.concatenate([src, occ_src], 0))
+    if imap is not None and inclusion_sources is None:
+        src = np.ascontiguousarray(np.concatenate([src, np.zeros((imap.n_occupied, C))], 0))
+    nvox_l = int(np.prod(grid.shape))
     qv = src.sum(1)
     Q = float(qv.sum())
     ncell = sum((len(faces[f].u_edges_mm) - 1) * (len(faces[f].v_edges_mm) - 1) for f in FACES)
     rad_all = np.zeros((ncell, Ne, C))
-    orig = np.zeros((ncell, 2 + L))
+    orig = np.zeros((ncell, 2 + L + R))
     diag_all = np.zeros((Ne, 7))
     n_photons = int(n_photons)
     visible = {}
@@ -563,22 +872,25 @@ def emission_pass(geom: BlockGeometry, optics_nodes: list[RegionOptics], sources
             nz = np.flatnonzero(qv > 0)
             pidx[bad] = nz[np.searchsorted(nz, pidx[bad]).clip(0, nz.size - 1)]
         for e, o in enumerate(nodes):
-            mua, mus, g, n = _check_optics(geom, o, toggles)
-            _, _, rad, og, dg, visible = _run(
+            mua, mus, g, n, incl_opt = _check_optics(geom, o, toggles)
+            out = _run(
                 1, geom, mua, mus, g, n, fres, cam, settings, faces, grid, n_photons, seed, pidx,
                 np.zeros((1, 3)), np.zeros((1, 3)), np.zeros(1, np.int64), 0.0, src, qv, Q / n_photons,
-                C, False, peel_off)
-            rad_all[:, e, :] = rad
-            orig += og
-            diag_all[e] = dg
+                C, False, peel_off, imap, incl_opt, per_photon_streams)
+            rad_all[:, e, :] = out["rad"]
+            orig += out["orig"]
+            diag_all[e] = out["diag"]
+            visible = out["visible"]
     radiance = _split_faces(rad_all, faces)
-    od, ol = {}, {}
+    od, ol, oi = {}, {}, {}
     w = _split_faces(orig, faces)
     for f in FACES:
         tot = w[f][..., 0]
         with np.errstate(invalid="ignore", divide="ignore"):
             od[f] = np.where(tot > 0, w[f][..., 1] / tot, np.nan)
-            ol[f] = np.where(tot[..., None] > 0, w[f][..., 2:] / tot[..., None], np.nan)
+            ol[f] = np.where(tot[..., None] > 0, w[f][..., 2:2 + L] / tot[..., None], np.nan)
+            if R:
+                oi[f] = np.where(tot[..., None] > 0, w[f][..., 2 + L:] / tot[..., None], np.nan)
     norm = 1.0 / Q if Q > 0 else 0.0
     info = {
         "visible_faces": visible, "seconds": time.perf_counter() - t0, "total_emitted_mW": Q,
@@ -588,7 +900,12 @@ def emission_pass(geom: BlockGeometry, optics_nodes: list[RegionOptics], sources
         "common_random_numbers": True,
         "mean_steps_per_photon": float(diag_all[:, 6].sum()) / max(n_photons * Ne, 1),
     }
+    if imap is not None:
+        qi = qv[nvox_l:]
+        info["inclusion_names"] = list(imap.names)
+        info["inclusion_emitted_mW"] = [float(qi[imap.occ_region == r].sum()) for r in range(1, R + 1)]
+        info["layer_emitted_mW"] = float(qv[:nvox_l].sum())
     return EmissionTallies(
         em_nodes_nm=np.array([o.lambda_nm for o in nodes], float), channels=list(channels),
         radiance=radiance, faces=faces, origin_depth_mm=od, origin_layer_fraction=ol,
-        n_photons=n_photons, info=info)
+        n_photons=n_photons, info=info, origin_inclusion_fraction=(oi if R else None))

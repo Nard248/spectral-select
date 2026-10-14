@@ -21,6 +21,18 @@ peel-off pending (``refl``: launched excitation packets and packets reflected si
 Side faces always use the cone estimator.  Events whose vertical optical depth to the top exceeds
 ``TAU_CUT`` are skipped (their contribution is < 1e-6 of the packet weight).
 
+Inclusions (v1.2): an optional Cartesian ``inc`` map (see :class:`spectraforge.studio.contracts.InclusionMap`) overrides
+the layer optics wherever its uint8 region id is >= 1.  The layer planes stay exact; the free flight is additionally
+limited by the inclusion voxel boundaries (mcxyz-style DDA) inside "zones" (coarse 4^3-voxel cells that contain an
+inclusion voxel) and by the distance to the next zone elsewhere.  The dimensionless free path ``s_left`` is carried
+across every partial move (``s_left -= d mu_t(region)``), so a change of ``mu_t`` at a voxel boundary is exact and no
+random number is consumed by a voxel crossing: a "null" inclusion (same optics as the host) therefore follows the
+same random walk as the host-only run.  Inclusions are index-matched (no Fresnel at their boundary; ``n`` is the
+host layer's).  The peel-off optical depth adds the exact inclusion correction ``sum (mu_t,incl - mu_t,layer) l`` along
+the straight line of sight.  Tallies in region 0 go to the layer arrays, tallies in inclusion voxels to the
+per-occupied-voxel inclusion arrays (``absorbed_i``, ``flu_i``).  Without inclusions every code path and every
+random number is exactly that of v1.1 (bit-identical results).
+
 Determinism: the caller splits the photons into fixed batches; each batch re-seeds the (per-thread)
 numba generator and writes into its own private tally row, so the result is independent of the
 thread count.  Rows are reduced in batch order by the caller.
@@ -48,12 +60,186 @@ N_DIAG = 7
 # fp / ip packing
 F_HX, F_HZ, F_DX, F_DZ, F_CX, F_CY, F_CZ, F_COSA, F_OM = 0, 1, 2, 3, 4, 5, 6, 7, 8
 F_T1X, F_T1Y, F_T1Z, F_T2X, F_T2Y, F_T2Z = 9, 10, 11, 12, 13, 14       # orthonormal basis of the plane normal to the camera direction
-I_NX, I_NZ, I_L, I_S, I_FRES, I_MODE, I_C, I_VOX, I_PEEL = 0, 1, 2, 3, 4, 5, 6, 7, 8
+I_NX, I_NZ, I_L, I_S, I_FRES, I_MODE, I_C, I_VOX, I_PEEL, I_INC, I_CRN = 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+CB_SHIFT = 2              # coarse occupancy cells are 2^CB_SHIFT = 4 voxels wide
+NUDGE = 1.0e-9            # mm: nudge across an inclusion voxel / zone boundary (counted in the free path)
+
+# ``inc`` tuple: (reg uint8 (nvox,), occ int32 (nvox,), crs uint8 (ncells,) [0 = zone cell, else the chessboard distance
+#                 in coarse cells to the nearest zone cell, capped at 255], ii int64 (10,), ff float64 (4,),
+#                 prop float64 (3, R + 1) [mua, mus, g] per region id (column 0 unused), occf int64 (Nocc,))
+#   ii = [nx, ny, nz, B, cnx, cny, cnz, R, Nocc, 0]; ff = [x0, y0, z0, voxel, 1/voxel]; flat index (ix * ny + iy) * nz + iz
 
 
 @njit(cache=True)
 def _thick(pl, k, x, z):
     return (pl[k + 1, 0] - pl[k, 0]) + (pl[k + 1, 1] - pl[k, 1]) * x + (pl[k + 1, 2] - pl[k, 2]) * z
+
+
+@njit(cache=True)
+def _incl_region(x, y, z, inc):
+    """Region id (0 = layer material), occupied-voxel index, voxel indices and the zone flag at a point."""
+    ii = inc[3]
+    ff = inc[4]
+    ivs = ff[4]
+    nx = ii[0]
+    ny = ii[1]
+    nz = ii[2]
+    ix = int((x - ff[0]) * ivs)
+    iy = int((y - ff[1]) * ivs)
+    iz = int((z - ff[2]) * ivs)
+    if ix < 0:
+        ix = 0
+    elif ix >= nx:
+        ix = nx - 1
+    if iy < 0:
+        iy = 0
+    elif iy >= ny:
+        iy = ny - 1
+    if iz < 0:
+        iz = 0
+    elif iz >= nz:
+        iz = nz - 1
+    if inc[2][((ix >> CB_SHIFT) * ii[5] + (iy >> CB_SHIFT)) * ii[6] + (iz >> CB_SHIFT)] != 0:     # not a zone cell
+        return 0, -1, ix, iy, iz, False
+    vi = (ix * ny + iy) * nz + iz
+    return int(inc[0][vi]), int(inc[1][vi]), ix, iy, iz, True
+
+
+@njit(cache=True)
+def _incl_dist(x, y, z, ux, uy, uz, ix, iy, iz, inzone, dmax, inc):
+    """Distance to the next inclusion-map event along the ray: the next voxel boundary inside a zone, otherwise the
+    entry into the next occupied coarse cell (``BIG`` if it is farther than ``dmax``)."""
+    ff = inc[4]
+    vs = ff[3]
+    if inzone:
+        d = BIG
+        if ux > 1.0e-14:
+            dd = (ff[0] + (ix + 1) * vs - x) / ux
+            if dd < d:
+                d = dd
+        elif ux < -1.0e-14:
+            dd = (ff[0] + ix * vs - x) / ux
+            if dd < d:
+                d = dd
+        if uy > 1.0e-14:
+            dd = (ff[1] + (iy + 1) * vs - y) / uy
+            if dd < d:
+                d = dd
+        elif uy < -1.0e-14:
+            dd = (ff[1] + iy * vs - y) / uy
+            if dd < d:
+                d = dd
+        if uz > 1.0e-14:
+            dd = (ff[2] + (iz + 1) * vs - z) / uz
+            if dd < d:
+                d = dd
+        elif uz < -1.0e-14:
+            dd = (ff[2] + iz * vs - z) / uz
+            if dd < d:
+                d = dd
+        if d < 0.0:
+            d = 0.0
+        return d
+    ii = inc[3]
+    cs = (1 << CB_SHIFT) * vs
+    cx = ix >> CB_SHIFT
+    cy = iy >> CB_SHIFT
+    cz = iz >> CB_SHIFT
+    # chessboard distance (in coarse cells) to the nearest zone cell: a segment shorter than (kk - 2) cells cannot
+    # reach a zone cell wherever it starts inside this cell and whatever its direction
+    kk = int(inc[2][(cx * ii[5] + cy) * ii[6] + cz])
+    if kk >= 3 and dmax <= (kk - 2) * cs:
+        return BIG
+    tx = BIG
+    ty = BIG
+    tz = BIG
+    sx = 0
+    sy = 0
+    sz = 0
+    if ux > 1.0e-14:
+        sx = 1
+        tx = (ff[0] + (cx + 1) * cs - x) / ux
+    elif ux < -1.0e-14:
+        sx = -1
+        tx = (ff[0] + cx * cs - x) / ux
+    if uy > 1.0e-14:
+        sy = 1
+        ty = (ff[1] + (cy + 1) * cs - y) / uy
+    elif uy < -1.0e-14:
+        sy = -1
+        ty = (ff[1] + cy * cs - y) / uy
+    if uz > 1.0e-14:
+        sz = 1
+        tz = (ff[2] + (cz + 1) * cs - z) / uz
+    elif uz < -1.0e-14:
+        sz = -1
+        tz = (ff[2] + cz * cs - z) / uz
+    tmin = tx
+    if ty < tmin:
+        tmin = ty
+    if tz < tmin:
+        tmin = tz
+    if tmin > dmax:                       # the segment stays inside the (empty) coarse cell: the common case
+        return BIG
+    cnx = ii[4]
+    cny = ii[5]
+    cnz = ii[6]
+    dtx = BIG
+    dty = BIG
+    dtz = BIG
+    if sx != 0:
+        dtx = cs / abs(ux)
+    if sy != 0:
+        dty = cs / abs(uy)
+    if sz != 0:
+        dtz = cs / abs(uz)
+    crs = inc[2]
+    for _ in range(100000):
+        if tx <= ty and tx <= tz:
+            t = tx
+            tx += dtx
+            cx += sx
+        elif ty <= tz:
+            t = ty
+            ty += dty
+            cy += sy
+        else:
+            t = tz
+            tz += dtz
+            cz += sz
+        if t > dmax or cx < 0 or cy < 0 or cz < 0 or cx >= cnx or cy >= cny or cz >= cnz:
+            return BIG
+        if crs[(cx * cny + cy) * cnz + cz] == 0:
+            if t < 0.0:
+                t = 0.0
+            return t
+    return BIG
+
+
+@njit(cache=True)
+def _incl_tau_delta(x, y, z, ux, uy, uz, length, mut_layer, inc):
+    """``sum (mu_t,incl - mu_t,layer) l`` over the pieces of the straight segment inside inclusion voxels (the
+    exact optical-depth correction of a line of sight that crosses inclusions)."""
+    delta = 0.0
+    rem = length
+    prop = inc[5]
+    for _ in range(100000):
+        rid, kocc, ix, iy, iz, inz = _incl_region(x, y, z, inc)
+        d = _incl_dist(x, y, z, ux, uy, uz, ix, iy, iz, inz, rem, inc)
+        if d >= rem:
+            if rid > 0:
+                delta += (prop[0, rid] + prop[1, rid] - mut_layer) * rem
+            break
+        if rid > 0:
+            delta += (prop[0, rid] + prop[1, rid] - mut_layer) * d
+        step = d + NUDGE
+        x += ux * step
+        y += uy * step
+        z += uz * step
+        rem -= step
+        if rem <= 0.0:
+            break
+    return delta
 
 
 @njit(cache=True)
@@ -246,7 +432,7 @@ def _tau_min(x, y, z, i, pl, lay, L):
 
 
 @njit(cache=True)
-def _peel_top(x, y, z, i, pl, pn, lay, fres, cx, cy, cz, hx, hz, L, ch, pk, du, gx, gz, prev, res):
+def _peel_top(x, y, z, i, pl, pn, lay, fres, cx, cy, cz, hx, hz, L, ch, pk, du, gx, gz, prev, res, inc, has_incl):
     """Next-event (peel-off) transfer factor from the point ``(x, y, z)`` in layer ``i`` to the camera
     through the TOP face.
 
@@ -359,6 +545,8 @@ def _peel_top(x, y, z, i, pl, pn, lay, fres, cx, cy, cz, hx, hz, L, ch, pk, du, 
             t = gap / rate
             kj = ch[j]
             tau += (lay[0, kj] + lay[1, kj]) * t
+            if has_incl:
+                tau += _incl_tau_delta(xx, yy, zz, ux, uy, uz, t, lay[0, kj] + lay[1, kj], inc)
             xx += ux * t
             yy += uy * t
             zz += uz * t
@@ -413,7 +601,7 @@ def _peel_deposit(xe, ze, pc, mode, C, coef, wscale, fg, fgi, cnorm, rad, orig, 
 
 @njit(cache=True)
 def _peel_event(x, y, z, i, ux, uy, uz, g, w, iso, pl, pn, lay, fres, fp, hx, hz, L, ch, pk, du, gx, gz, prv,
-                pres, mode, C, coef, wscale, fg, fgi, cnorm, rad, orig, row, l0, depth0):
+                pres, mode, C, coef, wscale, fg, fgi, cnorm, rad, orig, row, l0, depth0, inc, has_incl):
     """Next-event estimate at one scattering (or emission) event, with multiple-importance sampling.
 
     The camera direction is drawn uniformly from the acceptance cone (pdf ``1/Omega_c`` per sr in air); the
@@ -436,7 +624,7 @@ def _peel_event(x, y, z, i, ux, uy, uz, g, w, iso, pl, pn, lay, fres, fp, hx, hz
     dx = cz * fp[F_CX] + cph * fp[F_T1X] + sph * fp[F_T2X]
     dy = cz * fp[F_CY] + cph * fp[F_T1Y] + sph * fp[F_T2Y]
     dz = cz * fp[F_CZ] + cph * fp[F_T1Z] + sph * fp[F_T2Z]
-    _peel_top(x, y, z, i, pl, pn, lay, fres, dx, dy, dz, hx, hz, L, ch, pk, du, gx, gz, prv, pres)
+    _peel_top(x, y, z, i, pl, pn, lay, fres, dx, dy, dz, hx, hz, L, ch, pk, du, gx, gz, prv, pres, inc, has_incl)
     F = pres[0]
     if F <= 0.0:
         return
@@ -515,8 +703,24 @@ def _nearest_boundary(x, y, z, ux, uy, uz, i, pl, hx, hz):
 
 
 @njit(cache=True)
-def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp, ld, llay, wph,
-               src, qv, wscale, absorbed, flu, rad, orig, diag):
+def _layer_point(pl, i, s0, S, xlo, zlo, dx, dz, tmax, x, z):
+    """Uniform point inside the (curved) layer voxel ``(xlo, zlo, i, s0)``: lateral rejection against the local
+    thickness, then a uniform height within the sublayer.  Returns ``(x, y, z)``."""
+    for _ in range(200):
+        xt = xlo + np.random.random() * dx
+        zt = zlo + np.random.random() * dz
+        if np.random.random() * tmax <= _thick(pl, i, xt, zt):
+            x = xt
+            z = zt
+            break
+    t = _thick(pl, i, x, z)
+    y = pl[i, 0] + pl[i, 1] * x + pl[i, 2] * z + (s0 + np.random.random()) / S * t
+    return x, y, z
+
+
+@njit(cache=True)
+def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, lay_min, fg, fgi, cnorm, pidx, lp, ld, llay, wph,
+               src, qv, wscale, absorbed, flu, rad, orig, diag, inc, absorbed_i, flu_i, topx):
     np.random.seed(seed)
     hx = fp[F_HX]
     hz = fp[F_HZ]
@@ -535,6 +739,10 @@ def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
     C = ip[I_C]
     do_vox = ip[I_VOX] != 0
     peel = ip[I_PEEL] != 0
+    has_incl = ip[I_INC] != 0
+    per_photon = ip[I_CRN] != 0
+    prop = inc[5]
+    nvox_l = nx * nz * L * S
     om = fp[F_OM]
     coef = np.zeros(max(C, 1))
     ch = np.zeros(L + 2, np.int64)
@@ -545,6 +753,11 @@ def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
     gz = np.zeros(L + 2)
     pres = np.zeros(7)   # _peel_top result slots: F, d_xyz, x_exit, z_exit, J
     for p in range(p0, p1):
+        if per_photon:
+            # optional: every photon owns a private stream (a function of the pass seed and the photon index only), so
+            # two runs that differ in the optics of a small region stay photon-by-photon identical until a photon
+            # reaches that region (common random numbers; used by finite-difference / perturbation studies)
+            np.random.seed((seed * 1000003 + p * 7919 + 12345) % 2147483647)
         # ---------------------------------------------------------------- launch
         l0 = 0
         depth0 = 0.0
@@ -560,38 +773,68 @@ def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
             w = wph
         else:
             v = pidx[p]
-            s0 = v % S
-            r1 = v // S
-            i = r1 % L
-            r2 = r1 // L
-            iz0 = r2 % nz
-            ix0 = r2 // nz
-            xlo = -hx + ix0 * dx
-            zlo = -hz + iz0 * dz
-            tmax = 0.0
-            for a in range(2):
-                for b in range(2):
-                    tc = _thick(pl, i, xlo + a * dx, zlo + b * dz)
-                    if tc > tmax:
-                        tmax = tc
-            x = xlo + 0.5 * dx
-            z = zlo + 0.5 * dz
-            for _ in range(200):
-                xt = xlo + np.random.random() * dx
-                zt = zlo + np.random.random() * dz
-                if np.random.random() * tmax <= _thick(pl, i, xt, zt):
-                    x = xt
-                    z = zt
-                    break
-            t = _thick(pl, i, x, z)
-            y = pl[i, 0] + pl[i, 1] * x + pl[i, 2] * z + (s0 + np.random.random()) / S * t
+            if v >= nvox_l:
+                # source inside an inclusion voxel: uniform in the part of the voxel that is inside the block
+                kq = v - nvox_l
+                vf = inc[6][kq]
+                ny_ = inc[3][1]
+                nz_ = inc[3][2]
+                ixi = vf // (ny_ * nz_)
+                iyi = (vf // nz_) % ny_
+                izi = vf % nz_
+                vs_ = inc[4][3]
+                x = 0.0
+                y = 0.0
+                z = 0.0
+                for _r in range(200):
+                    x = inc[4][0] + (ixi + np.random.random()) * vs_
+                    y = inc[4][1] + (iyi + np.random.random()) * vs_
+                    z = inc[4][2] + (izi + np.random.random()) * vs_
+                    if (x < hx and x > -hx and z < hz and z > -hz and y >= 0.0
+                            and y <= pl[L, 0] + pl[L, 1] * x + pl[L, 2] * z):
+                        break
+                i = L - 1
+                for kk in range(L):
+                    if _thick(pl, kk, x, z) > EPS_T and y <= pl[kk + 1, 0] + pl[kk + 1, 1] * x + pl[kk + 1, 2] * z:
+                        i = kk
+                        break
+                rid0 = int(inc[0][vf])
+                l0 = L + rid0 - 1
+            else:
+                s0 = v % S
+                r1 = v // S
+                i = r1 % L
+                r2 = r1 // L
+                iz0 = r2 % nz
+                ix0 = r2 // nz
+                xlo = -hx + ix0 * dx
+                zlo = -hz + iz0 * dz
+                tmax = 0.0
+                for a in range(2):
+                    for b in range(2):
+                        tc = _thick(pl, i, xlo + a * dx, zlo + b * dz)
+                        if tc > tmax:
+                            tmax = tc
+                x = xlo + 0.5 * dx
+                z = zlo + 0.5 * dz
+                x, y, z = _layer_point(pl, i, s0, S, xlo, zlo, dx, dz, tmax, x, z)
+                if has_incl:
+                    # host-material sources are not emitted from inside an inclusion voxel
+                    for _r in range(50):
+                        rid0, ko0, jx0, jy0, jz0, iz_ = _incl_region(x, y, z, inc)
+                        if rid0 == 0:
+                            break
+                        x = xlo + 0.5 * dx
+                        z = zlo + 0.5 * dz
+                        x, y, z = _layer_point(pl, i, s0, S, xlo, zlo, dx, dz, tmax, x, z)
             uy = 2.0 * np.random.random() - 1.0
             st = math.sqrt(max(0.0, 1.0 - uy * uy))
             ph = 2.0 * math.pi * np.random.random()
             ux = st * math.cos(ph)
             uz = st * math.sin(ph)
             w = 1.0
-            l0 = i
+            if v < nvox_l:
+                l0 = i
             depth0 = pl[L, 0] + pl[L, 1] * x + pl[L, 2] * z - y
             q = qv[v]
             for c in range(C):
@@ -603,9 +846,9 @@ def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
         refl = mode == 0
         pj_last = 0.25 / math.pi       # density of the last scattering direction (isotropic emission at the launch)
         jc = 1.0                       # prod (n_up^2 cos_up)/(n_in^2 cos_in) of the transmissions since the last event
-        if peel and mode == 1 and _tau_min(x, y, z, i, pl, lay, L) < TAU_CUT:
+        if peel and mode == 1 and _tau_min(x, y, z, i, pl, lay_min, L) < TAU_CUT:
             _peel_event(x, y, z, i, ux, uy, uz, 0.0, w, True, pl, pn, lay, fres, fp, hx, hz, L, ch, pk, du, gx, gz,
-                        prv, pres, mode, C, coef, wscale, fg, fgi, cnorm, rad, orig, row, l0, depth0)
+                        prv, pres, mode, C, coef, wscale, fg, fgi, cnorm, rad, orig, row, l0, depth0, inc, has_incl)
         s_left = -math.log(1.0 - np.random.random())
         wmin = 1.0e-3 * w
         cl = -1
@@ -613,9 +856,12 @@ def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
         ciz = 0
         cs = 0
         steps = 0
+        after_internal = False         # the previous iteration only crossed an inclusion voxel / zone boundary
         while True:
-            # ---- Russian roulette at 1e-4 of the launch weight (MCML scheme; exact energy bookkeeping)
-            if w < wmin:
+            # ---- Russian roulette at 1e-4 of the launch weight (MCML scheme; exact energy bookkeeping).  It is not
+            #      rolled after a pure inclusion-map step, so a "null" inclusion consumes exactly the random numbers
+            #      of the host-only run (v1.1 paths never take such a step).
+            if w < wmin and not after_internal:
                 if w <= 0.0:
                     break
                 if np.random.random() < 0.1:
@@ -624,13 +870,27 @@ def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
                 else:
                     diag[row, D_ROUL] -= w * wscale
                     break
+            after_internal = False
             steps += 1
             if steps > MAX_STEPS:
                 diag[row, D_LOST] += w * wscale
                 break
-            mua = lay[0, i]
-            mus = lay[1, i]
-            g = lay[2, i]
+            rid = 0
+            kocc = -1
+            jx = 0
+            jy = 0
+            jz = 0
+            inz = False
+            if has_incl:
+                rid, kocc, jx, jy, jz, inz = _incl_region(x, y, z, inc)
+            if rid > 0:
+                mua = prop[0, rid]
+                mus = prop[1, rid]
+                g = prop[2, rid]
+            else:
+                mua = lay[0, i]
+                mus = lay[1, i]
+                g = lay[2, i]
             ni = lay[3, i]
             mut = mua + mus
             clear = mus <= 1.0e-9
@@ -653,17 +913,35 @@ def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
                 if kind < 0:                  # cannot happen inside a closed block
                     diag[row, D_LOST] += w * wscale
                     break
+            # ---- inclusion map: distance to the next voxel boundary (inside a zone) / zone entry
+            dl = db
+            internal = False
+            if has_incl:
+                dmx = db
+                if not clear:
+                    if d_free < dmx:
+                        dmx = d_free
+                dint = _incl_dist(x, y, z, ux, uy, uz, jx, jy, jz, inz, dmx, inc)
+                if dint < db:
+                    dl = dint
+                    internal = True
             # ---- free flight
-            if (not clear) and s_left / mut < db:
+            if (not clear) and s_left / mut < dl:
                 d = s_left / mut
                 dw = w * mua / mut
                 if do_vox:
-                    w, cix, ciz, cs = _segment(x, y, z, ux, uy, uz, d, w, mua, False, i, cix, ciz, cs,
-                                               cl, pl, hx, hz, dx, dz, nx, nz, S, L, absorbed, flu,
-                                               row)
-                    cl = i
-                    if dw > 0.0:
-                        absorbed[row, ((cix * nz + ciz) * L + i) * S + cs] += dw
+                    if rid > 0:
+                        flu_i[row, kocc] += w * d
+                        if dw > 0.0:
+                            absorbed_i[row, kocc] += dw
+                        cl = -1
+                    else:
+                        w, cix, ciz, cs = _segment(x, y, z, ux, uy, uz, d, w, mua, False, i, cix, ciz, cs,
+                                                   cl, pl, hx, hz, dx, dz, nx, nz, S, L, absorbed, flu,
+                                                   row)
+                        cl = i
+                        if dw > 0.0:
+                            absorbed[row, ((cix * nz + ciz) * L + i) * S + cs] += dw
                 x += ux * d
                 y += uy * d
                 z += uz * d
@@ -671,10 +949,10 @@ def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
                     diag[row, D_ABS] += dw * wscale
                     w -= dw
                 if mus > 0.0:
-                    if peel and w > 0.0 and _tau_min(x, y, z, i, pl, lay, L) < TAU_CUT:
+                    if peel and w > 0.0 and _tau_min(x, y, z, i, pl, lay_min, L) < TAU_CUT:
                         _peel_event(x, y, z, i, ux, uy, uz, g, w, False, pl, pn, lay, fres, fp, hx, hz, L, ch, pk,
                                     du, gx, gz, prv, pres, mode, C, coef, wscale, fg, fgi, cnorm, rad, orig, row,
-                                    l0, depth0)
+                                    l0, depth0, inc, has_incl)
                     uxo = ux
                     uyo = uy
                     uzo = uz
@@ -688,27 +966,51 @@ def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
                     pj_last = (1.0 - g * g) / (4.0 * math.pi * den * math.sqrt(den))
                 s_left = -math.log(1.0 - np.random.random())
                 continue
-            # ---- move to the boundary
+            # ---- move to the boundary (or, for an inclusion-map event, to the voxel / zone boundary)
+            dstep = db
+            if internal:
+                dstep = dl + NUDGE
+                if dstep >= db:
+                    dstep = db
+                    internal = False
             if clear:
                 w0 = w
                 if do_vox:
-                    w, cix, ciz, cs = _segment(x, y, z, ux, uy, uz, db, w, mua, True, i, cix, ciz,
-                                               cs, cl, pl, hx, hz, dx, dz, nx, nz, S, L, absorbed,
-                                               flu, row)
-                    cl = i
+                    if rid > 0:
+                        if mua > 1.0e-12:
+                            att = math.exp(-mua * dstep)
+                            dep = w * (1.0 - att)
+                            flu_i[row, kocc] += dep / mua
+                            absorbed_i[row, kocc] += dep
+                            w *= att
+                        else:
+                            flu_i[row, kocc] += w * dstep
+                        cl = -1
+                    else:
+                        w, cix, ciz, cs = _segment(x, y, z, ux, uy, uz, dstep, w, mua, True, i, cix, ciz,
+                                                   cs, cl, pl, hx, hz, dx, dz, nx, nz, S, L, absorbed,
+                                                   flu, row)
+                        cl = i
                 elif mua > 0.0:
-                    w *= math.exp(-mua * db)
+                    w *= math.exp(-mua * dstep)
                 diag[row, D_ABS] += (w0 - w) * wscale
             else:
                 if do_vox:
-                    w, cix, ciz, cs = _segment(x, y, z, ux, uy, uz, db, w, mua, False, i, cix, ciz,
-                                               cs, cl, pl, hx, hz, dx, dz, nx, nz, S, L, absorbed,
-                                               flu, row)
-                    cl = i
-                s_left -= db * mut
-            x += ux * db
-            y += uy * db
-            z += uz * db
+                    if rid > 0:
+                        flu_i[row, kocc] += w * dstep
+                        cl = -1
+                    else:
+                        w, cix, ciz, cs = _segment(x, y, z, ux, uy, uz, dstep, w, mua, False, i, cix, ciz,
+                                                   cs, cl, pl, hx, hz, dx, dz, nx, nz, S, L, absorbed,
+                                                   flu, row)
+                        cl = i
+                s_left -= dstep * mut
+            x += ux * dstep
+            y += uy * dstep
+            z += uz * dstep
+            if internal:
+                after_internal = True
+                continue
             # ---- boundary event
             if kind >= 2:
                 # vertical side face -> air
@@ -789,6 +1091,18 @@ def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
                             oy = uy
                             oz = uz
                         diag[row, D_R_TOP] += wex * wscale
+                        if mode == 0:
+                            tiu = int((x - fg[0, 0]) / fg[0, 1])
+                            if tiu < 0:
+                                tiu = 0
+                            elif tiu >= fgi[0, 0]:
+                                tiu = fgi[0, 0] - 1
+                            tiv = int((z - fg[0, 2]) / fg[0, 3])
+                            if tiv < 0:
+                                tiv = 0
+                            elif tiv >= fgi[0, 1]:
+                                tiv = fgi[0, 1] - 1
+                            topx[row, tiu * fgi[0, 1] + tiv] += wex
                         wtal = wex
                         if peel and not refl:
                             # direct path: shares the estimate with the peel-off (balance-heuristic weight)
@@ -876,8 +1190,8 @@ def _run_batch(row, p0, p1, seed, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
 
 
 @parallel_njit(cache=True)
-def run_chunk(first_batch, nb, bs, n_total, seeds, fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp,
-              ld, llay, wph, src, qv, wscale, absorbed, flu, rad, orig, diag):
+def run_chunk(first_batch, nb, bs, n_total, seeds, fp, ip, pl, pn, lay, lay_min, fg, fgi, cnorm, pidx, lp,
+              ld, llay, wph, src, qv, wscale, absorbed, flu, rad, orig, diag, inc, absorbed_i, flu_i, topx):
     """Run ``nb`` consecutive batches; batch ``b`` owns row ``b - first_batch`` of every output."""
     for cb in prange(nb):
         b = first_batch + cb
@@ -885,5 +1199,5 @@ def run_chunk(first_batch, nb, bs, n_total, seeds, fp, ip, pl, pn, lay, fg, fgi,
         p1 = p0 + bs
         if p1 > n_total:
             p1 = n_total
-        _run_batch(cb, p0, p1, seeds[b], fp, ip, pl, pn, lay, fg, fgi, cnorm, pidx, lp, ld, llay,
-                   wph, src, qv, wscale, absorbed, flu, rad, orig, diag)
+        _run_batch(cb, p0, p1, seeds[b], fp, ip, pl, pn, lay, lay_min, fg, fgi, cnorm, pidx, lp, ld, llay,
+                   wph, src, qv, wscale, absorbed, flu, rad, orig, diag, inc, absorbed_i, flu_i, topx)
