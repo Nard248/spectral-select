@@ -335,7 +335,10 @@ after them, so an inclusion with the host's optics follows the host-only random 
 material only; `inclusion_absorbed_mW` / `inclusion_fluence_mW_mm2` the inclusions (together they conserve power);
 emission sources inside inclusions are sampled from the inclusion voxels.  Per-inclusion ground truth in the capture:
 `inclusion_mask:<name>`, `inclusion_depth_mm:<name>`, `origin_fraction:<name>`; explain components
-`dye:<dye>@<inclusion>`.  `per_photon_streams=True` (optional) gives each photon a private random stream (common random
+`dye:<dye>@<inclusion>`.  With several layered blocks, every per-block ground-truth key (`layer_thickness:<layer>`,
+`layer_depth:<layer>`, `origin_*`, `inclusion_*:<name>`, `block_face`) is the MERGED map (each pixel takes the visible, i.e.
+topmost-along-the-view-ray, block), and block-qualified keys `<family>:<block name>/<layer or inclusion>` (block id appended
+as `#id` when names repeat) give each block's own map.  `per_photon_streams=True` (optional) gives each photon a private random stream (common random
 numbers for finite differences).  Reproduce with `scripts/studio_inclusion_figures.py`; tests in
 `tests/studio/test_inclusions*.py`.
 

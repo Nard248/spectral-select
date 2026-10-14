@@ -791,3 +791,44 @@ def test_real_wedge_first_band_is_elastic_contaminated_but_second_band_is_clean(
     band = int(np.argmin(abs(em - (ex + 40))))
     v = _roi_mean(r, ex, band, [(1.4, 1.7), (1.1, 1.4), (0.8, 1.1), (0.5, 0.8), (0.3, 0.5)], per_irradiance=True)
     assert np.all(np.diff(v) > 0), v
+
+
+# ============================================================================================
+# ground truth with several blocks sharing a layer name
+# ============================================================================================
+def test_gt_layer_thickness_merged_across_blocks_with_shared_layer_name(fake3d):
+    from spectraforge.studio.schema import BlockLayer, LayeredBlockShape, ThicknessProfile, Transform
+    exp = _wedge(1)
+    base = exp.objects[0]
+    ths = (1.0, 2.0, 3.0)
+    xs = (-14.0, 0.0, 14.0)
+    objs = []
+    for i, (th, x) in enumerate(zip(ths, xs)):
+        shp = LayeredBlockShape(footprint_mm=(10, 10), layers=[
+            BlockLayer(name="cover", material_id="clear_cover", thickness=ThicknessProfile(thickness_mm=th)),
+            BlockLayer(name="fl", material_id="tissue_substrate", thickness=ThicknessProfile(thickness_mm=1.0))])
+        objs.append(base.model_copy(update={"id": f"blk{i}", "name": f"block{i}", "shape": shp,
+                                            "transform": Transform(position_mm=(x, base.transform.position_mm[1], 0.0),
+                                                                   rotation_deg=(0, 0, 0))}))
+    exp = exp.model_copy(update={"objects": objs})
+    r = capture.capture(exp, scale=0.25)
+    gt = r.ground_truth
+    merged = gt["layer_thickness:cover"]
+    h = trace_scene(exp, r.width, r.height)
+    seen = set()
+    for bi, th in enumerate(ths):
+        q = gt[f"layer_thickness:block{bi}/cover"]
+        own = np.isfinite(q)
+        assert own.sum() > 0
+        assert np.allclose(q[own], th, atol=1e-4)
+        assert np.allclose(merged[own], th, atol=1e-4)            # every block's pixels survive in the merged map
+        seen.add(bi)
+    assert seen == {0, 1, 2}
+    own_total = sum(int(np.isfinite(gt[f"layer_thickness:block{bi}/cover"]).sum()) for bi in range(3))
+    assert int(np.isfinite(merged).sum()) == own_total             # disjoint blocks: nothing lost, nothing added
+    assert np.isclose(np.nanmin(merged), 1.0, atol=1e-4) and np.isclose(np.nanmax(merged), 3.0, atol=1e-4)
+    # explain_pixel at a pixel of the 3rd block reports that block's thickness
+    q = gt["layer_thickness:block2/cover"]
+    yy, xx = np.argwhere(np.isfinite(q))[0]
+    ex = capture.explain_pixel(exp, int(xx), int(yy), scale=0.25)
+    assert ex["ground_truth"]["layer_thickness:cover"] == pytest.approx(3.0, abs=1e-4)
