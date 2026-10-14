@@ -65,3 +65,4 @@ Title, authors, affiliations, acknowledgment/AI disclosure, early-access wording
 - Page 4 is now a float-only page (Figs. 4, 5, 6 as `figure*[p]`); no body text between figures. Fig. 4 widened slightly, Fig. 6 redrawn at 2.4 in height.
 - Sec. 2.1 closes with a sentence pointing to the optional inner-filter/reabsorption/FRET effects (Sec. 2.4), filling page 1.
 - To keep 5 pages, 17 small wording tightenings (no numbers or claims changed), e.g. "without a gain refit" -> "without gain refit".
+- Page 1: Sec. 2.1 closing sentence extended ("so that each one can be studied in isolation by turning it on or off") and the stacked Sec. 2 / Sec. 2.1 heading gap reduced by 4 pt, so both page-1 columns end on the same baseline.

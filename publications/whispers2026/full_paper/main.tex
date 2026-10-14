@@ -116,7 +116,7 @@ variance is dominated by uninformative signal.}
 \end{figure*}
 
 \section{The SpectralForge Forward Model}
-\subsection{Photophysics}
+\vspace{-4pt}\subsection{Photophysics}
 The generator is built on the physics of fluorescence~\cite{ref_lakowicz,ref_valeur} so that ``informative''
 means what it means physically. A fluorophore absorbs a photon, relaxes
 non-radiatively to the lowest vibrational level of the first excited singlet, and
@@ -128,7 +128,7 @@ By \emph{Vavilov's rule} the quantum yield is, to first order, independent of
 excitation; only the amount absorbed changes. The \emph{Franck-Condon} principle sets
 the broadened, roughly mirror-image band envelopes and an optional vibronic shoulder
 about $1300\,\mathrm{cm}^{-1}$ to the red. The \emph{Stokes shift} red-shifts emission
-relative to absorption. Together these rules fix the structure of the forward model below; the departures from them that matter in practice (inner-filter attenuation, reabsorption, and FRET) enter as optional, switchable effects (Sec.~\ref{sec:artifacts}).
+relative to absorption. Together these rules fix the structure of the forward model below; the departures from them that matter in practice (inner-filter attenuation, reabsorption, and FRET) enter as optional, switchable effects (Sec.~\ref{sec:artifacts}), so that each one can be studied in isolation by turning it on or off.
 
 \subsection{Trilinear render and the additive invariant}
 Each fluorophore $k$ is a parametric model with a peak-normalized Gaussian excitation

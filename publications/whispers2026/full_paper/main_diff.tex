@@ -1,7 +1,7 @@
 \documentclass{article}
 %DIF LATEXDIFF DIFFERENCE FILE
 %DIF DEL main_accepted.tex   Wed Oct 14 12:27:50 2026
-%DIF ADD main.tex            Wed Oct 14 15:33:16 2026
+%DIF ADD main.tex            Wed Oct 14 15:38:50 2026
 \usepackage{stywhispers}
 %DIF 3a3-7
 \makeatletter % captions in 9 pt (\small of the 10 pt body) %DIF > 
@@ -179,7 +179,7 @@ variance is dominated by \DIFdelbeginFL \DIFdelFL{the
 \end{figure*}
 
 \section{The SpectralForge Forward Model}
-\subsection{Photophysics}
+\DIFaddbegin \vspace{-4pt}\DIFaddend \subsection{Photophysics}
 The generator is built on the physics of fluorescence\DIFaddbegin \DIFadd{~\mbox{%DIFAUXCMD
 \cite{ref_lakowicz,ref_valeur} }\hskip0pt%DIFAUXCMD
 }\DIFaddend so that ``informative''
@@ -199,7 +199,7 @@ By \emph{Vavilov's rule} the quantum yield is, to first order, independent of
 excitation; only the amount absorbed changes. The \emph{Franck-Condon} principle sets
 the broadened, roughly mirror-image band envelopes and an optional vibronic shoulder
 about $1300\,\mathrm{cm}^{-1}$ to the red. The \emph{Stokes shift} red-shifts emission
-relative to absorption. \DIFaddbegin \DIFadd{Together these rules fix the structure of the forward model below; the departures from them that matter in practice (inner-filter attenuation, reabsorption, and FRET) enter as optional, switchable effects (Sec.~\ref{sec:artifacts}).
+relative to absorption. \DIFaddbegin \DIFadd{Together these rules fix the structure of the forward model below; the departures from them that matter in practice (inner-filter attenuation, reabsorption, and FRET) enter as optional, switchable effects (Sec.~\ref{sec:artifacts}), so that each one can be studied in isolation by turning it on or off.
 }\DIFaddend 
 
 \subsection{Trilinear render and the additive invariant}
