@@ -51,3 +51,10 @@ Title, authors, affiliations, acknowledgment/AI disclosure, early-access wording
 - Setup table lists LR among classifiers (used in the Table 2 suite; Fig. 6 scripts use k-NN, RF, MLP only; flagged in the table).
 - Fig. 6 panel text is small; Studio panels are screenshots at half width.
 - Collagen real-data result is weaker than the drops; wording kept from the evidence agent.
+
+## Layout / readability pass (2026-10-14)
+- Revision text cut by about 36 % (804 -> 512 words over Sec. 2.6, Sec. 3 intro, Table 1, Sec. 3.1, Fig. 4/5/6 and Table 2 captions); every number and caveat kept; the workbench clause in the Discussion shortened; the supervisor-written limitation paragraphs untouched.
+- Figures enlarged: Fig. 1 to 0.96 of text width; Fig. 2 and Fig. 3 regenerated for full column width with larger fonts (Fig. 3 reduced to the two panels the text uses: class labels and variance-vs-informativeness scatter); Fig. 4 uses cropped screenshots (fig_studio_*_crop.png; originals kept) at about 2x the content size; Fig. 6 regenerated (validation/make_fig_realdata.py) as a full-width 3-panel figure* with 8 pt fonts.
+- Fonts: body text kept at the template's \ninept (9 pt), as in the accepted version; a 10 pt body does not fit 5 pages with the larger figures. Captions are 9 pt (\small) via a local \@makecaption redefinition in main.tex; Table 1 uses \small (9 pt). stywhispers.sty untouched.
+- Float spacing (\textfloatsep, \floatsep, \intextsep, \dbltextfloatsep, \dblfloatsep) reduced to about 8-9 pt to remove stretched gaps; paper stays at exactly 5 pages.
+- Regenerated main_diff.tex/.pdf and the camera_ready_upload files (PDF, changes-marked PDF, Overleaf zip).

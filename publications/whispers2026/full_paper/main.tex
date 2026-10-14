@@ -1,5 +1,10 @@
 \documentclass{article}
 \usepackage{stywhispers}
+\makeatletter % captions in 9 pt (\small of the 10 pt body)
+\long\def\@makecaption#1#2{\vskip 6pt
+ \setbox\@tempboxa\hbox{\small #1. #2}
+ \ifdim\wd\@tempboxa>\hsize {\small #1. #2\par}\else\hbox to\hsize{\hfil\box\@tempboxa\hfil}\fi}
+\makeatother
 \usepackage{cite}
 \usepackage{amsmath,amssymb,amsfonts}
 \usepackage{mathtools}
@@ -11,6 +16,8 @@
 \usepackage{dblfloatfix}
 
 \graphicspath{{figures/}}
+\setlength{\textfloatsep}{9pt plus 2pt minus 2pt}\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{8pt plus 2pt minus 2pt}\setlength{\dbltextfloatsep}{9pt plus 2pt minus 2pt}\setlength{\dblfloatsep}{8pt plus 2pt minus 2pt}
 
 \begin{document}
 \ninept
@@ -89,7 +96,7 @@ planning, prototyping, and teaching.
 
 \begin{figure*}[!tb]
 \centering
-\includegraphics[width=0.58\textwidth]{fig_cube4d.png}
+\includegraphics[width=0.96\textwidth]{fig_cube4d.png}
 \caption{A rendered 4D fluorescence cube from SpectralForge, an example scene with each dye laid
 down as a shape. (a) Slices at each dye's emission peak reveal its painted region; every pixel
 effectively stores an EEM. (b) The mean EEM: each fluorophore is a smooth blob at its excitation
@@ -124,7 +131,7 @@ superposition,
 F(x,y,\lambda_\mathrm{ex},\lambda_\mathrm{em}) = g \sum_k
 c_k(x,y)\,\varepsilon_k\,\Phi_k\,a_k(\lambda_\mathrm{ex})\,e_k(\lambda_\mathrm{em}),
 \end{equation}
-where $g$ folds lamp, exposure, and power. Widths are $\mathrm{FWHM}/(2\sqrt{2\ln 2})$ and
+where $g$ folds lamp, exposure, and power. Gaussian widths are $\sigma=\mathrm{FWHM}/(2\sqrt{2\ln 2})$, and
 brightness is $\varepsilon_k\Phi_k$.
 With all optional physics and artifacts off the model is \emph{exactly linear},
 $\mathrm{render}(A{+}B)=\mathrm{render}(A){+}\mathrm{render}(B)$, an invariant the
@@ -134,11 +141,8 @@ fluorophores. Fig.~\ref{fig:fluoro} shows the fluorophore model.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.66\linewidth]{fig_fluorophores.png}
-\caption{Parametric fluorophore spectra. Left: three discriminative dyes (dashed,
-excitation; solid, emission) of modest brightness with overlapping emission and
-distinct excitation. Right: two bright nuisance autofluorophores that dominate band
-variance but carry no class information.}
+\includegraphics[width=\columnwidth]{fig_fluorophores_v2.png}
+\caption{Parametric fluorophore spectra (dashed, excitation; solid, emission). Left: three dim, overlapping discriminative dyes. Right: two bright nuisance autofluorophores that dominate band variance but carry no class information.}
 \label{fig:fluoro}
 \end{figure}
 
@@ -155,11 +159,8 @@ cannot solve the task.
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.54\linewidth]{fig_scene.png}
-\caption{Variance is decoupled from informativeness. Each point is a band: per-band
-variance against per-band discriminability. The high-variance bands are nuisance and
-scatter bands, not the discriminative ones (correlation near zero), so ranking bands by
-variance fails.}
+\includegraphics[width=\columnwidth]{fig_scene_v2.png}
+\caption{Variance is decoupled from informativeness. Left: class labels. Right: each point is a band (red: discriminative; blue: nuisance and scatter); the high-variance bands are nuisance and scatter bands, not discriminative ones (correlation near zero), so variance ranking fails.}
 \label{fig:scene}
 \end{figure}
 
@@ -198,73 +199,55 @@ from a downloaded FPbase payload via a library importer (not yet exposed in the 
 
 \begin{figure*}[!tb]
 \centering
-\includegraphics[width=0.495\textwidth]{fig_studio_design.png}\hfill
-\includegraphics[width=0.495\textwidth]{fig_studio_explore.png}
-\caption{SpectralForge Studio, the in-development 3D workbench. (a) Design: the user places a tunable
-lamp, an LCTF hyperspectral camera, and lichen samples in 3D, sets the excitation sequence, and
-previews the camera's view. (b) Explore: a rendered band image of the 4D cube with, for the
-selected pixel, the ground-truth decomposition into physical components (chlorophyll,
-lipofuscin, porphyrin, scatter, glint, leak), spectra per excitation, and the pixel EEM. The
-band-selection study below used the core generator of Sec.~2, not Studio's added physics.}
+\includegraphics[width=0.405\textwidth]{fig_studio_design_crop.png}\hfill
+\includegraphics[width=0.575\textwidth]{fig_studio_explore_crop.png}
+\caption{SpectralForge Studio (in development). (a) Design: lamp, LCTF camera and samples placed in 3D, with the camera view. (b) Explore: a band image and, for the selected pixel, its ground-truth physical components, spectra and EEM. The study below used the core generator of Sec.~2, not Studio's added physics.}
 \label{fig:gui}
 \end{figure*}
 
 \begin{figure*}[!tb]
 \centering
 \includegraphics[width=0.8\textwidth]{fig_results.png}
-\caption{The benchmark in use. Left: beat-random across five noise levels at $k=24$ of the 564 bands (Sec.~\ref{sec:grid}): blind
-PCA and autoencoder selection beat the random $95$th percentile only on clean data; under clutter only supervised mutual information does. Middle: compression over budgets of 4 to 100 bands: the
-autoencoder tracks PCA, both reaching about $95\%$ of the full spectrum; labels compress about $2.7\times$ better. Right: spatial-texture regime (block CV): per-pixel selectors fall below random because
-the classes share per-pixel spectra, and no learned spatial selector beats random.}
+\caption{The benchmark in use. Left: beat-random across five noise levels at $k=24$ of 564 bands (Sec.~\ref{sec:grid}): blind PCA and autoencoder beat the random $95$th percentile only on clean data; under clutter only supervised MI does. Middle: compression over 4 to 100 bands; the autoencoder tracks PCA (about $95\%$ of the full spectrum); labels compress about $2.7\times$ better. Right: spatial texture (block CV): per-pixel selectors fall below random and no learned spatial selector beats it.}
 \label{fig:results}
 \end{figure*}
 
 \subsection{Validation against real acquisitions}\label{sec:real}
-We fitted Eq.~(1), projected through a model of our instrument (a tunable lamp and a Nuance LCTF camera, bands from 420\,nm~\cite{ref_chil4d}), to measured excitation-emission data. For 16 fluorescent drops, whose dyes are not recorded and so are fitted rather than taken from a library, eight parameters were calibrated at 310/340/385/415\,nm; emission at held-out 325/365/400\,nm was predicted with no gain refit (median $R^2=0.96$, IQR $0.95$--$0.96$; SAM $6.0^\circ$; peak error $\approx17\%$, Fig.~\ref{fig:realdata}a). Collagen needed a smooth throughput correction, and its intensities are not comparable across excitations (an unexplained $\approx1000\times$ gain step between 340 and 365\,nm), so only emission shape was tested: after a per-excitation gain, spectra at held-out excitations (4 splits of 3+3 excitations, 6 ROIs from two datasets, 24 cases; each spectrum normalised to its peak) had SAM $8.4\pm1.8^\circ$, shape $R^2=0.83\pm0.13$ and relative RMS error $0.097\pm0.023$ of the peak (nominal twin $14.2^\circ$, flat $23.7^\circ$), slightly worse than copying another sample's spectrum ($7.7^\circ$; Fig.~\ref{fig:realdata}b,c). The residual is systematic: too narrow on the blue edge, too low in the red tail.
+Fitting Eq.~(1), through a model of our tunable-lamp/LCTF instrument~\cite{ref_chil4d}, to 4 excitations (310/340/385/415\,nm) of 16 fluorescent drops predicts the 3 held-out excitations without a gain refit (median $R^2=0.96$, SAM $6.0^\circ$, Fig.~\ref{fig:realdata}a). For collagen, whose intensities are not comparable across excitations, only emission shape is testable: after a per-excitation gain and smooth throughput correction, held-out SAM is $8.4\pm1.8^\circ$ and shape $R^2=0.83\pm0.13$ (24 cases; Fig.~\ref{fig:realdata}b,c), slightly worse than copying another sample's spectrum ($7.7^\circ$).
 
-\begin{figure}[t]
+\begin{figure*}[!tb]
 \centering
-\includegraphics[width=\columnwidth]{fig_realdata}
-\caption{Real-data validation. (a)~Drop 5 (median SAM): measured (markers) and predicted (lines) emission at held-out excitations. (b)~Collagen, pepsin ROI 4 (median-SAM case of 24; SAM $8.4^\circ$, $R^2=0.87$): measured and predicted spectra at held-out 310/325/340\,nm after a per-excitation gain, and residual (measured $-$ predicted, in units of each spectrum's peak). All 24 cases: $R^2=0.83\pm0.13$, relative RMS $0.097\pm0.023$. (c)~Collagen held-out SAM, mean $\pm$ SD over 24 cases; the empirical copy is slightly better. Collagen tests emission shape only.}
+\includegraphics[width=\textwidth]{fig_realdata}
+\caption{Real-data validation. (a)~Drop 5 (median SAM): measured (markers) and predicted (lines) at held-out excitations. (b)~Collagen ROI 4 (median case of 24): measured, predicted and residual at held-out 310/325/340\,nm. (c)~Collagen held-out SAM, mean $\pm$ SD (24 cases).}
 \label{fig:realdata}
-\end{figure}
+\end{figure*}
 
 \section{Evaluation Protocol}
-Two questions are kept apart. (a) \emph{Is the simulator physically faithful?} This is
-covered by the linearity invariant tests of Sec.~2.2 and by the real-data check of
-Sec.~\ref{sec:real}. (b) \emph{Is the benchmark valid for comparing selectors?} This is
-covered by the known ground truth together with the random and full-spectrum controls below,
-which need no claim that any single simulated cube equals a real one. Table~\ref{tab:setup}
-summarizes the whole setup.
+Two questions are kept apart: simulator fidelity, covered by the linearity tests of Sec.~2.2 and the real-data check of Sec.~\ref{sec:real}; and benchmark validity, covered by known ground truth plus random and full-spectrum controls, which need no claim that a simulated cube equals a real one. Table~\ref{tab:setup} summarizes the setup.
 
 \begin{table}[t]
 \caption{Experimental setup and the reason for each element.}
 \label{tab:setup}
 \centering
-\footnotesize
-\renewcommand{\arraystretch}{1.1}
-\begin{tabular}{@{}p{0.19\linewidth}p{0.43\linewidth}p{0.28\linewidth}@{}}
+\small
+\renewcommand{\arraystretch}{1.05}
+\begin{tabular}{@{}p{0.15\linewidth}p{0.48\linewidth}p{0.27\linewidth}@{}}
 \toprule
 Element & Setting & Why \\
 \midrule
-Selectors & variance; PCA loadings; AE latent perturbation (label-free); mutual information (uses labels) & naive, linear, learned, and supervised-reference baselines \\
-Regimes & clean; realistic; clutter; reabsorption; FRET; spatial-texture & ideal baseline; scatter and noise; fixed-pattern artifacts; nonlinear shape; co-localization; spatial-only class \\
-Noise (Fig.~\ref{fig:results} left) & 5 levels, pristine to severe (photon scale $5\!\times\!10^4$ to $200$, Rayleigh $0.1$ to $0.7$, clutter amplitude $0$ to $4.5$) & does a gain survive degradation \\
-Classifiers & k-NN, RF, MLP, LR (Fig.~\ref{fig:results}: first three); macro-F1; cross-validated, spatial-block CV for spatial texture & selection scored by downstream use, not reconstruction \\
-Controls & random subsets (95th percentile); full spectrum & chance gain; accuracy ceiling \\
-Seeds & 6 (Table~\ref{tab:battery}), 2 (Fig.~\ref{fig:results} left, middle), 3 (spatial texture) & variability, paired CIs \\
-Scene, grid & $64{\times}64$ px (Table~\ref{tab:battery}: $40{\times}40$), 3 classes; 564 bands (Fig.~\ref{fig:results}) or 228 (Table~\ref{tab:battery}), Sec.~\ref{sec:grid} & known labels and peaks \\
+Selectors & variance; PCA loadings; AE (label-free); mutual information (labels) & naive to supervised \\
+Regimes & clean; realistic; clutter; reabsorption; FRET; spatial texture & ideal to nonlinear \\
+Noise & 5 levels: photon scale $5\!\times\!10^4$ to $200$, Rayleigh $0.1$ to $0.7$, clutter $0$ to $4.5$ & gain under degradation \\
+Classifiers & k-NN, RF, MLP, LR; macro-F1; CV (block CV for texture) & scored by downstream use \\
+Controls & random subsets (95th pct.); full spectrum & chance; ceiling \\
+Seeds & 6 (Table~\ref{tab:battery}); 2 (Fig.~\ref{fig:results}); 3 (texture) & paired CIs \\
+Scene, grid & $64{\times}64$ px (Table~\ref{tab:battery}: $40{\times}40$), 3 classes; 564 or 228 bands (Sec.~\ref{sec:grid}) & known labels, peaks \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Spectral grid}\label{sec:grid}
-The reported
-study uses $4$ excitations (405, 470, 488, 506\,nm) and emission from 420 to 700\,nm. For
-Fig.~\ref{fig:results}, emission is sampled every 2\,nm ($141$ bands), giving
-$4\times141=564$ excitation-emission bands; ``full-564'' is the classifier on all of them and the
-``number of selected bands'' (up to $100$) is a subset of these. For Table~\ref{tab:battery} the step is
-5\,nm ($57$ bands, $228$ features). 
+The study uses 4 excitations (405, 470, 488, 506\,nm) and emission from 420 to 700\,nm: every 2\,nm for Fig.~\ref{fig:results} ($141$ bands, $4\times141=564$ excitation-emission bands, the ``full-564'' classifier) and every 5\,nm for Table~\ref{tab:battery} ($57$ bands, $228$ features).
 
 Selection quality is the accuracy of a downstream classifier on the selected bands, with labels
 used only at evaluation time. We score each subset with a classifier
@@ -300,10 +283,7 @@ information $+0.014$, the conv-AE $-0.001$, against $-0.016$ for PCA loadings; T
 benchmark separates the two.
 
 \begin{table}[t]
-\caption{Label-free autoencoder vs.\ the strongest blind baseline (PCA loadings):
-best-of-panel macro-F1 over six seeds. Bold marks the better selector. The clean margin is
-significant (paired Wilcoxon $p=0.03$); for reabsorption the bootstrap $95\%$ CI excludes zero
-but $p=0.16$, so it is marginal; the rest are ties.}
+\caption{Label-free AE vs.\ the strongest blind baseline (PCA loadings): best-of-panel macro-F1, six seeds; bold is better. Clean margin: paired Wilcoxon $p=0.03$; reabsorption: bootstrap $95\%$ CI excludes zero but $p=0.16$ (marginal); rest are ties.}
 \label{tab:battery}
 \centering
 \footnotesize
@@ -347,7 +327,7 @@ Furthermore, the instrument model assumes an idealized optical train with spatia
 illumination, uniform spectral detector response, and static photophysics, omitting dynamic
 exposure photobleaching kinetics during sequence acquisition as well as chromatic
 aberrations and thermal drift. Expanding the engine to incorporate full radiative transport
-and dynamic bleaching models remains an important direction for future extensions; the in-development workbench (Fig.~\ref{fig:gui}) already adds 3D Monte Carlo transport and acquisition-order photobleaching, which future versions of the benchmark will use.
+and dynamic bleaching models remains an important direction for future extensions; the in-development workbench (Fig.~\ref{fig:gui}) already adds 3D Monte Carlo transport and photobleaching.
 
 A natural next step is to evaluate performance on complex, multi-component target samples
 (heterogeneous biological tissues, environmental specimens, or engineered multi-fluorophore

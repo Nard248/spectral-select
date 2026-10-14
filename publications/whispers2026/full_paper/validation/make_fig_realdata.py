@@ -4,18 +4,18 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 H = Path(__file__).parent; F = H.parent / "figures"
 plt.rcParams.update({"font.family": "serif", "font.serif": ["Times New Roman", "STIXGeneral", "DejaVu Serif"],
-                     "mathtext.fontset": "stix", "font.size": 7, "axes.labelsize": 7, "xtick.labelsize": 7,
-                     "ytick.labelsize": 7, "legend.fontsize": 7, "axes.linewidth": 0.6,
+                     "mathtext.fontset": "stix", "font.size": 8, "axes.labelsize": 8, "xtick.labelsize": 8,
+                     "ytick.labelsize": 8, "legend.fontsize": 8, "axes.linewidth": 0.6,
                      "xtick.major.width": 0.5, "ytick.major.width": 0.5, "xtick.major.size": 2, "ytick.major.size": 2})
 num = json.load(open(H / "validation_numbers.json")); cur = json.load(open(H / "drop_curves.json"))
 rows = num["drops"]["rows"]; med = np.median([r["sam_deg"] for r in rows])
 rep = min(rows, key=lambda r: abs(r["sam_deg"] - med))["drop"]
 cc = json.load(open(H / "collagen_rep_curves.json")); err = num["collagen"]["error_twin_corrected"]
-fig = plt.figure(figsize=(3.4, 2.75))
-gs = fig.add_gridspec(1, 2, hspace=0.5, wspace=0.5, left=0.115, right=0.985, bottom=0.46, top=0.975)
+fig = plt.figure(figsize=(7.16, 2.1))
+gs = fig.add_gridspec(1, 3, wspace=0.42, left=0.06, right=0.99, bottom=0.22, top=0.97, width_ratios=[1, 1, 1])
 gsr = gs[0, 1].subgridspec(2, 1, height_ratios=[2.0, 1.0], hspace=0.1)
 a = fig.add_subplot(gs[0, 0]); b = fig.add_subplot(gsr[0]); br = fig.add_subplot(gsr[1], sharex=b)
-c_ax = fig.add_axes([0.30, 0.125, 0.67, 0.17])
+c_ax = fig.add_subplot(gs[0, 2])
 cols = {"365.0": "#1f5fa8", "400.0": "#c0392b"}
 norm = max(max(cur[rep][k]["meas"]) for k in cols)
 for ex, c in [(k, v) for k, v in cur[rep].items() if k in cols]:
@@ -52,10 +52,10 @@ colr = ["#1f5fa8", "#2e8b57", "#7fa8d6", "#d0d0d0"]
 y = np.arange(len(order))[::-1]
 c_ax.barh(y, [c[k]["mean"] for k, _ in order], xerr=[c[k]["sd"] for k, _ in order], color=colr, height=0.68,
           error_kw=dict(lw=0.6, capsize=1.2, capthick=0.6), edgecolor="k", linewidth=0.3)
-c_ax.set_yticks(y); c_ax.set_yticklabels([l for _, l in order]); c_ax.set_xlabel("Collagen held-out SAM (deg), mean $\\pm$ SD")
-c_ax.set_xlim(0, 33); c_ax.spines[["top", "right"]].set_visible(False)
-c_ax.text(0.97, 0.97, "(c)", transform=c_ax.transAxes, va="top", ha="right", fontweight="bold")
+c_ax.set_yticks(y); c_ax.set_yticklabels([l for _, l in order]); c_ax.set_xlabel("Held-out SAM (deg), mean $\\pm$ SD")
+c_ax.set_xlim(0, 36); c_ax.spines[["top", "right"]].set_visible(False)
+c_ax.text(0.97, 0.03, "(c)", transform=c_ax.transAxes, va="bottom", ha="right", fontweight="bold")
 for yy, (k, _) in zip(y, order):
     c_ax.text(c[k]["mean"] + c[k]["sd"] + 0.6, yy, f"{c[k]['mean']:.1f}", va="center")
-for e in ("png", "pdf"): fig.savefig(F / f"fig_realdata.{e}", dpi=600)
+for e in ("png", "pdf"): fig.savefig(F / f"fig_realdata.{e}", dpi=400)
 print("rep drop", rep)
