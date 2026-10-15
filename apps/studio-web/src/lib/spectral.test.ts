@@ -26,7 +26,7 @@ describe('spectral math (consistent with the Python engine)', () => {
     expect(muaDye(f, f.ex_peak_nm, 2 * c)).toBeCloseTo(2 * muaDye(f, f.ex_peak_nm, c), 12)
   })
   it('μs′ follows a·(λ/500)^-b and vanishes for the clear model', () => {
-    const s = { model: 'power_law' as const, mus_prime_500_per_mm: 2, power_b: 1.5, g: 0.9 }
+    const s = { model: 'power_law' as const, mus_prime_500_per_mm: 2, power_b: 1.5, f_rayleigh: 0, g: 0.9 }
     expect(musPrime(s, 500)).toBe(2)
     expect(musPrime(s, 1000)).toBeCloseTo(2 * 2 ** -1.5, 9)
     expect(musPrime({ ...s, model: 'none' }, 500)).toBe(0)

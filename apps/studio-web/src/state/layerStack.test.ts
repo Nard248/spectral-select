@@ -3,7 +3,7 @@ import { addLayer, removeLayer, duplicateLayer, moveLayer, setProfileKind, setUn
 import type { LayeredBlockShape } from '../generated/experiment'
 
 const mk = (): LayeredBlockShape => ({
-  kind: 'layered_block', footprint_mm: [20, 20],
+  kind: 'layered_block', footprint_mm: [20, 20], inclusions: [],
   layers: [
     { name: 'a', material_id: 'm1', thickness: { kind: 'uniform', thickness_mm: 2, end_thickness_mm: 2, axis: 'x' } },
     { name: 'b', material_id: 'm2', thickness: { kind: 'linear', thickness_mm: 1, end_thickness_mm: 0, axis: 'z' } },

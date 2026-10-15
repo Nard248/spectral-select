@@ -66,12 +66,18 @@ class DyeAmount(_Model):
 
 
 class ScatteringSpec(_Model):
-    """Reduced-scattering power law ``mus'(λ) = mus_prime_500 · (λ/500 nm)^-power_b`` (1/mm) with
-    Henyey-Greenstein anisotropy ``g`` (``mus = mus' / (1 - g)``). ``model='none'`` = clear medium."""
+    """Reduced scattering (1/mm) with Henyey-Greenstein anisotropy ``g`` (``mus = mus' / (1 - g)``).
 
-    model: Literal["none", "power_law"] = "none"
+    * ``power_law``: ``mus'(λ) = mus_prime_500 · (λ/500 nm)^-power_b``.
+    * ``mie_rayleigh`` (Jacques 2013, Phys. Med. Biol. 58 R37, eq. 2):
+      ``mus'(λ) = mus_prime_500 · [f_rayleigh (λ/500)^-4 + (1 - f_rayleigh) (λ/500)^-power_b]``
+      (``power_b`` is then the Mie power ``b_Mie``).
+    * ``none``: clear medium."""
+
+    model: Literal["none", "power_law", "mie_rayleigh"] = "none"
     mus_prime_500_per_mm: float = Field(0.0, ge=0)
     power_b: float = Field(1.0, ge=0)
+    f_rayleigh: float = Field(0.0, ge=0, le=1)
     g: float = Field(0.9, ge=-0.99, le=0.99)
 
 
@@ -87,6 +93,29 @@ class AbsorberSpec(_Model):
     custom: list[tuple[float, float]] = Field(default_factory=list)
 
 
+class TissueComposition(_Model):
+    """Chromophore-based tissue absorption (Jacques 2013, eq. 1), ADDED to the dyes' and the
+    ``background_absorption`` absorption::
+
+        mua(λ) = B·S·mua_HbO2(λ) + B·(1-S)·mua_Hb(λ) + W·mua_water(λ) + F·mua_fat(λ)
+                 + M·mua_melanosome(λ) + ln10·(ε_bili(λ)·c_bili + ε_βcar(λ)·c_βcar)/10
+
+    ``B`` blood volume fraction (whole blood at ``hemoglobin_g_per_L``, M=64 500 g/mol per Hb
+    tetramer), ``S`` oxygen saturation, ``W`` water / ``F`` lipid / ``M`` melanosome volume
+    fractions, bilirubin and β-carotene in µM. Spectra are tabulated literature data in
+    :mod:`spectraforge.studio.tissue_optics` (Prahl hemoglobin; Hale & Querry / Segelstein water;
+    van Veen 2005 lipid; Jacques melanosome; Prahl bilirubin / β-carotene)."""
+
+    blood_volume_fraction: float = Field(0.0, ge=0, le=1)
+    oxygen_saturation: float = Field(0.75, ge=0, le=1)
+    hemoglobin_g_per_L: float = Field(150.0, gt=0)
+    water_fraction: float = Field(0.0, ge=0, le=1)
+    lipid_fraction: float = Field(0.0, ge=0, le=1)
+    melanosome_fraction: float = Field(0.0, ge=0, le=1)
+    bilirubin_uM: float = Field(0.0, ge=0)
+    beta_carotene_uM: float = Field(0.0, ge=0)
+
+
 class FretPair(_Model):
     donor: str
     acceptor: str
@@ -100,6 +129,7 @@ class MaterialSpec(_Model):
     refractive_index: float = Field(1.33, ge=1.0, le=3.0)
     scattering: ScatteringSpec = Field(default_factory=ScatteringSpec)
     background_absorption: AbsorberSpec = Field(default_factory=AbsorberSpec)
+    tissue: TissueComposition | None = None     # chromophore-based absorption (added)
     surface_roughness: float = Field(0.15, ge=0.0, le=1.0)   # GGX alpha of the interface
     aqueous: bool = False                   # enables the water-Raman line
     raman_strength: float = Field(1.0, ge=0)  # relative water-Raman cross-section multiplier
@@ -189,6 +219,33 @@ class BlockLayer(_Model):
     thickness: ThicknessProfile = Field(default_factory=ThicknessProfile)
 
 
+class Inclusion(_Model):
+    """A heterogeneity embedded in a layered block (e.g. a blood vessel, a tumour nodule, a
+    fluorescent bead), in the BLOCK's local frame (footprint centred on x = z = 0, bottom y = 0).
+
+    * ``sphere``: centre ``center_mm``, radius ``radius_mm``.
+    * ``ellipsoid``: centre, semi-axes ``semi_axes_mm`` (x, y, z).
+    * ``cylinder``: axis through ``center_mm`` along local ``axis`` (x or z), radius ``radius_mm``,
+      length ``length_mm`` (clipped to the block) — a vessel.
+    * ``box``: centre, full ``size_mm``.
+
+    The inclusion REPLACES the layer material wherever it overlaps the block (the part outside the
+    block is ignored). In the 3D Monte Carlo it is voxelised at
+    ``acquisition.volume_mc.inclusion_voxel_mm`` and treated as **index-matched** to the
+    surrounding layer (its ``refractive_index`` is not used for refraction; documented
+    approximation, standard in voxel MC such as mcxyz). Its dyes fluoresce like any layer."""
+
+    name: str
+    material_id: str
+    kind: Literal["sphere", "ellipsoid", "cylinder", "box"] = "sphere"
+    center_mm: Vec3 = (0.0, 1.0, 0.0)
+    radius_mm: float = Field(1.0, gt=0)
+    semi_axes_mm: Vec3 = (1.0, 0.5, 1.0)
+    size_mm: Vec3 = (2.0, 1.0, 2.0)
+    axis: Literal["x", "z"] = "z"
+    length_mm: float = Field(1000.0, gt=0)
+
+
 class LayeredBlockShape(_Model):
     """A rectangular block built from a stack of uniform layers, listed BOTTOM → TOP. Footprint
     ``footprint_mm = (x, z)`` centred on the local origin; the bottom face lies on local ``y = 0``
@@ -199,6 +256,7 @@ class LayeredBlockShape(_Model):
     kind: Literal["layered_block"] = "layered_block"
     footprint_mm: tuple[float, float] = (40.0, 40.0)
     layers: list[BlockLayer] = Field(min_length=1, max_length=8)
+    inclusions: list[Inclusion] = Field(default_factory=list, max_length=16)
 
     @model_validator(mode="after")
     def _positive_total(self) -> "LayeredBlockShape":
@@ -209,6 +267,9 @@ class LayeredBlockShape(_Model):
         names = [l.name for l in self.layers]
         if len(set(names)) != len(names):
             raise ValueError("layered block layer names must be unique")
+        inc = [i.name for i in self.inclusions]
+        if len(set(inc)) != len(inc) or set(inc) & set(names):
+            raise ValueError("inclusion names must be unique and differ from layer names")
         return self
 
 
@@ -382,6 +443,7 @@ class VolumeMCSettings(_Model):
     exit_cell_mm: float = Field(0.5, gt=0.01)
     emission_node_step_nm: float = Field(20.0, ge=2.0, le=100.0)
     acceptance_half_angle_deg: float = Field(12.0, gt=0.5, le=60.0)
+    inclusion_voxel_mm: float = Field(0.2, ge=0.02, le=2.0)   # voxel size of the inclusion map
 
 
 class AcquisitionSettings(_Model):
@@ -424,6 +486,10 @@ class Experiment(_Model):
                     if layer.material_id not in mats:
                         raise ValueError(f"object '{o.id}' layer '{layer.name}' references unknown "
                                          f"material '{layer.material_id}'")
+                for inc in o.shape.inclusions:
+                    if inc.material_id not in mats:
+                        raise ValueError(f"object '{o.id}' inclusion '{inc.name}' references "
+                                         f"unknown material '{inc.material_id}'")
         if self.background.kind == "plane" and self.background.material_id not in mats:
             raise ValueError(f"background references unknown material '{self.background.material_id}'")
         for label, ids, active in (("source", [s.id for s in self.sources], self.active_source_id),

@@ -66,6 +66,7 @@ export function TopBar() {
         { value: 'design', label: <>Design</>, title: 'Build the scene [1]' },
         { value: 'acquire', label: <>Acquire</>, title: 'Sequence, preview, capture [2]' },
         { value: 'explore', label: <>Explore</>, title: 'Inspect captured cubes [3]' },
+        { value: 'research', label: <>Research</>, title: 'Studies, sensitivity analysis, inverse problems, Methods text [4]' },
       ]} />
       <div className="spacer" />
       {engine === 'mock' && (

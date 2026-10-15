@@ -7,6 +7,7 @@ import { Inspector } from './panels/Inspector'
 import { AcquireBar } from './panels/AcquireBar'
 import { Viewport } from './scene/Viewport'
 import { Explorer } from './explorer/Explorer'
+import { ResearchWorkspace } from './research/ResearchWorkspace'
 import { Toast } from './ui/toast'
 import { Tour } from './tour/Tour'
 import { initEngine, startValidation } from './state/actions'
@@ -27,7 +28,7 @@ export default function App() {
     return () => { stopSave(); stopVal?.() }
   }, [])
 
-  const showWorkspace = mode !== 'explore'
+  const showWorkspace = mode !== 'explore' && mode !== 'research'
   return (
     <div className="app">
       <TopBar />
@@ -37,6 +38,7 @@ export default function App() {
         <aside className="panel right"><Inspector /></aside>
       </div>
       {mode === 'explore' && <Explorer />}
+      {mode === 'research' && <ResearchWorkspace />}
       <Tour />
       <Toast />
     </div>

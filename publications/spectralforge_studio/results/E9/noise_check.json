@@ -1,0 +1,16 @@
+{
+ "0.15": {
+  "median_rel_noise_per_channel": 0.08229502190403776,
+  "n_channels_used": 62,
+  "n_px": 1888,
+  "mc_photons": "2e6 x fraction (0.15 -> 3e5; 0.6 -> 1.2e6) excitation and emission"
+ },
+ "0.6": {
+  "median_rel_noise_per_channel": 0.07342972613343829,
+  "n_channels_used": 62,
+  "n_px": 1888,
+  "mc_photons": "2e6 x fraction (0.15 -> 3e5; 0.6 -> 1.2e6) excitation and emission"
+ },
+ "mc_rel_noise_at_0.15": 0.04290370535908376,
+ "sensor_plus_other_rel_noise": 0.07022636753134097
+}

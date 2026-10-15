@@ -928,7 +928,7 @@ def load_npz_capture(path) -> CaptureResult:
         gt = {gt_names.get(n[3:], n[3:]): z[n] for n in files if n.startswith("gt_")}
         volumes = _load_volumes(z, files)
         blocks = json.loads(str(z["blocks_json"])) if "blocks_json" in files else []
-        return CaptureResult(
+        res = CaptureResult(
             experiment_json=str(z["experiment_json"]), mode=meta.get("mode", "sample"), width=int(w), height=int(h),
             excitations_nm=exs, emission_nm={e: np.asarray(per["emission_nm"][e], dtype=np.float64) for e in exs},
             adu={e: per["adu"][e] for e in exs}, radiance={e: per["radiance"][e] for e in exs if e in per["radiance"]},
@@ -937,6 +937,9 @@ def load_npz_capture(path) -> CaptureResult:
             power_mW={e: float(per["power_mW"][e]) for e in exs if e in per["power_mW"]},
             ground_truth=gt, warnings=list(meta.get("warnings", [])), timings_s=dict(meta.get("timings_s", {})),
             engine_version=meta.get("engine_version", "studio-1.1"), blocks=blocks, volumes=volumes)
+        if "result_meta_json" in files:                       # v1.2 additive: provenance etc.
+            res.meta = json.loads(str(z["result_meta_json"]))
+        return res
 
 
 def _load_volumes(z, files: list[str]) -> dict[str, dict]:

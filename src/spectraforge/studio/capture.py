@@ -1084,9 +1084,40 @@ def _gt_maps(eng: _Engine, steps: list[_Step], h: HitBuffer) -> dict[str, np.nda
             bl[run.mask[0]] = np.nan
         gt[f"conc:{d}"] = f32(conc)
         gt[f"bleached:{d}"] = f32(bl)
-    for run in eng.blocks:
-        gt.update(_block_gt(run, h))
+    gt.update(_merge_block_gt(eng, h))
     return gt
+
+
+def _block_labels(eng: _Engine) -> list[str]:
+    """Unique per-block qualifier: the scene-object name, or ``<name>#<object id>`` when names repeat."""
+    names = [str(eng.exp.objects[r.object_index].name) for r in eng.blocks]
+    return [n if names.count(n) == 1 else f"{n}#{r.object_id}" for n, r in zip(names, eng.blocks)]
+
+
+def _merge_block_gt(eng: _Engine, h: HitBuffer) -> dict[str, np.ndarray]:
+    """Ground-truth maps of all blocks. Un-namespaced keys (``layer_thickness:cover``, ...) are the MERGED map: each
+    pixel takes the value of the visible block (the one whose surface the view ray meets first, i.e. the lowest
+    camera layer slot). With several blocks also ``<family>:<block>/<name>`` qualified keys (own block only)."""
+    if len(eng.blocks) == 1:
+        return _block_gt(eng.blocks[0], h)
+    H, W = h.height, h.width
+    merged: dict[str, np.ndarray] = {}
+    rank: dict[str, np.ndarray] = {}
+    out: dict[str, np.ndarray] = {}
+    for run, label in zip(eng.blocks, _block_labels(eng)):
+        maps = _block_gt(run, h)
+        first = np.where(run.mask.any(axis=0), run.mask.argmax(axis=0), np.iinfo(np.int32).max).reshape(H, W)
+        for key, arr in maps.items():
+            if ":" in key:
+                fam, nm = key.split(":", 1)
+                out[f"{fam}:{label}/{nm}"] = arr
+            m = merged.setdefault(key, np.full((H, W), np.nan, dtype=np.float32))
+            r = rank.setdefault(key, np.full((H, W), np.iinfo(np.int32).max, dtype=np.int64))
+            take = np.isfinite(arr) & (first < r)
+            m[take] = arr[take]
+            r[take] = first[take]
+    out.update(merged)
+    return out
 
 
 def _block_gt(run, h: HitBuffer) -> dict[str, np.ndarray]:
@@ -1146,13 +1177,22 @@ def _block_results(res: CaptureResult, eng: _Engine, steps: list[_Step]) -> None
     for run in eng.blocks:
         res.blocks.append({"object_id": run.object_id, "layer_names": list(run.layer_names),
                            "footprint_mm": [float(run.footprint_mm[0]), float(run.footprint_mm[1])],
-                           "world_from_local": np.asarray(run.world_from_local, float).tolist()})
+                           "world_from_local": np.asarray(run.world_from_local, float).tolist(),
+                           "inclusions": [dict(m) for m in getattr(run, "incl_meta", [])]})
         res.volumes[run.object_id] = {
             "grid": run.grid, "layer_names": list(run.layer_names),
             "fluence": {ex: run.fluence[ex] for ex in run.ex_list},
             "absorbed": {ex: run.absorbed[ex] for ex in run.ex_list},
             "source": dict(run.sources),
             "units": {"fluence": "mW/mm^2", "absorbed": "mW", "source": "mW"}}
+        imap = getattr(run, "imap", None)
+        if imap is not None:       # v1.2: inclusion tallies on the inclusion map (axis order x, y, z)
+            res.volumes[run.object_id]["inclusions"] = {
+                "names": list(imap.names), "voxel_mm": imap.voxel_mm, "origin_mm": list(imap.origin_mm),
+                "shape": list(imap.shape), "region": imap.region,
+                "fluence": {ex: run.incl_fluence[ex] for ex in run.ex_list if ex in run.incl_fluence},
+                "absorbed": {ex: run.incl_absorbed[ex] for ex in run.ex_list if ex in run.incl_absorbed},
+                "source": dict(run.incl_sources)}
 
 
 # --------------------------------------------------------------------------------------------
@@ -1531,8 +1571,12 @@ def explain_pixel(experiment: Experiment, x: int, y: int, *, scale: float = 1.0,
         conc = sum(dd.concentration_uM for dd in eng.mats[m0].dyes if dd.fluorophore == d) if m0 >= 0 else 0.0
         gt[f"conc:{d}"] = None if is_block else float(conc)
         gt[f"bleached:{d}"] = None if is_block else float(eng.survival[d][0, 0])
-    for r in eng.blocks:
-        if r.mask[:, 0].any():
-            gt.update(_block_gt_pixel(r, hit))
+    hit_blocks = [(int(r.mask[:, 0].argmax()), r, lab) for r, lab in zip(eng.blocks, _block_labels(eng))
+                  if r.mask[:, 0].any()]
+    for _k, r, lab in sorted(hit_blocks, key=lambda t: -t[0]):      # topmost (lowest slot) block applied last = wins
+        vals = _block_gt_pixel(r, hit)
+        if len(eng.blocks) > 1:
+            gt.update({f"{k.split(':', 1)[0]}:{lab}/{k.split(':', 1)[1]}": v for k, v in vals.items() if ":" in k})
+        gt.update(vals)
     out["ground_truth"] = gt
     return out

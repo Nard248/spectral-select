@@ -5,7 +5,7 @@ import type { LayeredBlockShape } from '../../generated/experiment'
 
 const uni = (t: number) => ({ kind: 'uniform' as const, thickness_mm: t, end_thickness_mm: t, axis: 'x' as const })
 const shape: LayeredBlockShape = {
-  kind: 'layered_block', footprint_mm: [40, 30],
+  kind: 'layered_block', footprint_mm: [40, 30], inclusions: [],
   layers: [
     { name: 's', material_id: 'a', thickness: uni(4) },
     { name: 'f', material_id: 'b', thickness: uni(0.5) },

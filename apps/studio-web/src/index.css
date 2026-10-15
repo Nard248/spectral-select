@@ -328,3 +328,32 @@ table.tbl td { padding: 2px 3px; }
 .vmc-est { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .vmc-est > div { background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; display: grid; gap: 1px; }
 .vmc-est b { font: 650 13px var(--mono); color: var(--accent); } .vmc-est span { font-size: 10.5px; color: var(--faint); }
+
+/* v1.2 tissue optics + inclusions */
+.grp-title { font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); margin: 4px 0 -2px; display: flex; align-items: center; gap: 8px; }
+.grp-title::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+.opt-table { width: 100%; border-collapse: collapse; font: 500 11px var(--mono); }
+.opt-table th { text-transform: none; text-align: right; font-weight: 600; font-size: 9.5px; letter-spacing: .04em; font-size: 10.5px; color: var(--faint); padding: 2px 6px 4px; }
+.opt-table th:first-child, .opt-table td:first-child { text-align: left; }
+.opt-table td { text-align: right; padding: 3px 6px; border-top: 1px solid var(--line); color: var(--dim); }
+.opt-table td b { color: var(--accent); font-weight: 650; }
+.opt-table td:first-child { color: var(--text); }
+.opt-table i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: -0.5px; }
+.opt-table tr.probe td { background: rgba(53,216,255,.05); }
+.opt-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.lyr-list { grid-template-columns: minmax(0, 1fr); }
+.inc-card > * { min-width: 0; }
+.inc-card { grid-template-columns: minmax(0, 1fr); background: var(--bg2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 8px 8px; display: grid; gap: 6px; transition: border-color .12s, background .12s; }
+.inc-card.on { border-color: var(--accent-line); background: color-mix(in srgb, var(--accent) 4%, var(--bg2)); }
+.inc-card.bad { border-color: rgba(255,93,108,.55); }
+.inc-head { display: flex; align-items: center; gap: 6px; }
+.inc-head .lyr-name { flex: 1; min-width: 0; }
+.inc-sub { font-size: 10.5px; color: var(--faint); font-family: var(--mono); display: flex; gap: 8px; flex-wrap: wrap; }
+.inc-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.inc-presets button { display: grid; gap: 1px; justify-items: start; text-align: left; height: auto; padding: 6px 8px; line-height: 1.25; min-width: 0; white-space: normal; }
+.inc-presets button small { color: var(--faint); font-size: 9.5px; font-weight: 400; }
+.inc-presets button span.sw { width: 18px; height: 3px; border-radius: 2px; margin-bottom: 2px; }
+.sec-incl { display: inline-flex; gap: 6px; flex-wrap: wrap; max-width: 420px; }
+.sec-incl span { display: inline-flex; align-items: center; gap: 5px; font: 500 10.5px var(--mono); color: var(--dim); }
+.sec-incl i { width: 8px; height: 8px; border-radius: 50%; border: 1px solid rgba(255,255,255,.5); }
+.blk-label.inc { transform: translate(-50%, -100%); }

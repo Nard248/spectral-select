@@ -1,3 +1,5 @@
-from spectraforge.studio.server import main
+import sys
 
-main()
+from spectraforge.studio.cli import main
+
+sys.exit(main())

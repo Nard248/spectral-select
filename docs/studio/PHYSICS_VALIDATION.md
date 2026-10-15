@@ -101,7 +101,7 @@ repeated 488 nm step decays as exp(−k n) (left; k = 0.094 per step for 150 mW 
 exposure per step, Φ_b = 3·10⁻⁵).  The acquisition *order* matters (centre): with identical total dose, the
 sequence 300 mW → 40 mW records 76 %/55 % of the un-bleached signals, 40 mW → 300 mW records 96 %/71 %.  The
 survival map (right) is a ground-truth layer (`bleached:<dye>`).
-*References:* Song, Gao, Kuhn & Ho, *Biophys. J.* 68, 2588 (1995); Eggeling et al., *Anal. Chem.* 70, 2651 (1998).
+*References:* Song, Hennink, Young & Tanke, *Biophys. J.* 68, 2588 (1995); Eggeling et al., *Anal. Chem.* 70, 2651 (1998).
 
 ## 8. Noise statistics: photon transfer curve
 
@@ -311,7 +311,8 @@ Carlo; it used to re-simulate the whole sequence, ~10 s); 64 pixels: 1.5 s.
   block centre to the camera.  Wide-field cameras close to a block see a small angular error across the field; a
   perspective view of the block's side faces uses the cone estimator and is noisier than the top face.
 * **Planar-interface geometry.**  Interfaces are exact planes (uniform or linear wedge), the footprint is a rectangle
-  with four vertical sides; curved or rough interfaces, inclusions and lateral material changes are not representable.
+  with four vertical sides; curved or rough interfaces are not representable (voxel inclusions, section 12.9, give
+  lateral material changes).
   Interface roughness is a specular-glint property of the tracer, not of the transport.
 * **Subsurface spread, room light and `secondary_emission` are not applied to block pixels** (the 3D transport already
   contains the lateral spreading); photobleaching is resolved per voxel; the bottom boundary is a Fresnel interface
@@ -319,6 +320,90 @@ Carlo; it used to re-simulate the whole sequence, ~10 s); 64 pixels: 1.5 s.
 * **Fluorescein emission** uses `em_skew = 0.4`, `vibronic = 0.2` (red tail of the real dianion: about 36 % of the peak at 550 nm and 12 % at 570 nm); the 12.4 figures were regenerated with it.
 * **The 3D result is a Monte Carlo estimate.**  The default photon counts give ~10 % rms noise per 0.5 mm face cell
   before the sub-cell smoothing; 2-3 % in a 3 mm region of interest.
+
+### 12.9 Voxel inclusions (v1.2)
+
+Spheres, ellipsoids, cylinders and boxes (`LayeredBlockShape.inclusions`) are embedded in the layer stack.  The layer
+planes stay exact; the inclusions live on a regular Cartesian map over the block (`inclusion_voxel_mm`, default 0.2 mm,
+2x2x2 analytic supersamples per voxel, uint8 region id, 0 = layer material).  Conventions: the later inclusion wins
+overlaps; a mixed voxel takes its majority id (not averaged; a voxel that only grazes the block, e.g. under a slanted
+top surface, votes with all its samples); inclusions are index-matched to the host layer (no Fresnel at their
+boundary); the photon step is limited by layer planes and, inside "zones" (4^3-voxel coarse cells that hold an
+inclusion voxel), by voxel boundaries, with the dimensionless free path carried across every partial move so that a
+change of mu_t at a boundary is exact.  Voxel crossings consume no random number and the Russian roulette is not rolled
+after them, so an inclusion with the host's optics follows the host-only random walk.  Layer tallies describe the host
+material only; `inclusion_absorbed_mW` / `inclusion_fluence_mW_mm2` the inclusions (together they conserve power);
+emission sources inside inclusions are sampled from the inclusion voxels.  Per-inclusion ground truth in the capture:
+`inclusion_mask:<name>`, `inclusion_depth_mm:<name>`, `origin_fraction:<name>`; explain components
+`dye:<dye>@<inclusion>`.  With several layered blocks, every per-block ground-truth key (`layer_thickness:<layer>`,
+`layer_depth:<layer>`, `origin_*`, `inclusion_*:<name>`, `block_face`) is the MERGED map (each pixel takes the visible, i.e.
+topmost-along-the-view-ray, block), and block-qualified keys `<family>:<block name>/<layer or inclusion>` (block id appended
+as `#id` when names repeat) give each block's own map.  `per_photon_streams=True` (optional) gives each photon a private random stream (common random
+numbers for finite differences).  Reproduce with `scripts/studio_inclusion_figures.py`; tests in
+`tests/studio/test_inclusions*.py`.
+
+| check | result |
+|---|---|
+| blocks without inclusions | bit-identical to v1.1 (golden values of the unmodified engine, `test_blocks_without_inclusions_are_bit_identical_to_v11`) |
+| null inclusion (same optics as host), 2e5 photons | R, T, A identical to the last bit (peel-off off); camera radiance within 6e-16 (peel-off on) |
+| filling box over a wedge layer vs replacing the layer | identical to the last bit (peel off); peel on: R 0.161004 vs 0.161303 (0.19 %), camera radiance 0.12 %, layer absorption 0.07 % |
+| energy balance R+T+A+specular | 1 to < 1e-9 in all six scenes (edge-straddling, wedge-crossing, clear, vessel+box...) |
+| determinism / thread count (1, 4, 14 threads) | bit-identical |
+
+**First-order perturbation (item 4).**  Nine absorbing spheres (r = 1.5 mm, 3 mm deep) in a turbid block (mu_a = 0.1,
+mu_s = 2 /mm, g = 0, n = 1.4) under wide illumination; R(null) - R(mu_a + delta) with common random numbers
+(per-photon streams: 2e-7 absolute noise instead of 3e-4 with batch streams) against
+delta * int Phi Phi^dagger dV, Phi from the null run, Phi^dagger from a second run in which the power absorbed in the
+spheres is re-emitted isotropically (reciprocity; isotropic importance).  Measured / predicted =
+0.937, 0.916, 0.876, 0.809 for delta = 0.01, 0.02, 0.04, 0.08 (the shortfall grows with delta: nonlinearity); the
+delta -> 0 limit of the quadratic fit is **0.948**, i.e. 5 % below the isotropic-importance first-order theory, which
+is the expected sign (downward fluence is correlated with the low upward importance; the isotropic approximation
+overestimates int Phi Phi^dagger).  Numbers in `figures/inclusion_numbers.json`, figure `fig22b_perturbation.png`.
+
+### 12.10 Spatially resolved reflectance: lateral transport
+
+![radial reflectance](figures/fig22_radial_reflectance.png)
+
+Pencil beam on a semi-infinite homogeneous block (mu_a = 0.01, mu_s' = 1 /mm, g = 0, n = 1.4), radial diffuse
+reflectance R(rho) from the per-cell top exit power, against (a) an independent MCML-type code written for the test
+(no shared code) and (b) Farrell, Patterson & Wilson 1992 diffusion theory.  Annulus means, per unit incident power:
+
+| rho (mm) | engine | independent MC | engine / MC | engine / Farrell 1992 | engine / Farrell, exact A |
+|---|---|---|---|---|---|
+| 1-1.5 | 1.437e-2 | 1.442e-2 | 0.997 | 0.718 | 0.705 |
+| 1.5-2 | 8.96e-3 | 9.05e-3 | 0.990 | 0.839 | 0.815 |
+| 2-3 | 5.154e-3 | 5.200e-3 | 0.991 | 1.002 | 0.960 |
+| 3-4 | 2.787e-3 | 2.792e-3 | 0.998 | 1.117 | 1.062 |
+| 4-5 | 1.609e-3 | 1.622e-3 | 0.992 | 1.124 | 1.072 |
+| 5-6 | 9.95e-4 | 9.94e-4 | 1.001 | 1.118 | 1.078 |
+| 6-8 | 5.127e-4 | 5.141e-4 | 0.997 | 1.080 | 1.058 |
+| 8-10 | 2.291e-4 | 2.305e-4 | 0.994 | 1.042 | 1.040 |
+
+The engine reproduces the independent Monte Carlo to 1 % everywhere (statistical noise ~0.5 %); total diffuse
+reflectance 0.6046.  Against diffusion theory the disagreement is a property of the dipole model, not of the engine
+(the independent code shows the same ratios).  The empirical boundary parameter of the 1992 paper
+(Groenhuis, A = 3.25 at n = 1.4) overestimates the exact Fresnel value (Haskell 1994, A = 2.95) and gives errors up to
+12.4 % for rho > 2 mfp'; with the exact A the error is <= 7.8 % for rho >= 3 mm, 4 % at 2-3 mm; below 2 mfp' diffusion
+theory fails (-18 % to -30 %) as expected.  Source-depth variants (z0 = 0.5, 1.5, 2 / mu_t') do not improve the
+agreement uniformly.  Slow test `test_radial_reflectance_matches_independent_mc_and_farrell` (engine = MC within 3 %,
+Farrell exact-A within 10 % and original within 15 % for rho >= 2 mm).
+
+### 12.11 Buried fluorescent sphere and speed
+
+![inclusion depth](figures/fig23_inclusion_depth.png)
+
+A fluorescein bead (r = 1 mm) in a non-fluorescent turbid host (mu_s' = 0.5, 1.5, 3 /mm), 490 nm excitation, full
+capture pipeline.  The excess of the on-bead radiance over the surrounding ring and the Michelson contrast fall
+monotonically with the depth of the bead top up to ~2-3 mm (3e6 photons); beyond that the bead excess is below the Monte Carlo
+noise (the slight rise at 4 mm for mu_s' = 0.5 is noise).  A constant background (about 3.5e-5, also present without
+the bead, origin not investigated here) remains in the ring.  Curves for different mu_s'
+cross (scattering raises the near-surface fluence but attenuates deeper emission).
+
+**Speed.**  With 4 inclusions (sphere, ellipsoid, vessel, box; 0.2 mm; 1.4 % of the map voxels occupied) on the reference
+configuration, interleaved back-to-back runs on a loaded machine (load 90-250, so only ratios mean anything) give about
+**2.0x** (excitation) and **2.1x** (emission) of the homogeneous block; the 1.6x target is NOT demonstrated and is
+pending a measurement on an idle machine.  The overhead is per photon step (map lookup, coarse-cell distance field
+and peel-off optical-depth correction), not per voxel crossing: photons rarely enter zones.
 
 ---
 

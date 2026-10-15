@@ -42,7 +42,7 @@ describe('thicknessAt (mirrors schema.ThicknessProfile.at)', () => {
 
 describe('interfaces', () => {
   const shape: LayeredBlockShape = {
-    kind: 'layered_block', footprint_mm: [40, 40],
+    kind: 'layered_block', footprint_mm: [40, 40], inclusions: [],
     layers: [{ name: 's', material_id: 'a', thickness: uni(4) }, { name: 'f', material_id: 'b', thickness: uni(0.5) }, { name: 'c', material_id: 'c', thickness: lin(2, 0, 'x') }],
   }
   it('cumulative heights', () => {
@@ -74,7 +74,7 @@ describe('interfaces', () => {
 })
 
 describe('validateBlock', () => {
-  const base = (): LayeredBlockShape => ({ kind: 'layered_block', footprint_mm: [10, 10], layers: [{ name: 'a', material_id: 'm', thickness: uni(1) }] })
+  const base = (): LayeredBlockShape => ({ kind: 'layered_block', footprint_mm: [10, 10], inclusions: [], layers: [{ name: 'a', material_id: 'm', thickness: uni(1) }] })
   it('accepts a valid block', () => { expect(validateBlock(base(), ['m'])).toEqual([]) })
   it('flags duplicate names', () => {
     const s = base(); s.layers.push({ name: 'a', material_id: 'm', thickness: uni(1) })

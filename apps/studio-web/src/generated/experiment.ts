@@ -26,13 +26,22 @@ export type Fluorophore = string;
 export type ConcentrationUm = number;
 export type Dyes = DyeAmount[];
 export type RefractiveIndex = number;
-export type Model = "none" | "power_law";
+export type Model = "none" | "power_law" | "mie_rayleigh";
 export type MusPrime500PerMm = number;
 export type PowerB = number;
+export type FRayleigh = number;
 export type G = number;
 export type Preset = "none" | "water" | "hemoglobin" | "melanin" | "carbon_black" | "custom";
 export type Scale = number;
 export type Custom = [number, number][];
+export type BloodVolumeFraction = number;
+export type OxygenSaturation = number;
+export type HemoglobinGPerL = number;
+export type WaterFraction = number;
+export type LipidFraction = number;
+export type MelanosomeFraction = number;
+export type BilirubinUm = number;
+export type BetaCaroteneUm = number;
 export type SurfaceRoughness = number;
 export type Aqueous = boolean;
 export type RamanStrength = number;
@@ -101,6 +110,135 @@ export type ThicknessMm = number;
 export type EndThicknessMm = number;
 export type Axis = "x" | "z";
 /**
+ * @maxItems 16
+ */
+export type Inclusions =
+  | []
+  | [Inclusion]
+  | [Inclusion, Inclusion]
+  | [Inclusion, Inclusion, Inclusion]
+  | [Inclusion, Inclusion, Inclusion, Inclusion]
+  | [Inclusion, Inclusion, Inclusion, Inclusion, Inclusion]
+  | [Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion]
+  | [Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion]
+  | [Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion]
+  | [Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion]
+  | [Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion, Inclusion]
+  | [
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion
+    ]
+  | [
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion
+    ]
+  | [
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion
+    ]
+  | [
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion
+    ]
+  | [
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion
+    ]
+  | [
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion,
+      Inclusion
+    ];
+export type Name5 = string;
+export type MaterialId1 = string;
+export type Kind8 = "sphere" | "ellipsoid" | "cylinder" | "box";
+/**
+ * @minItems 3
+ * @maxItems 3
+ */
+export type CenterMm = [number, number, number];
+export type RadiusMm2 = number;
+/**
+ * @minItems 3
+ * @maxItems 3
+ */
+export type SemiAxesMm = [number, number, number];
+/**
+ * @minItems 3
+ * @maxItems 3
+ */
+export type SizeMm1 = [number, number, number];
+export type Axis1 = "x" | "z";
+export type LengthMm = number;
+/**
  * @minItems 3
  * @maxItems 3
  */
@@ -110,20 +248,20 @@ export type PositionMm = [number, number, number];
  * @maxItems 3
  */
 export type RotationDeg = [number, number, number];
-export type MaterialId1 = string;
+export type MaterialId2 = string;
 export type VesselMaterialId = string | null;
 export type Visible = boolean;
 export type Objects = SceneObject[];
-export type Kind8 = "none" | "plane";
-export type MaterialId2 = string | null;
+export type Kind9 = "none" | "plane";
+export type MaterialId3 = string | null;
 export type ThicknessMm1 = number;
 export type ExtentMm = number;
 export type Enabled = boolean;
 export type Spectrum = "fluorescent_tube" | "white_led" | "daylight" | "incandescent";
 export type IlluminanceLux = number;
 export type Id2 = string;
-export type Name5 = string;
-export type Kind9 = "tunable_lamp" | "led_array" | "laser";
+export type Name6 = string;
+export type Kind10 = "tunable_lamp" | "led_array" | "laser";
 /**
  * @minItems 3
  * @maxItems 3
@@ -149,7 +287,7 @@ export type Enabled1 = boolean;
 export type Sequence = ExcitationStep[];
 export type Sources = LightSourceSpec[];
 export type Id3 = string;
-export type Name6 = string;
+export type Name7 = string;
 /**
  * @minItems 3
  * @maxItems 3
@@ -180,7 +318,7 @@ export type BitDepth = 12 | 14 | 16;
 export type PrnuPct = number;
 export type DsnuE = number;
 export type HotPixelFraction = number;
-export type Kind10 = "lctf" | "filter_wheel";
+export type Kind11 = "lctf" | "filter_wheel";
 export type BandStartNm = number;
 export type BandStepNm = number;
 export type NBands = number;
@@ -232,6 +370,7 @@ export type Sublayers = number;
 export type ExitCellMm = number;
 export type EmissionNodeStepNm = number;
 export type AcceptanceHalfAngleDeg = number;
+export type InclusionVoxelMm = number;
 
 export interface Experiment {
   schema_version: SchemaVersion;
@@ -278,6 +417,7 @@ export interface MaterialSpec {
   refractive_index: RefractiveIndex;
   scattering: ScatteringSpec;
   background_absorption: AbsorberSpec;
+  tissue: TissueComposition | null;
   surface_roughness: SurfaceRoughness;
   aqueous: Aqueous;
   raman_strength: RamanStrength;
@@ -294,8 +434,13 @@ export interface DyeAmount {
   concentration_uM: ConcentrationUm;
 }
 /**
- * Reduced-scattering power law ``mus'(λ) = mus_prime_500 · (λ/500 nm)^-power_b`` (1/mm) with
- * Henyey-Greenstein anisotropy ``g`` (``mus = mus' / (1 - g)``). ``model='none'`` = clear medium.
+ * Reduced scattering (1/mm) with Henyey-Greenstein anisotropy ``g`` (``mus = mus' / (1 - g)``).
+ *
+ * * ``power_law``: ``mus'(λ) = mus_prime_500 · (λ/500 nm)^-power_b``.
+ * * ``mie_rayleigh`` (Jacques 2013, Phys. Med. Biol. 58 R37, eq. 2):
+ *   ``mus'(λ) = mus_prime_500 · [f_rayleigh (λ/500)^-4 + (1 - f_rayleigh) (λ/500)^-power_b]``
+ *   (``power_b`` is then the Mie power ``b_Mie``).
+ * * ``none``: clear medium.
  *
  * This interface was referenced by `Experiment`'s JSON-Schema
  * via the `definition` "ScatteringSpec".
@@ -304,6 +449,7 @@ export interface ScatteringSpec {
   model: Model;
   mus_prime_500_per_mm: MusPrime500PerMm;
   power_b: PowerB;
+  f_rayleigh: FRayleigh;
   g: G;
 }
 /**
@@ -320,6 +466,32 @@ export interface AbsorberSpec {
   preset: Preset;
   scale: Scale;
   custom: Custom;
+}
+/**
+ * Chromophore-based tissue absorption (Jacques 2013, eq. 1), ADDED to the dyes' and the
+ * ``background_absorption`` absorption::
+ *
+ *     mua(λ) = B·S·mua_HbO2(λ) + B·(1-S)·mua_Hb(λ) + W·mua_water(λ) + F·mua_fat(λ)
+ *              + M·mua_melanosome(λ) + ln10·(ε_bili(λ)·c_bili + ε_βcar(λ)·c_βcar)/10
+ *
+ * ``B`` blood volume fraction (whole blood at ``hemoglobin_g_per_L``, M=64 500 g/mol per Hb
+ * tetramer), ``S`` oxygen saturation, ``W`` water / ``F`` lipid / ``M`` melanosome volume
+ * fractions, bilirubin and β-carotene in µM. Spectra are tabulated literature data in
+ * :mod:`spectraforge.studio.tissue_optics` (Prahl hemoglobin; Hale & Querry / Segelstein water;
+ * van Veen 2005 lipid; Jacques melanosome; Prahl bilirubin / β-carotene).
+ *
+ * This interface was referenced by `Experiment`'s JSON-Schema
+ * via the `definition` "TissueComposition".
+ */
+export interface TissueComposition {
+  blood_volume_fraction: BloodVolumeFraction;
+  oxygen_saturation: OxygenSaturation;
+  hemoglobin_g_per_L: HemoglobinGPerL;
+  water_fraction: WaterFraction;
+  lipid_fraction: LipidFraction;
+  melanosome_fraction: MelanosomeFraction;
+  bilirubin_uM: BilirubinUm;
+  beta_carotene_uM: BetaCaroteneUm;
 }
 /**
  * This interface was referenced by `Experiment`'s JSON-Schema
@@ -339,7 +511,7 @@ export interface SceneObject {
   name: Name3;
   shape: Shape;
   transform: Transform;
-  material_id: MaterialId1;
+  material_id: MaterialId2;
   vessel_material_id: VesselMaterialId;
   visible: Visible;
 }
@@ -430,6 +602,7 @@ export interface LayeredBlockShape {
   kind: Kind6;
   footprint_mm: FootprintMm;
   layers: Layers;
+  inclusions: Inclusions;
 }
 /**
  * This interface was referenced by `Experiment`'s JSON-Schema
@@ -456,6 +629,36 @@ export interface ThicknessProfile {
   axis: Axis;
 }
 /**
+ * A heterogeneity embedded in a layered block (e.g. a blood vessel, a tumour nodule, a
+ * fluorescent bead), in the BLOCK's local frame (footprint centred on x = z = 0, bottom y = 0).
+ *
+ * * ``sphere``: centre ``center_mm``, radius ``radius_mm``.
+ * * ``ellipsoid``: centre, semi-axes ``semi_axes_mm`` (x, y, z).
+ * * ``cylinder``: axis through ``center_mm`` along local ``axis`` (x or z), radius ``radius_mm``,
+ *   length ``length_mm`` (clipped to the block) — a vessel.
+ * * ``box``: centre, full ``size_mm``.
+ *
+ * The inclusion REPLACES the layer material wherever it overlaps the block (the part outside the
+ * block is ignored). In the 3D Monte Carlo it is voxelised at
+ * ``acquisition.volume_mc.inclusion_voxel_mm`` and treated as **index-matched** to the
+ * surrounding layer (its ``refractive_index`` is not used for refraction; documented
+ * approximation, standard in voxel MC such as mcxyz). Its dyes fluoresce like any layer.
+ *
+ * This interface was referenced by `Experiment`'s JSON-Schema
+ * via the `definition` "Inclusion".
+ */
+export interface Inclusion {
+  name: Name5;
+  material_id: MaterialId1;
+  kind: Kind8;
+  center_mm: CenterMm;
+  radius_mm: RadiusMm2;
+  semi_axes_mm: SemiAxesMm;
+  size_mm: SizeMm1;
+  axis: Axis1;
+  length_mm: LengthMm;
+}
+/**
  * This interface was referenced by `Experiment`'s JSON-Schema
  * via the `definition` "Transform".
  */
@@ -471,8 +674,8 @@ export interface Transform {
  * via the `definition` "Background".
  */
 export interface Background {
-  kind: Kind8;
-  material_id: MaterialId2;
+  kind: Kind9;
+  material_id: MaterialId3;
   thickness_mm: ThicknessMm1;
   extent_mm: ExtentMm;
   room_light: RoomLight;
@@ -492,8 +695,8 @@ export interface RoomLight {
  */
 export interface LightSourceSpec {
   id: Id2;
-  name: Name5;
-  kind: Kind9;
+  name: Name6;
+  kind: Kind10;
   position_mm: PositionMm1;
   target_mm: TargetMm;
   roll_deg: RollDeg;
@@ -529,7 +732,7 @@ export interface ExcitationStep {
  */
 export interface CameraSpec {
   id: Id3;
-  name: Name6;
+  name: Name7;
   position_mm: PositionMm2;
   target_mm: TargetMm1;
   roll_deg: RollDeg1;
@@ -578,7 +781,7 @@ export interface SensorSpec {
  * via the `definition` "SpectralFilterSpec".
  */
 export interface SpectralFilterSpec {
-  kind: Kind10;
+  kind: Kind11;
   band_start_nm: BandStartNm;
   band_step_nm: BandStepNm;
   n_bands: NBands;
@@ -655,4 +858,5 @@ export interface VolumeMCSettings {
   exit_cell_mm: ExitCellMm;
   emission_node_step_nm: EmissionNodeStepNm;
   acceptance_half_angle_deg: AcceptanceHalfAngleDeg;
+  inclusion_voxel_mm: InclusionVoxelMm;
 }

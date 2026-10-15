@@ -623,6 +623,134 @@
    "title": "FretPair",
    "type": "object"
   },
+  "Inclusion": {
+   "additionalProperties": false,
+   "description": "A heterogeneity embedded in a layered block (e.g. a blood vessel, a tumour nodule, a\nfluorescent bead), in the BLOCK's local frame (footprint centred on x = z = 0, bottom y = 0).\n\n* ``sphere``: centre ``center_mm``, radius ``radius_mm``.\n* ``ellipsoid``: centre, semi-axes ``semi_axes_mm`` (x, y, z).\n* ``cylinder``: axis through ``center_mm`` along local ``axis`` (x or z), radius ``radius_mm``,\n  length ``length_mm`` (clipped to the block) \u2014 a vessel.\n* ``box``: centre, full ``size_mm``.\n\nThe inclusion REPLACES the layer material wherever it overlaps the block (the part outside the\nblock is ignored). In the 3D Monte Carlo it is voxelised at\n``acquisition.volume_mc.inclusion_voxel_mm`` and treated as **index-matched** to the\nsurrounding layer (its ``refractive_index`` is not used for refraction; documented\napproximation, standard in voxel MC such as mcxyz). Its dyes fluoresce like any layer.",
+   "properties": {
+    "name": {
+     "title": "Name",
+     "type": "string"
+    },
+    "material_id": {
+     "title": "Material Id",
+     "type": "string"
+    },
+    "kind": {
+     "default": "sphere",
+     "enum": [
+      "sphere",
+      "ellipsoid",
+      "cylinder",
+      "box"
+     ],
+     "title": "Kind",
+     "type": "string"
+    },
+    "center_mm": {
+     "default": [
+      0.0,
+      1.0,
+      0.0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "title": "Center Mm",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    },
+    "radius_mm": {
+     "default": 1.0,
+     "exclusiveMinimum": 0,
+     "title": "Radius Mm",
+     "type": "number"
+    },
+    "semi_axes_mm": {
+     "default": [
+      1.0,
+      0.5,
+      1.0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "title": "Semi Axes Mm",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    },
+    "size_mm": {
+     "default": [
+      2.0,
+      1.0,
+      2.0
+     ],
+     "maxItems": 3,
+     "minItems": 3,
+     "title": "Size Mm",
+     "type": "array",
+     "items": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      },
+      {
+       "type": "number"
+      }
+     ],
+     "additionalItems": false
+    },
+    "axis": {
+     "default": "z",
+     "enum": [
+      "x",
+      "z"
+     ],
+     "title": "Axis",
+     "type": "string"
+    },
+    "length_mm": {
+     "default": 1000.0,
+     "exclusiveMinimum": 0,
+     "title": "Length Mm",
+     "type": "number"
+    }
+   },
+   "required": [
+    "name",
+    "material_id",
+    "kind",
+    "center_mm",
+    "radius_mm",
+    "semi_axes_mm",
+    "size_mm",
+    "axis",
+    "length_mm"
+   ],
+   "title": "Inclusion",
+   "type": "object"
+  },
   "LayeredBlockShape": {
    "additionalProperties": false,
    "description": "A rectangular block built from a stack of uniform layers, listed BOTTOM \u2192 TOP. Footprint\n``footprint_mm = (x, z)`` centred on the local origin; the bottom face lies on local ``y = 0``\nand every layer interface ``y = \u03a3_{j\u2264i} t_j(x, z)`` is a plane (uniform or linear profiles).\nLight transport inside is solved by the 3D layered Monte Carlo (``transport3d``), so buried\nlayers (e.g. a fluorophore under a scattering cover) are seen through everything above them.\n``SceneObject.material_id`` is ignored for this shape (each layer carries its own material).",
@@ -660,12 +788,21 @@
      "minItems": 1,
      "title": "Layers",
      "type": "array"
+    },
+    "inclusions": {
+     "items": {
+      "$ref": "#/$defs/Inclusion"
+     },
+     "maxItems": 16,
+     "title": "Inclusions",
+     "type": "array"
     }
    },
    "required": [
     "kind",
     "footprint_mm",
-    "layers"
+    "layers",
+    "inclusions"
    ],
    "title": "LayeredBlockShape",
    "type": "object"
@@ -873,6 +1010,17 @@
     "background_absorption": {
      "$ref": "#/$defs/AbsorberSpec"
     },
+    "tissue": {
+     "anyOf": [
+      {
+       "$ref": "#/$defs/TissueComposition"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null
+    },
     "surface_roughness": {
      "default": 0.15,
      "maximum": 1.0,
@@ -924,6 +1072,7 @@
     "refractive_index",
     "scattering",
     "background_absorption",
+    "tissue",
     "surface_roughness",
     "aqueous",
     "raman_strength",
@@ -1188,13 +1337,14 @@
   },
   "ScatteringSpec": {
    "additionalProperties": false,
-   "description": "Reduced-scattering power law ``mus'(\u03bb) = mus_prime_500 \u00b7 (\u03bb/500 nm)^-power_b`` (1/mm) with\nHenyey-Greenstein anisotropy ``g`` (``mus = mus' / (1 - g)``). ``model='none'`` = clear medium.",
+   "description": "Reduced scattering (1/mm) with Henyey-Greenstein anisotropy ``g`` (``mus = mus' / (1 - g)``).\n\n* ``power_law``: ``mus'(\u03bb) = mus_prime_500 \u00b7 (\u03bb/500 nm)^-power_b``.\n* ``mie_rayleigh`` (Jacques 2013, Phys. Med. Biol. 58 R37, eq. 2):\n  ``mus'(\u03bb) = mus_prime_500 \u00b7 [f_rayleigh (\u03bb/500)^-4 + (1 - f_rayleigh) (\u03bb/500)^-power_b]``\n  (``power_b`` is then the Mie power ``b_Mie``).\n* ``none``: clear medium.",
    "properties": {
     "model": {
      "default": "none",
      "enum": [
       "none",
-      "power_law"
+      "power_law",
+      "mie_rayleigh"
      ],
      "title": "Model",
      "type": "string"
@@ -1211,6 +1361,13 @@
      "title": "Power B",
      "type": "number"
     },
+    "f_rayleigh": {
+     "default": 0.0,
+     "maximum": 1,
+     "minimum": 0,
+     "title": "F Rayleigh",
+     "type": "number"
+    },
     "g": {
      "default": 0.9,
      "maximum": 0.99,
@@ -1223,6 +1380,7 @@
     "model",
     "mus_prime_500_per_mm",
     "power_b",
+    "f_rayleigh",
     "g"
    ],
    "title": "ScatteringSpec",
@@ -1603,6 +1761,77 @@
    "title": "ThicknessProfile",
    "type": "object"
   },
+  "TissueComposition": {
+   "additionalProperties": false,
+   "description": "Chromophore-based tissue absorption (Jacques 2013, eq. 1), ADDED to the dyes' and the\n``background_absorption`` absorption::\n\n    mua(\u03bb) = B\u00b7S\u00b7mua_HbO2(\u03bb) + B\u00b7(1-S)\u00b7mua_Hb(\u03bb) + W\u00b7mua_water(\u03bb) + F\u00b7mua_fat(\u03bb)\n             + M\u00b7mua_melanosome(\u03bb) + ln10\u00b7(\u03b5_bili(\u03bb)\u00b7c_bili + \u03b5_\u03b2car(\u03bb)\u00b7c_\u03b2car)/10\n\n``B`` blood volume fraction (whole blood at ``hemoglobin_g_per_L``, M=64 500 g/mol per Hb\ntetramer), ``S`` oxygen saturation, ``W`` water / ``F`` lipid / ``M`` melanosome volume\nfractions, bilirubin and \u03b2-carotene in \u00b5M. Spectra are tabulated literature data in\n:mod:`spectraforge.studio.tissue_optics` (Prahl hemoglobin; Hale & Querry / Segelstein water;\nvan Veen 2005 lipid; Jacques melanosome; Prahl bilirubin / \u03b2-carotene).",
+   "properties": {
+    "blood_volume_fraction": {
+     "default": 0.0,
+     "maximum": 1,
+     "minimum": 0,
+     "title": "Blood Volume Fraction",
+     "type": "number"
+    },
+    "oxygen_saturation": {
+     "default": 0.75,
+     "maximum": 1,
+     "minimum": 0,
+     "title": "Oxygen Saturation",
+     "type": "number"
+    },
+    "hemoglobin_g_per_L": {
+     "default": 150.0,
+     "exclusiveMinimum": 0,
+     "title": "Hemoglobin G Per L",
+     "type": "number"
+    },
+    "water_fraction": {
+     "default": 0.0,
+     "maximum": 1,
+     "minimum": 0,
+     "title": "Water Fraction",
+     "type": "number"
+    },
+    "lipid_fraction": {
+     "default": 0.0,
+     "maximum": 1,
+     "minimum": 0,
+     "title": "Lipid Fraction",
+     "type": "number"
+    },
+    "melanosome_fraction": {
+     "default": 0.0,
+     "maximum": 1,
+     "minimum": 0,
+     "title": "Melanosome Fraction",
+     "type": "number"
+    },
+    "bilirubin_uM": {
+     "default": 0.0,
+     "minimum": 0,
+     "title": "Bilirubin Um",
+     "type": "number"
+    },
+    "beta_carotene_uM": {
+     "default": 0.0,
+     "minimum": 0,
+     "title": "Beta Carotene Um",
+     "type": "number"
+    }
+   },
+   "required": [
+    "blood_volume_fraction",
+    "oxygen_saturation",
+    "hemoglobin_g_per_L",
+    "water_fraction",
+    "lipid_fraction",
+    "melanosome_fraction",
+    "bilirubin_uM",
+    "beta_carotene_uM"
+   ],
+   "title": "TissueComposition",
+   "type": "object"
+  },
   "Transform": {
    "additionalProperties": false,
    "properties": {
@@ -1717,6 +1946,13 @@
      "maximum": 60.0,
      "title": "Acceptance Half Angle Deg",
      "type": "number"
+    },
+    "inclusion_voxel_mm": {
+     "default": 0.2,
+     "maximum": 2.0,
+     "minimum": 0.02,
+     "title": "Inclusion Voxel Mm",
+     "type": "number"
     }
    },
    "required": [
@@ -1727,7 +1963,8 @@
     "sublayers",
     "exit_cell_mm",
     "emission_node_step_nm",
-    "acceptance_half_angle_deg"
+    "acceptance_half_angle_deg",
+    "inclusion_voxel_mm"
    ],
    "title": "VolumeMCSettings",
    "type": "object"

@@ -49,7 +49,7 @@ export function Viewport() {
         addObject(key, p ? [p[0], 0, p[2]] : undefined)
       }}>
       <div style={ui.lookThrough ? { position: 'absolute', left: lr.x, top: lr.y, width: lr.w, height: lr.h } : { position: 'absolute', inset: 0 }}>
-      <Canvas frameloop={mode === 'explore' ? 'never' : 'always'} dpr={[1, 2]} shadows="soft" camera={{ position: [780, 430, 1060], fov: 34, near: 1, far: 8000 }}
+      <Canvas frameloop={mode === 'explore' || mode === 'research' ? 'never' : 'always'} dpr={[1, 2]} shadows="soft" camera={{ position: [780, 430, 1060], fov: 34, near: 1, far: 8000 }}
         gl={{ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: true }}
         onPointerMissed={() => { if (!useStudio.getState().ui.lookThrough) select(null) }}>
         <Suspense fallback={null}><SceneRoot /></Suspense>

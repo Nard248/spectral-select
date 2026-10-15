@@ -1,5 +1,5 @@
 import { useStudio } from '../../state/store'
-import { materialMap, fluorophoreMap, BUNDLE, clone } from '../../state/presets'
+import { materialMap, fluorophoreMap, clone } from '../../state/presets'
 import { LIBRARY_SHAPES, DEFAULT_BLOCK } from '../../state/library'
 import { Section, Row, Sel, Toggle } from '../../ui/controls'
 import { ShapeIcon } from '../../ui/icons'
@@ -7,6 +7,8 @@ import { Layers } from 'lucide-react'
 import { InspectorHeader, HeaderActions, NF, TF, VF, SF, useErrAt } from './Fields'
 import { wavelengthToHex } from '../../lib/color'
 import type { SceneObject } from '../../generated/experiment'
+import { libraryMaterial } from '../../state/tissueLibrary'
+import { InclusionEditor } from './InclusionEditor'
 import { LayerStackEditor } from './LayerStackEditor'
 import { BlockViewSection } from './BlockViewSection'
 import { totalRange } from '../../three/layers/profile'
@@ -19,7 +21,7 @@ const DEFAULT_SHAPE: Record<Shape['kind'], Shape> = {
   droplet: { kind: 'droplet', base_radius_mm: 8, height_mm: 4 },
   petri_dish: { kind: 'petri_dish', inner_radius_mm: 17, wall_mm: 1, height_mm: 10, base_mm: 1, fill_height_mm: 4 },
   cuvette: { kind: 'cuvette', inner_mm: [10, 40, 10], wall_mm: 1.25, fill_height_mm: 30 },
-  layered_block: { kind: 'layered_block', footprint_mm: [40, 40], layers: [{ name: 'substrate', material_id: 'tissue_substrate', thickness: uniformProfile(3) }, { name: 'cover', material_id: 'collagen_cover', thickness: uniformProfile(1) }] },
+  layered_block: { kind: 'layered_block', footprint_mm: [40, 40], inclusions: [], layers: [{ name: 'substrate', material_id: 'tissue_substrate', thickness: uniformProfile(3) }, { name: 'cover', material_id: 'collagen_cover', thickness: uniformProfile(1) }] },
 }
 
 export function ObjectInspector({ id }: { id: string }) {
@@ -53,7 +55,7 @@ export function ObjectInspector({ id }: { id: string }) {
           onChange={(k) => {
             if (k !== 'layered_block') { upd((o) => { o.shape = structuredClone(DEFAULT_SHAPE[k]) }); return }
             edit((e) => {   // bring the block's library materials along, then replace the shape (one undo step)
-              for (const rid of DEFAULT_BLOCK.requires ?? []) { const bm = BUNDLE.materials.find((x) => x.id === rid); if (bm && !e.materials.some((x) => x.id === rid)) e.materials.push(clone(bm)) }
+              for (const rid of DEFAULT_BLOCK.requires ?? []) { const bm = libraryMaterial(rid); if (bm && !e.materials.some((x) => x.id === rid)) e.materials.push(clone(bm)) }
               const o = e.objects.find((x) => x.id === id); if (!o) return
               const blk = DEFAULT_BLOCK.make(id, o.material_id, null)
               o.shape = blk.shape; o.material_id = blk.material_id; o.vessel_material_id = null
@@ -68,6 +70,7 @@ export function ObjectInspector({ id }: { id: string }) {
       {sh.kind === 'layered_block' ? (
         <>
           <Section title="Layer stack" icon={<Layers size={13} />} extra={<span className="tag">{sh.layers.length} layers</span>}><LayerStackEditor objectId={id} shape={sh} /></Section>
+          <InclusionEditor objectId={id} shape={sh} />
           <BlockViewSection objectId={id} shape={sh} />
           <div style={{ padding: 12 }} className="hint">Each layer carries its own material (the object's single material is ignored). Light transport inside is solved by the 3D layered Monte Carlo — thickness {(() => { const r = totalRange(sh); return r.min === r.max ? `${+r.max.toFixed(3)} mm` : `${+r.min.toFixed(3)}–${+r.max.toFixed(3)} mm` })()}.</div>
         </>

@@ -1,0 +1,24 @@
+# E7 findings: depth-dependent failure of linear unmixing (corrected analysis, 2026-10-15)
+
+Settings: uniform cover t = 0.05-1.3 mm (8 values), noisy `fast` capture (scale 0.25), NNLS on the mean spectrum of 24 random ROI pixels (central 0.4-0.6). Groups: NADH, FAD, matrix (collagen+elastin), scatter (elastic+glint+leak), each summed over layers; per-layer variant has 7 endmembers. Signatures AND ground truth are built from the SAME 24 pixels' `explain_pixel` decomposition (oracle libraries); a held-out variant builds signatures from 12 pixels and tests on the other 12. Errors are normalised by the true signal at 0.05 mm. Channel sets: joint 8-line EEM, joint 4-line, 365 nm only.
+
+## Why the earlier floor existed (and is gone)
+The first version took endmembers from the 3 purest of 48 pixels and ground truth from 12 other pixels. The 'fast' capture has a per-pixel Monte-Carlo (tally) noise of ~39 % per channel (median over channels), so a signature averaged over 3 pixels and a GT averaged over 12 differ from the ROI-mean data by 10-25 %: this MC noise, not physics, produced the -33...+60 % error and 0.14-0.29 residual at t = 0.05 mm. The unit/path checks pass: explain_pixel components sum to the capture's electrons_mean to 1e-7 (ratio 1.0000), same exposure/gain/band response; the scatter group is included; NNLS of the explain pixel against its own signatures is exact. Now: noise-free floor at 0.05 mm = 0 (all abundances, residual 0.000); noisy floor at 0.05 mm: NADH +1 %, FAD +6 % of the true value, residual fraction 0.021, redox error +0.009 (bootstrap CI -0.05...+0.08). The held-out variant (signature MC noise only) gives 4 % errors and residual 0.10 at 0.05 mm, a simulator MC artefact, shown as an upper bound on library-estimation noise.
+
+## Results (joint 8-line, noisy; redox error = est - true of FAD/(FAD+NADH); true redox rises 0.30 -> 0.88 (0.4 mm) -> 1.00 (>= 1 mm))
+| t (mm) | thin-cover library | right depth | right depth per layer | right depth held-out |
+|---|---|---|---|---|
+| 0.05 | +0.009 | +0.009 | +0.011 | -0.003 |
+| 0.1 | +0.59 | +0.54 | +0.04 | +0.37 |
+| 0.4 | +0.119 | -0.031 | +0.077 | -0.467 |
+| 0.6 | +0.017 | +0.017 | -0.010 | -0.398 |
+| 1.3 | 0.000 | -0.726 | -0.702 | -1.000 |
+
+- Buried NADH detected signal falls 10^4-fold (0.05 -> 1.3 mm; 53 % at 0.1 mm, 2.2 % at 0.4 mm, 0.34 % at 0.6 mm); FAD falls 50x; cover matrix and scatter rise 1.5-1.8x.
+- Library mismatch (spectral distortion of NADH by the cover) is real and early: the thin-cover library assigns NADH = 0 (NNLS clips) for every t >= 0.1 mm while the true NADH is 53 % of its shallow value at 0.1 mm and 13 % at 0.2 mm, i.e. 100 % relative error; this makes the redox error +0.59 at 0.1 mm and +0.36 at 0.2 mm (noise-free data: same, so it is a bias not noise). The scatter endmember is also off (+18...+32 % at t >= 0.4).
+- Right-depth endmembers fix the bias: noise-free errors are exactly 0 (oracle), and in noisy data NADH and FAD are recovered to within +/-6 % of the shallow signal up to 0.6 mm (redox |error| <= 0.05 for 0.2-0.6 mm; the 0.1 mm point at +0.54 is a noise-limited outlier of the joint-8 fit, CI in results.json).
+- Beyond ~0.6 mm the failure is a DETECTION LIMIT, not a bias: with right-depth endmembers the NADH estimate sits at a noise floor of +1...+2.5 % of the shallow signal at all depths while the true NADH is <= 0.3 % (and 3e-5 at 1 mm), so the redox ratio saturates wrongly (-0.7 at 1.3 mm; the thin library 'gets' 0.000 only because NNLS clips NADH to zero, which is also correct by accident). Per-layer endmembers do not help (condition number 5-34, same noise floor).
+- Held-out pixels: signature MC noise alone (12 pixels at ~39 % per pixel) is enough to produce redox errors of -0.4...-0.5 at 0.4-0.6 mm and -1.0 at 1.3 mm. Library estimation noise matters as much as depth mismatch once NADH is small; this is partly an artefact of the 'fast' MC noise.
+- Channel sets: joint 4-line behaves like joint 8 (cond 6-11 vs 4-7); 365 nm only is ill-conditioned (cond 107 at 0.05 mm, 8e3 at 0.6 mm, redox error -0.30 at 0.05 mm, NaN when both clipped).
+
+Take-home (changed from the first version): the large depth-dependent bias reported earlier was mostly an artefact of Monte-Carlo noise in the endmembers. The real picture has two regimes: (i) 0.1-0.6 mm, where a library measured on thinly covered/uncovered material fails by spectral distortion (NADH is lost, redox error up to +0.6) and depth-matched endmembers restore accuracy to a few percent; (ii) beyond ~0.6 mm, where NADH is below the noise floor (< 1 % of its shallow signal) and no unmixing (depth-matched or per layer) can recover it, the redox ratio goes wrong by up to -0.7 purely from noise. Caveats: oracle libraries (same pixels), 24 pixels per thickness, one noise seed, MC-noisy 'fast' captures, errors normalised to the shallow signal.

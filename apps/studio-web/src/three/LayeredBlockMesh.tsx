@@ -7,6 +7,7 @@ import { buildBlockMesh, buildSectionStrips, cutRegion, cutSide, type Patch, typ
 import { layerThicknesses } from './layers/profile'
 import { layerAlpha, layerLook, type LayerLook } from './layers/look'
 import { BlockAnnotations } from './layers/BlockAnnotations'
+import { InclusionMeshes, type InclusionItem } from './layers/InclusionMeshes'
 import { hullColor } from './util/parts'
 
 export interface LayeredBlockMeshProps {
@@ -18,6 +19,10 @@ export interface LayeredBlockMeshProps {
   sectionLabels?: boolean
   /** colour-mapped light-field texture painted on the section face (rows stacked per layer, see lightfield.ts) */
   lightField?: THREE.Texture | null
+  /** inclusions (sphere / ellipsoid / cylinder / box) with their materials, drawn translucent inside the block */
+  inclusions?: InclusionItem[]
+  /** index of the inclusion to emphasise (hover in the editor) */
+  highlightInclusion?: number | null
   selected?: boolean
   hovered?: boolean
 }
@@ -74,7 +79,7 @@ const patchGeometry = (p: Patch) => {
 /** The exact layered mesh of a `layered_block` (local frame: footprint centred on x/z, bottom on y = 0, every layer
  *  interface a plane). Layers are translucent slabs whose opacity follows their optical thickness; fluorescent layers glow
  *  under the active excitation; a cutaway shows the stack in cross-section with a capped, banded section face. */
-export function LayeredBlockMesh({ shape, materials, glows, section, sectionLabels, lightField, selected, hovered }: LayeredBlockMeshProps) {
+export function LayeredBlockMesh({ shape, materials, glows, section, sectionLabels, lightField, inclusions, highlightInclusion, selected, hovered }: LayeredBlockMeshProps) {
   const region = useMemo(() => (section ? cutRegion(shape.footprint_mm, section.axis, section.position_mm, section.keep) : undefined), [shape.footprint_mm, section])
   const mesh = useMemo(() => buildBlockMesh(shape, region), [shape, region])
   const looks = useMemo(() => materials.map(layerLook), [materials])
@@ -160,6 +165,8 @@ export function LayeredBlockMesh({ shape, materials, glows, section, sectionLabe
           <meshBasicMaterial map={lightField} toneMapped={false} polygonOffset polygonOffsetFactor={-2} polygonOffsetUnits={-2} />
         </mesh>
       ))}
+
+      {inclusions && inclusions.length > 0 && <InclusionMeshes shape={shape} items={inclusions} section={section} cutAt={cutAt} labels={sectionLabels} highlight={highlightInclusion} />}
 
       {/* interface lines */}
       <lineSegments geometry={edgeGeom} renderOrder={60}>

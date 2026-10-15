@@ -64,7 +64,9 @@ export function LineChart({ series, height = 120, xDomain, yDomain, markers = []
   const sx = (v: number) => m.l + ((v - dom.x[0]) / (dom.x[1] - dom.x[0] || 1)) * iw
   const sy = (v: number) => m.t + ih - (((logY ? Math.log10(Math.max(v, 1e-12)) : v) - dom.y[0]) / (dom.y[1] - dom.y[0] || 1)) * ih
   const xt = niceTicks(dom.x[0], dom.x[1], Math.max(3, Math.floor(iw / 70)))
-  const yt = logY ? [] : niceTicks(dom.y[0], dom.y[1], yTicks)
+  const yt = logY
+    ? Array.from({ length: Math.max(0, Math.floor(dom.y[1]) - Math.ceil(dom.y[0]) + 1) }, (_, i) => 10 ** (Math.ceil(dom.y[0]) + i)).filter((_, i, a) => a.length <= 7 || i % 2 === 0)
+    : niceTicks(dom.y[0], dom.y[1], yTicks)
   const path = (s: Series, close: boolean) => {
     let d = ''
     for (let i = 0; i < s.x.length; i++) d += `${i ? 'L' : 'M'}${sx(s.x[i]).toFixed(1)},${sy(s.y[i]).toFixed(1)}`

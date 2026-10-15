@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import type { Experiment, MaterialSpec } from '../generated/experiment'
+import type { Experiment, Inclusion, MaterialSpec } from '../generated/experiment'
 import type { LayerGlow } from '../three/types'
 import { useLayerView } from '../state/layerView'
 import { useLightField } from './lightfield'
@@ -55,6 +55,14 @@ function useLayerMaterials(exp: Experiment, obj: Experiment['objects'][number]):
   }, [exp, obj])
 }
 
+function useInclusionItems(exp: Experiment, obj: Experiment['objects'][number]) {
+  return useMemo(() => {
+    if (obj.shape.kind !== 'layered_block') return undefined
+    const m = materialMap(exp)
+    return (obj.shape.inclusions as Inclusion[]).map((inc) => ({ inc, material: m[inc.material_id] }))
+  }, [exp.materials, obj.shape])  // eslint-disable-line react-hooks/exhaustive-deps
+}
+
 function ObjectNode({ id, glowColor, glowIntensity, layerGlows }: { id: string; glowColor: string | null; glowIntensity: number; layerGlows?: LayerGlow[] }) {
   const exp = useStudio((s) => s.exp)
   const obj = exp.objects.find((o) => o.id === id)!
@@ -65,6 +73,8 @@ function ObjectNode({ id, glowColor, glowIntensity, layerGlows }: { id: string; 
   const material = mats[obj.material_id]
   const layerMaterials = useLayerMaterials(exp, obj)
   const glows = useStableGlows(layerGlows)
+  const inclusions = useInclusionItems(exp, obj)
+  const highlightInclusion = useLayerView((st) => st.incSel[id] ?? null)
   const sectionState = useLayerView((s) => s.sections[id])
   const lfOn = useLayerView((s) => s.lf.on)
   const isBlock = obj.shape.kind === 'layered_block'
@@ -78,7 +88,7 @@ function ObjectNode({ id, glowColor, glowIntensity, layerGlows }: { id: string; 
     <group {...h}>
       <SampleMesh object={obj} material={material ?? layerMaterials![0]} vesselMaterial={obj.vessel_material_id ? mats[obj.vessel_material_id] : undefined}
         selected={selected} hovered={hovered} glowColor={glowColor} glowIntensity={glowIntensity}
-        layerMaterials={layerMaterials} layerGlows={glows} section={section} sectionLabels={!!sectionState?.labels} lightField={lf.texture} />
+        layerMaterials={layerMaterials} layerGlows={glows} section={section} sectionLabels={!!sectionState?.labels} lightField={lf.texture} inclusions={inclusions} highlightInclusion={highlightInclusion} />
     </group>
   )
 }

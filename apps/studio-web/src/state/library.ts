@@ -1,4 +1,5 @@
 /** Library of insertable things: shapes / lab-ware (SceneObject factories), fresh materials, light sources. */
+import { INCLUSION_PRESETS, asInclusions } from '../lib/inclusions'
 import type { SceneObject, MaterialSpec, LightSourceSpec, CameraSpec, BlockLayer, LayeredBlockShape } from '../generated/experiment'
 
 export interface LibraryShape {
@@ -15,10 +16,12 @@ const tf = (x = 0, y = 0, z = 0) => ({ position_mm: [x, y, z] as [number, number
 
 const uni = (t: number): BlockLayer['thickness'] => ({ kind: 'uniform', thickness_mm: t, end_thickness_mm: t, axis: 'x' })
 const wedge = (t0: number, t1: number, axis: 'x' | 'z' = 'x'): BlockLayer['thickness'] => ({ kind: 'linear', thickness_mm: t0, end_thickness_mm: t1, axis })
-const block = (id: string, name: string, layers: [string, string, BlockLayer['thickness']][], coverMat: string, footprint: [number, number] = [40, 40]): SceneObject => ({
-  id, name, shape: { kind: 'layered_block', footprint_mm: footprint, layers: layers.map(([n, m, t]) => ({ name: n, material_id: m, thickness: t })) } as LayeredBlockShape,
-  transform: tf(), material_id: coverMat, vessel_material_id: null, visible: true,
-})
+const block = (id: string, name: string, layers: [string, string, BlockLayer['thickness']][], coverMat: string, footprint: [number, number] = [40, 40], inclusions: string[] = []): SceneObject => {
+  const shape = { kind: 'layered_block', footprint_mm: footprint, inclusions: [], layers: layers.map(([n, m, t]) => ({ name: n, material_id: m, thickness: t })) } as LayeredBlockShape
+  // inclusions are placed from the presets (preset key), which size and bury them relative to the finished stack
+  shape.inclusions = asInclusions(inclusions.map((k) => { const p = INCLUSION_PRESETS.find((x) => x.key === k)!; return p.make(shape, p.materialId, p.label) }))
+  return { id, name, shape, transform: tf(), material_id: coverMat, vessel_material_id: null, visible: true }
+}
 
 /** Layered-block items: `material_id` is ignored by the engine for blocks (each layer has its own) but must reference an existing material. */
 export const BLOCK_ITEMS: LibraryShape[] = [
@@ -28,6 +31,12 @@ export const BLOCK_ITEMS: LibraryShape[] = [
     make: (id) => block(id, 'Tissue / collagen block', [['substrate', 'tissue_substrate', uni(5)], ['tissue', 'tissue_fluor_layer', uni(1)], ['collagen', 'collagen_cover', wedge(1.5, 0.05)]], 'collagen_cover') },
   { key: 'block_two', label: 'Two-layer slab', hint: 'fluor slab + uniform cover', requires: ['fluorescein_agarose_layer', 'intralipid_cover'],
     make: (id) => block(id, 'Two-layer slab', [['fluorescent slab', 'fluorescein_agarose_layer', uni(3)], ['cover', 'intralipid_cover', uni(1)]], 'intralipid_cover', [30, 30]) },
+  { key: 'block_vessel', label: 'Vessel under collagen', hint: 'Ø 0.8 mm blood vessel, 0.9 mm deep', requires: ['dermis_reticular', 'collagen_dense', 'blood_oxygenated'],
+    make: (id) => block(id, 'Vessel under collagen', [['dermis', 'dermis_reticular', uni(4)], ['collagen', 'collagen_dense', uni(1.5)]], 'collagen_dense', [30, 30], ['vessel']) },
+  { key: 'block_tumour', label: 'Buried tumour nodule', hint: 'Ø 3 mm nodule in dermis', requires: ['subcutis_fat', 'dermis_reticular', 'dysplasia_nodule'],
+    make: (id) => block(id, 'Buried tumour nodule', [['subcutis', 'subcutis_fat', uni(4)], ['dermis', 'dermis_reticular', uni(3)]], 'dermis_reticular', [30, 30], ['tumour']) },
+  { key: 'block_skin', label: 'Skin (3-layer)', hint: 'epidermis / dermis / hypodermis', requires: ['subcutis_fat', 'dermis_reticular', 'epidermis_light'],
+    make: (id) => block(id, 'Skin (3-layer)', [['subcutis', 'subcutis_fat', uni(3)], ['dermis', 'dermis_reticular', uni(1.5)], ['epidermis', 'epidermis_light', uni(0.1)]], 'dermis_reticular', [30, 30]) },
 ]
 
 /** Default shape + required library materials when a plain object is switched to `layered_block` in the inspector. */
@@ -46,8 +55,8 @@ export const LIBRARY_SHAPES: LibraryShape[] = [
 
 export const newMaterial = (id: string, name = 'New material'): MaterialSpec => ({
   id, name, dyes: [], refractive_index: 1.4,
-  scattering: { model: 'none', mus_prime_500_per_mm: 0, power_b: 1, g: 0.9 },
-  background_absorption: { preset: 'none', scale: 1, custom: [] },
+  scattering: { model: 'none', mus_prime_500_per_mm: 0, power_b: 1, f_rayleigh: 0, g: 0.9 },
+  background_absorption: { preset: 'none', scale: 1, custom: [] }, tissue: null,
   surface_roughness: 0.3, aqueous: false, raman_strength: 1, quenching_ksv_per_uM: 0, fret: [], display_color: '#8aa0b8',
 })
 

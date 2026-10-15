@@ -370,7 +370,8 @@ def _peel_call(G, o, x, y, z, i, cam, fres=True):
     res = np.zeros(7)   # _peel_top result slots 0..6 (F, d_xyz, x_exit, z_exit, J)
     k._peel_top(x, y, z, i, pl, pn, lay, fres, cam[0], cam[1], cam[2], G.footprint_mm[0] / 2,
                 G.footprint_mm[1] / 2, L, np.zeros(L + 2, np.int64), np.zeros(L + 2, np.int64),
-                np.zeros((L + 2, 3)), np.zeros(L + 2), np.zeros(L + 2), np.zeros(L + 2, np.int64), res)
+                np.zeros((L + 2, 3)), np.zeros(L + 2), np.zeros(L + 2), np.zeros(L + 2, np.int64), res,
+                T._pack_inclusions(None), False)
     return res
 
 

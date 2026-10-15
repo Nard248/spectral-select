@@ -81,7 +81,10 @@ def spectradata_payload(result, sample_name: str) -> dict:
         data[k] = {"cube": cube, "wavelengths": [float(w) for w in result.emission_nm[ex]]}
         expo[k] = float(result.exposure_ms[ex]) / 1000.0
         power[k] = float(result.power_mW[ex])
+    rmeta = getattr(result, "meta", None) or {}
+    extra = {"provenance": rmeta["provenance"]} if "provenance" in rmeta else {}
     return {
+        **extra,
         "data": data,
         "excitation_wavelengths": sorted(float(e) for e in result.excitations_nm),
         "mask": np.ones((result.height, result.width), dtype=bool),
@@ -136,6 +139,14 @@ def _volume_arrays(result) -> dict[str, np.ndarray]:
     return arrs
 
 
+def _json_default(o):
+    if isinstance(o, np.generic):
+        return o.item()
+    if isinstance(o, np.ndarray):
+        return o.tolist()
+    return str(o)
+
+
 def to_npz(result) -> bytes:
     """Compressed npz of the whole capture (readable offline with ``analysis.load_npz_capture``).  Keys:
     ``adu_<ex>``, ``radiance_<ex>``, ``electrons_<ex>``, ``emission_nm_<ex>``, ``exposure_ms_<ex>``,
@@ -167,6 +178,9 @@ def to_npz(result) -> bytes:
     arrs["meta_json"] = np.asarray(json.dumps({
         "mode": result.mode, "engine_version": result.engine_version, "ground_truth_names": gt_names,
         "warnings": [str(w) for w in result.warnings], "timings_s": {k: float(v) for k, v in result.timings_s.items()}}))
+    rmeta = getattr(result, "meta", None)             # v1.2: provenance etc. (api.capture attaches it)
+    if rmeta:
+        arrs["result_meta_json"] = np.asarray(json.dumps(rmeta, default=_json_default))
     blocks = getattr(result, "blocks", None) or []
     if blocks:
         arrs["blocks_json"] = np.asarray(json.dumps(blocks, default=lambda o: np.asarray(o).tolist()))

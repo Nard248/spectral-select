@@ -9,7 +9,8 @@ Dye absorption (molar extinction -> 1/mm)::
 
 (``/10`` converts 1/cm to 1/mm; ``exc_k`` is the peak-normalised Gaussian excitation profile of
 :class:`spectraforge.Fluorophore`.)  Total absorption adds the background absorber
-(:mod:`spectraforge.studio.spectra`).  Scattering is the reduced-scattering power law
+(:mod:`spectraforge.studio.spectra`) and, if ``material.tissue`` is set, the chromophore absorption of
+Jacques 2013 eq. 1 (:mod:`spectraforge.studio.tissue_optics`).  Scattering is the reduced-scattering power law
 ``mu_s'(lam) = a (lam/500 nm)^-b`` with Henyey-Greenstein anisotropy ``g`` so that
 ``mu_s = mu_s' / (1 - g)``.  Stern-Volmer self-quenching (collisional, Lakowicz 2006, ch. 8)::
 
@@ -34,7 +35,7 @@ from __future__ import annotations
 import numpy as np
 
 from spectraforge.fluorophore import Fluorophore
-from spectraforge.studio import spectra
+from spectraforge.studio import spectra, tissue_optics
 from spectraforge.studio.contracts import SPECTRAL_GRID_NM, MaterialOptics
 from spectraforge.studio.schema import (
     EXTINCTION_REFERENCE_M_CM,
@@ -69,6 +70,17 @@ def to_legacy(spec: FluorophoreSpec) -> Fluorophore:
 def is_clear_material(material: MaterialSpec) -> bool:
     """True if the material has no volume scattering (closed-form transport applies)."""
     return material.scattering.model == "none" or material.scattering.mus_prime_500_per_mm <= 0.0
+
+
+def reduced_scattering_per_mm(sc, nm) -> np.ndarray:
+    """Reduced scattering ``mus'(lam)`` (1/mm) of a :class:`ScatteringSpec`.
+
+    ``power_law``: ``a (lam/500)^-b``.  ``mie_rayleigh`` (Jacques 2013, eq. 2, doi:10.1088/0031-9155/58/11/R37):
+    ``a [f_ray (lam/500)^-4 + (1 - f_ray)(lam/500)^-b_mie]`` -- identical to the power law at ``f_ray = 0``."""
+    nm = np.asarray(nm, dtype=float)
+    if sc.model == "mie_rayleigh":
+        return tissue_optics.mus_prime_mie_rayleigh(sc.mus_prime_500_per_mm, sc.f_rayleigh, sc.power_b, nm)
+    return sc.mus_prime_500_per_mm * (nm / 500.0) ** (-sc.power_b)
 
 
 def dye_extinction_M_cm(spec: FluorophoreSpec, nm) -> np.ndarray:
@@ -108,6 +120,8 @@ def material_optics(material: MaterialSpec, fluorophores: dict[str, FluorophoreS
     bg = spectra.absorber_mua_per_mm(material.background_absorption.preset,
                                      material.background_absorption.scale, grid,
                                      material.background_absorption.custom)
+    if material.tissue is not None:
+        bg = bg + tissue_optics.tissue_mua_per_mm(material.tissue, grid)   # Jacques 2013 eq. 1
     if tg.absorption:
         mua_total = bg + sum(mua_dyes.values(), np.zeros_like(grid))
         mua_total = np.maximum(mua_total, MUA_FLOOR_PER_MM)
@@ -121,7 +135,7 @@ def material_optics(material: MaterialSpec, fluorophores: dict[str, FluorophoreS
         clear = True
         g = 0.0
     else:
-        mus_prime = sc.mus_prime_500_per_mm * (grid / 500.0) ** (-sc.power_b)
+        mus_prime = reduced_scattering_per_mm(sc, grid)
         mus = mus_prime / (1.0 - sc.g)
         g = float(sc.g)
 

@@ -42,6 +42,11 @@ plt.rcParams.update({
     "axes.spines.top": False, "axes.spines.right": False, "axes.grid": True, "grid.alpha": 0.25,
     "legend.frameon": False, "lines.linewidth": 1.8, "font.family": "DejaVu Sans",
 })
+# Journal-paper style (7.16 in wide figures, 7-8 pt text at print size), used by the figures built for the Studio manuscript.
+PAPER_RC = {"font.family": "serif", "font.serif": ["Times New Roman", "Times", "STIXGeneral"], "mathtext.fontset": "stix",
+            "font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8, "xtick.labelsize": 7.5, "ytick.labelsize": 7.5,
+            "legend.fontsize": 7, "axes.grid": False, "axes.linewidth": 0.6, "lines.linewidth": 1.2, "savefig.dpi": 300,
+            "xtick.major.width": 0.6, "ytick.major.width": 0.6}
 C = {"a": "#1f6fb4", "b": "#d9541e", "c": "#2a9d4b", "d": "#7a3fb0", "k": "#333333", "g": "#8a8a8a"}
 
 
@@ -864,30 +869,32 @@ def fig_blk_peel():
         prof[peel] = r.elastic_radiance["top"]
     fg = r.faces["top"]
     xc = 0.5 * (fg.u_edges_mm[1:] + fg.u_edges_mm[:-1])
-    fig, ax = plt.subplots(1, 3, figsize=(14.2, 4.2), layout="constrained")
+    plt.rcParams.update(PAPER_RC)
+    fig, ax = plt.subplots(1, 3, figsize=(7.16, 2.5), layout="constrained")
     names = list(rat)
     yy = np.arange(len(names))
     ax[0].errorbar([rat[n][0] for n in names], yy + 0.12, xerr=[rat[n][1] for n in names], fmt="o", color=C["a"], label="elastic")
     ax[0].errorbar([rat[n][2] for n in names], yy - 0.12, xerr=[rat[n][3] for n in names], fmt="s", color=C["b"], label="fluorescence")
     ax[0].axvline(1, color=C["k"], lw=1)
     ax[0].axvspan(0.98, 1.02, color=C["g"], alpha=0.2)
-    ax[0].set_yticks(yy, names, fontsize=8)
-    ax[0].set_xlabel("peel-off / cone estimator (region sum)  [grey: ±2 %]")
-    ax[0].set_title("Two estimators, same answer")
-    ax[0].legend(fontsize=8, loc="lower left")
-    ax[1].plot(xc, prof[False][:, 20:30].mean(1), color=C["g"], label=f"cone estimator, {ns[-2]:.0e} photons")
-    ax[1].plot(xc, prof[True][:, 20:30].mean(1), color=C["b"], label="peel-off, same photons")
+    ax[0].set_yticks(yy, [n.replace(", oblique cam+beam", " (oblique)").replace("single layer", "slab") for n in names], fontsize=7)
+    ax[0].set_xlabel("peel-off / cone (region sum)")
+    ax[0].set_title("(a) same answer (grey: $\\pm$2 %)")
+    ax[0].set_ylim(-0.5, len(names) - 0.1 + 0.6)
+    ax[0].legend(fontsize=7, loc="upper center", ncol=2, borderaxespad=0.1, columnspacing=0.8, handletextpad=0.2)
+    ax[1].plot(xc, prof[False][:, 20:30].mean(1), color=C["g"], label="cone")
+    ax[1].plot(xc, prof[True][:, 20:30].mean(1), color=C["b"], label="peel-off")
     ax[1].set_xlabel("x across the wedge (mm)")
-    ax[1].set_ylabel("elastic radiance (mW mm⁻² sr⁻¹ per mW)")
-    ax[1].set_title("0.75 mm cells, row-averaged over 7 cells in z")
-    ax[1].legend(fontsize=8)
+    ax[1].set_ylabel("elastic radiance (norm. units)")
+    ax[1].set_title(f"(b) wedge profile, {ns[-2]:.0e} photons")
+    ax[1].legend(fontsize=7, borderaxespad=0.1)
     ax[2].loglog(ns, cv[False], "o-", color=C["g"], label="cone")
     ax[2].loglog(ns, cv[True], "s-", color=C["b"], label="peel-off")
     ax[2].loglog(ns, cv[False][0] * np.sqrt(ns[0] / np.array(ns)), ":", color=C["k"], lw=1, label="$1/\\sqrt{N}$")
     ax[2].set_xlabel("photons")
-    ax[2].set_ylabel("cell-to-cell noise (CV, 1 mm cells)")
-    ax[2].set_title(f"Noise at equal photons: ×{cv[False][-1] / cv[True][-1]:.1f} lower")
-    ax[2].legend(fontsize=8, loc="lower left")
+    ax[2].set_ylabel("cell noise (CV)")
+    ax[2].set_title(f"(c) noise, ×{cv[False][-1] / cv[True][-1]:.1f} lower")
+    ax[2].legend(fontsize=7, loc="lower left", borderaxespad=0.1)
     save(fig, "fig14_blk_peel_vs_cone.png")
 
 
@@ -955,41 +962,46 @@ def _band_curves(res, gt_name, edges, margin=0.12, waves=None):
 def _plot_band_curves(a_, ctr, cur, title):
     for lab, col in (("first", C["b"]), ("second", C["c"])):
         wl, raw, nrm = cur[lab]
-        a_.plot(ctr, raw / raw[-1], "--", color=col, alpha=0.6, label=f"{wl:.0f} nm band, raw radiance")
-        a_.plot(ctr, nrm / nrm[-1], "-o", color=col, label=f"{wl:.0f} nm band, ÷ surface irradiance")
+        a_.plot(ctr, raw / raw[-1], "--", color=col, alpha=0.6, label=f"{wl:.0f} nm, raw")
+        a_.plot(ctr, nrm / nrm[-1], "-o", ms=3, color=col, label=f"{wl:.0f} nm, / irradiance")
     a_.axhline(1, color=C["g"], lw=0.6)
     a_.set_xlabel("local cover thickness (mm)")
-    a_.set_ylabel("band radiance (norm. to the thickest bin)")
-    a_.set_title(title, fontsize=9)
-    a_.legend(fontsize=7)
+    a_.set_ylabel("band radiance (norm.)")
+    a_.set_title(title, fontsize=8)
+    a_.legend(fontsize=7, handlelength=1.6, borderaxespad=0.2)
 
 
 def fig_blk_wedge():
+    with plt.rc_context(PAPER_RC):
+        _fig_blk_wedge()
+
+
+def _fig_blk_wedge():
     photons = 1_000_000 if QUICK else 5_000_000
-    fig, ax = plt.subplots(2, 3, figsize=(16.0, 7.6), layout="constrained")
+    fig, ax = plt.subplots(2, 3, figsize=(7.16, 3.9), layout="constrained")
     NUM["blk_wedge"] = {}
     # ---- layered_wedge_phantom: buried fluorescein under a turbid cover (0 -> 2 mm)
     exp = _blk_exp("layered_wedge_phantom", 490.0, photons)
     res = cap.capture(exp, scale=0.5)
     edges = np.linspace(0.15, 1.85, 9)
     cur = _band_curves(res, "layer_thickness:cover", edges)
-    _plot_band_curves(ax[0, 2], 0.5 * (edges[:-1] + edges[1:]), cur, "band curves: the first band is elastic-contaminated;\nx = pick ex+40 nm and divide by the surface irradiance")
+    _plot_band_curves(ax[0, 2], 0.5 * (edges[:-1] + edges[1:]), cur, "(c) band curves, wedge phantom")
     NUM["blk_wedge_band_curves"] = {k: dict(band_nm=v[0], raw=v[1].tolist(), per_irradiance=v[2].tolist()) for k, v in cur.items()}
     dat, ctr, em = _bin_components(exp, res, "layer_thickness:cover", edges, {"fl": lambda k: k.startswith("dye:fluorescein")})
     sig = np.array([d["fl"].sum() if d else np.nan for d in dat])
     blue, red = (em >= 495) & (em < 525), (em >= 535) & (em < 560)
     ratio = np.array([d["fl"][blue].sum() / d["fl"][red].sum() if d else np.nan for d in dat])
-    ax[0, 0].semilogy(ctr, sig / sig[0], "o-", color=C["c"], label="3D Monte Carlo")
+    ax[0, 0].semilogy(ctr, sig / sig[0], "o-", ms=3, color=C["c"], label="3D Monte Carlo")
     mu = -np.polyfit(ctr[np.isfinite(sig)], np.log(sig[np.isfinite(sig)] / sig[0]), 1)[0]
-    ax[0, 0].semilogy(ctr, np.exp(-mu * (ctr - ctr[0])) , "--", color=C["k"], lw=1, label=f"exp(−{mu:.2f} t) fit: effective attenuation of the cover")
+    ax[0, 0].semilogy(ctr, np.exp(-mu * (ctr - ctr[0])) , "--", color=C["k"], lw=1, label=f"fit, $\\mu$ = {mu:.2f} mm$^{{-1}}$")
     ax[0, 0].set_xlabel("local cover thickness (mm)")
-    ax[0, 0].set_ylabel("buried fluorescein signal / irradiance\n(norm. to thinnest bin)")
-    ax[0, 0].set_title("layered_wedge_phantom (cover: intralipid-like, 490 nm)")
-    ax[0, 0].legend(fontsize=8)
-    ax[0, 1].plot(ctr, ratio, "o-", color=C["d"])
+    ax[0, 0].set_ylabel("signal / irradiance (norm.)")
+    ax[0, 0].set_title("(a) wedge phantom, 490 nm")
+    ax[0, 0].legend(fontsize=7, borderaxespad=0.2)
+    ax[0, 1].plot(ctr, ratio, "o-", ms=3, color=C["d"])
     ax[0, 1].set_xlabel("local cover thickness (mm)")
-    ax[0, 1].set_ylabel("blue (495–525 nm) / red (535–560 nm)")
-    ax[0, 1].set_title("spectral distortion of the buried emission by the cover")
+    ax[0, 1].set_ylabel("blue / red band ratio")
+    ax[0, 1].set_title("(b) spectral distortion")
     ax[0, 1].set_ylim(0, 1.25 * np.nanmax(ratio))        # full scale: a 2 % wobble must not look like a trend
     NUM["blk_wedge"]["wedge"] = dict(thickness=ctr.tolist(), signal=sig.tolist(), blue_red=ratio.tolist(), mu_eff_fit_per_mm=float(mu))
     # ---- tissue_under_collagen: buried NADH/FAD tissue under a collagen cover (1.5 -> 0.05 mm)
@@ -999,50 +1011,48 @@ def fig_blk_wedge():
     dat2, ctr2, em2 = _bin_components(exp2, res2, "layer_thickness:collagen", edges2, {
         "tissue": lambda k: k.endswith("@tissue"), "collagen": lambda k: k.endswith("@collagen")})
     cur2 = _band_curves(res2, "layer_thickness:collagen", edges2, waves=(440.0, 520.0))
-    _plot_band_curves(ax[1, 2], 0.5 * (edges2[:-1] + edges2[1:]), cur2, "tissue_under_collagen band curves")
+    _plot_band_curves(ax[1, 2], 0.5 * (edges2[:-1] + edges2[1:]), cur2, "(f) band curves, tissue under collagen")
     sig2 = np.array([d["tissue"].sum() if d else np.nan for d in dat2])
     b2, r2 = (em2 >= 420) & (em2 < 480), (em2 >= 520) & (em2 < 600)
     ratio2 = np.array([d["tissue"][b2].sum() / d["tissue"][r2].sum() if d else np.nan for d in dat2])
-    ax[1, 0].semilogy(ctr2, sig2 / sig2[0], "o-", color=C["c"])
+    ax[1, 0].semilogy(ctr2, sig2 / sig2[0], "o-", ms=3, color=C["c"])
     ax[1, 0].set_xlabel("local collagen thickness (mm)")
-    ax[1, 0].set_ylabel("buried tissue (NADH+FAD) signal / irradiance\n(norm. to thinnest bin)")
-    ax[1, 0].set_title("tissue_under_collagen (365 nm)")
-    ax[1, 1].plot(ctr2, ratio2, "o-", color=C["d"])
+    ax[1, 0].set_ylabel("signal / irradiance (norm.)")
+    ax[1, 0].set_title("(d) tissue under collagen, 365 nm")
+    ax[1, 1].plot(ctr2, ratio2, "o-", ms=3, color=C["d"])
     ax[1, 1].set_xlabel("local collagen thickness (mm)")
-    ax[1, 1].set_ylabel("blue (420–480 nm) / green-red (520–600 nm)")
-    ax[1, 1].set_title("spectral distortion of the tissue emission (noisy: 8 px/bin)")
+    ax[1, 1].set_ylabel("blue / green-red band ratio")
+    ax[1, 1].set_title("(e) spectral distortion")
     ax[1, 1].set_ylim(0, 1.25 * np.nanmax(ratio2))
     NUM["blk_wedge"]["tissue"] = dict(thickness=ctr2.tolist(), signal=sig2.tolist(), blue_red=ratio2.tolist())
-    fig.suptitle("Buried-fluorophore signal and spectral distortion vs local cover thickness (noise-free sensor; 8 pixels per bin; "
-                 "pixels ≥ 12 % of the block width from the edges)", fontsize=9.5)
     save(fig, "fig15_blk_wedge_response.png")
     # ---- (f) collagen autofluorescence vs collagen thickness
     col = np.array([d["collagen"].sum() if d else np.nan for d in dat2])
-    fig, ax = plt.subplots(1, 2, figsize=(11.2, 4.2), layout="constrained")
-    ax[0].plot(ctr2, col / np.nanmax(col), "o-", color=C["b"], label="collagen + elastin autofluorescence")
-    ax[0].plot(ctr2, sig2 / np.nanmax(sig2), "s-", color=C["a"], label="buried tissue (NADH + FAD)")
+    fig, ax = plt.subplots(1, 2, figsize=(7.16, 2.3), layout="constrained")
+    ax[0].plot(ctr2, col / np.nanmax(col), "o-", ms=3, color=C["b"], label="collagen + elastin AF")
+    ax[0].plot(ctr2, sig2 / np.nanmax(sig2), "s-", ms=3, color=C["a"], label="buried NADH + FAD")
     # saturating law  A (1 - exp(-t/ell))  for the cover's own emission (excitation attenuated both ways)
     ok = np.isfinite(col)
     from scipy.optimize import curve_fit
     try:
         popt, _ = curve_fit(lambda t, A, ell: A * (1 - np.exp(-t / ell)), ctr2[ok], col[ok] / np.nanmax(col), p0=[1.5, 0.8])
         tt = np.linspace(ctr2[ok][0], ctr2[ok][-1], 50)
-        ax[0].plot(tt, popt[0] * (1 - np.exp(-tt / popt[1])), ":", color=C["k"], label=f"A(1−e^(−t/ℓ)), ℓ = {popt[1]:.2f} mm")
+        ax[0].plot(tt, popt[0] * (1 - np.exp(-tt / popt[1])), ":", color=C["k"], label=f"saturating fit, $\\ell$ = {popt[1]:.2f} mm")
         NUM["blk_wedge"]["collagen_ell_mm"] = float(popt[1])
     except Exception:
         pass
     ax[0].set_xlabel("local collagen thickness (mm)")
-    ax[0].set_ylabel("signal / irradiance (norm. to its maximum)")
-    ax[0].set_title("Cover autofluorescence grows, the buried signal falls")
-    ax[0].legend(fontsize=8)
+    ax[0].set_ylabel("signal / irradiance (norm.)")
+    ax[0].set_title("(a) cover autofluorescence vs buried signal")
+    ax[0].legend(fontsize=7, loc="center right", borderaxespad=0.2)
     for d, c_, lab in ((dat2[1], C["a"], f"{ctr2[1]:.2f} mm"), (dat2[-2], C["b"], f"{ctr2[-2]:.2f} mm")):
         if d:
-            ax[1].plot(em2, d["tissue"] + d["collagen"], color=c_, label=f"total, collagen {lab}")
-            ax[1].plot(em2, d["collagen"], color=c_, ls="--", lw=1.2, label=f"  of which collagen AF")
+            ax[1].plot(em2, d["tissue"] + d["collagen"], color=c_, label=f"total, {lab}")
+            ax[1].plot(em2, d["collagen"], color=c_, ls="--", lw=1.2, label=f"collagen AF, {lab}")
     ax[1].set_xlabel("emission (nm)")
     ax[1].set_ylabel("band radiance / irradiance")
-    ax[1].set_title("Band spectra at a thin and a thick collagen cover")
-    ax[1].legend(fontsize=7.5)
+    ax[1].set_title("(b) spectra at a thin and a thick cover")
+    ax[1].legend(fontsize=7, borderaxespad=0.2)
     NUM["blk_wedge"]["collagen_af"] = dict(thickness=ctr2.tolist(), signal=col.tolist())
     save(fig, "fig17_blk_collagen_autofluorescence.png")
 
@@ -1119,6 +1129,35 @@ FIGS = {"mcml": fig_mcml, "diffusion": fig_diffusion, "closed": fig_closed_vs_vo
         "inner": fig_inner_filter, "bleach": fig_bleaching, "noise": fig_noise, "dof": fig_dof, "angle": fig_angle, "laser": fig_laser,
         "blk_validation": fig_blk_validation, "blk_bottom": fig_blk_bottom, "blk_peel": fig_blk_peel,
         "blk_wedge": fig_blk_wedge, "blk_field": fig_blk_field}
+
+
+def replot_blk_reference_from_json():
+    """Paper-style fig12 from the stored ``blk_validation`` numbers (no simulation): case/quantity labels, values and
+    the percent deviation in one full-width bar chart.  ``python -c "import studio_validation_figures as V; V.replot_blk_reference_from_json()"``."""
+    rows = json.loads((OUT / "validation_numbers.json").read_text())["blk_validation"]
+    short = {"slab benchmark (n=1)": "slab, n=1", "slab index mismatch n=1.4": "slab, n=1.4", "slab tissue-like": "slab, tissue-like",
+             "fluorescent layer, 2 mm, 60 mm footprint": "fluor. layer 2 mm", "two identical layers (0.4+0.6 mm) vs one (1.0 mm)": "2 layers vs 1"}
+    qn = {"R+T+A+spec": "R+T+A+spec.", "fluorescence radiance": "fluorescence", "elastic radiance / E": "elastic / E"}
+    labels, cur = [], ""
+    for r in rows:
+        cur = short.get(r["case"], r["case"]) if r["case"] else cur
+        labels.append(f"{cur}, {qn.get(r['quantity'], r['quantity'])}")
+    with plt.rc_context(PAPER_RC):
+        fig, ax = plt.subplots(figsize=(7.16, 0.17 * len(rows) + 0.75), layout="constrained")
+        y = np.arange(len(rows))[::-1]
+        d = [100 * r["rel_err"] for r in rows]
+        ax.barh(y, d, height=0.7, color=[C["a"] if abs(x) < 1.0 else C["b"] for x in d])
+        ax.axvspan(-1, 1, color=C["g"], alpha=0.2, lw=0)
+        ax.set_yticks(y)
+        ax.set_yticklabels(labels, fontsize=7.5)
+        ax.set_xlim(-4.6, 4.2)
+        for yi, r, x in zip(y, rows, d):
+            ax.text(4.15, yi, f"{r['engine']:.4g} vs {r['reference']:.4g}", ha="right", va="center", fontsize=7)
+            ax.text(x + (0.08 if x >= 0 else -0.08), yi, f"{x:+.2f}", ha="left" if x >= 0 else "right", va="center", fontsize=6.5, color="0.3")
+        ax.set_xlabel("3D engine vs reference (%)   [grey band: $\\pm$1 %; right: engine vs reference value]")
+        ax.spines["left"].set_visible(False)
+        ax.tick_params(axis="y", length=0)
+        save(fig, "fig12_blk_3d_vs_reference.png")
 
 
 def main():

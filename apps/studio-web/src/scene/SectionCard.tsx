@@ -5,7 +5,8 @@ import { cssGradient, type CmapName } from '../ui/colormaps'
 import { defaultChannel } from './lightfield'
 import { Num, Seg, Sel, Tip } from '../ui/controls'
 import { wedgeAngleDeg } from '../three/layers/profile'
-import type { BlockLayer } from '../generated/experiment'
+import { crossSection, describeSize } from '../lib/inclusions'
+import type { BlockLayer, Inclusion } from '../generated/experiment'
 
 /** Floating cutaway controls shown while a layered block's section view is on. */
 export function SectionCard() {
@@ -21,6 +22,9 @@ export function SectionCard() {
   const sh = obj.shape
   const half = (sec.axis === 'x' ? sh.footprint_mm[0] : sh.footprint_mm[1]) / 2
   const wedges = (sh.layers as BlockLayer[]).filter((l) => l.thickness.kind === 'linear')
+  const cutAt = Math.min(Math.max(sec.position_mm, -half), half)
+  const hit = (sh.inclusions as Inclusion[]).map((inc) => ({ inc, cs: crossSection(inc, sec.axis, cutAt) })).filter((x) => x.cs)
+  const matColor = (id: string) => exp.materials.find((m) => m.id === id)?.display_color ?? '#c8d0dc'
   return (
     <div className="sec-card glass" onPointerDown={(e) => e.stopPropagation()}>
       <span className="ttl"><Slice size={14} />Cutaway</span>
@@ -30,6 +34,7 @@ export function SectionCard() {
       <span className="sep" />
       <Tip text="Paint the 3D light field (fluence) on the cut plane"><button className={`btn sm${lfOn ? ' on' : ''}`} onClick={() => setLf({ on: !lfOn })}><Sparkles size={13} />Light field</button></Tip>
       {wedges.length > 0 && <span className="hint mono" style={{ whiteSpace: 'nowrap' }}>{wedges.map((w) => `${w.name}: ${wedgeAngleDeg(w, sh.footprint_mm)?.toFixed(1)}° wedge`).join(' · ')}</span>}
+      {hit.length > 0 && <span className="sec-incl">{hit.map(({ inc }, k) => <Tip key={k} text={`${inc.name}: ${describeSize(inc)} — cut by this plane`}><span><i style={{ background: matColor(inc.material_id) }} />{inc.name}</span></Tip>)}</span>}
       <Tip text="Close cutaway [X]"><button className="btn ghost icon sm" onClick={() => setSection(id, { on: false })}><X size={14} /></button></Tip>
     </div>
   )

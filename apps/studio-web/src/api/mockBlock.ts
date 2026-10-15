@@ -6,7 +6,7 @@
  *     S_i(λ_em) = κ_dye(λ_ex) · Φ · e^{−A(λ_ex)} · e^{−A(λ_em)} · (1 − e^{−(k_i(λ_ex)+k_i(λ_em)) t_i}) / (k_i(λ_ex)+k_i(λ_em))
  *  i.e. excitation reaching the layer × emission escaping upward, integrated over the layer. */
 import * as THREE from 'three'
-import type { Experiment, LayeredBlockShape, MaterialSpec } from '../generated/experiment'
+import type { Experiment, Inclusion, LayeredBlockShape, MaterialSpec } from '../generated/experiment'
 import type { BlockInfo, VolumeInfo } from './types'
 import type { VolumeData } from './client'
 import { emissionShape, EXTINCTION_REFERENCE, FWHM_TO_SIGMA, lineAveragedExcitation, materialMua, musPrime } from '../lib/spectral'
@@ -14,6 +14,7 @@ import { fluorophoreMap } from '../state/presets'
 import { beamAt } from '../lib/lighting'
 import { layerDepthTop, stackAt } from '../analysis/blockGeometry'
 import { activeSource } from '../state/store'
+import { chordAt } from '../lib/inclusions'
 
 const SCAT_ATT = 0.3
 /** cosmetic brightness of buried dyes relative to the flat-sample mock so thin-layer signals clear the 100 ADU offset */
@@ -47,24 +48,54 @@ const integral = (a: number, t: number) => (a > 1e-9 ? (1 - Math.exp(-a * t)) / 
 
 export interface StepInfo { ex: number; powerMW: number; exposureMs: number }
 
-/** Per-component spectra (arrays over `bands`) of one block pixel at local footprint position (lx, lz), WITHOUT beam shading. */
+/** One homogeneous vertical segment of a block column (bottom → top): a layer, or the part of a layer an inclusion replaces. */
+export interface Segment { name: string; material?: MaterialSpec; t: number; lo: number }
+
+/** The column of material under footprint position (lx, lz): the layer stack with every inclusion's vertical chord overlaid
+ *  (later inclusions win), clipped to the block. Without inclusions it is exactly the layer list. */
+export function columnSegments(shape: LayeredBlockShape, mats: Map<string, MaterialSpec>, lx: number, lz: number): Segment[] {
+  const st = stackAt(shape, lx, lz)
+  let segs: (Segment & { hi: number })[] = shape.layers.map((l, i) => ({ name: l.name, material: mats.get(l.material_id), t: st.t[i], lo: st.bottom[i], hi: st.bottom[i] + st.t[i] }))
+  for (const inc of shape.inclusions as Inclusion[]) {
+    const ch = chordAt(inc, lx, lz); if (!ch) continue
+    const c0 = Math.max(ch[0], 0), c1 = Math.min(ch[1], st.top)
+    if (c1 - c0 < 1e-9) continue
+    const next: (Segment & { hi: number })[] = []
+    for (const g of segs) {
+      if (g.hi <= c0 || g.lo >= c1) { next.push(g); continue }
+      if (g.lo < c0) next.push({ ...g, hi: c0, t: c0 - g.lo })
+      if (g.hi > c1) next.push({ ...g, lo: c1, t: g.hi - c1 })
+    }
+    next.push({ name: `inc:${inc.name}`, material: mats.get(inc.material_id), lo: c0, hi: c1, t: c1 - c0 })
+    segs = next.sort((p, q) => p.lo - q.lo)
+  }
+  return segs
+}
+
+/** Per-component spectra (arrays over `bands`) of one block pixel at local footprint position (lx, lz), WITHOUT beam shading.
+ *  Buried absorbers (inclusions or layers) darken everything below them; a buried fluorophore glows, attenuated by exp(−μ_eff·depth). */
 export function blockPixelComponents(exp: Experiment, shape: LayeredBlockShape, lx: number, lz: number, step: StepInfo, bands: number[],
   opts: { gain: number; bandStep: number; sigmaBand: number; lineFwhm: number }): Record<string, Float32Array> {
   const fl = fluorophoreMap(exp)
   const mats = new Map(exp.materials.map((m) => [m.id, m] as const))
   const ph = exp.acquisition.physics
-  const st = stackAt(shape, lx, lz)
-  const L = shape.layers.length
-  const mat = shape.layers.map((l) => mats.get(l.material_id))
+  const segs = columnSegments(shape, mats, lx, lz)
+  const L = segs.length
+  const mat = segs.map((g) => g.material)
   const optEx = mat.map((m) => (m ? optics(m, fl, step.ex, exp) : { mua: 0, musp: 0, att: 0 }))
   const optEm = bands.map((wl) => mat.map((m) => (m ? optics(m, fl, wl, exp) : { mua: 0, musp: 0, att: 0 })))
   const out: Record<string, Float32Array> = {}
+  const add = (key: string, arr: Float32Array) => {
+    const prev = out[key]
+    if (!prev) { out[key] = arr; return }
+    for (let k = 0; k < arr.length; k++) prev[k] += arr[k]
+  }
   const scale = opts.gain
   for (let i = 0; i < L; i++) {
-    const m = mat[i]; const t = st.t[i]
+    const m = mat[i]; const t = segs[i].t
     if (!m || t < 1e-6) continue
     let aEx = 0
-    for (let j = i + 1; j < L; j++) aEx += optEx[j].att * st.t[j]
+    for (let j = i + 1; j < L; j++) aEx += optEx[j].att * segs[j].t
     const exUp = Math.exp(-aEx)
     if (ph.fluorescence) for (const d of m.dyes) {
       const f = fl[d.fluorophore]; if (!f) continue
@@ -75,26 +106,26 @@ export function blockPixelComponents(exp: Experiment, shape: LayeredBlockShape, 
       const arr = new Float32Array(bands.length)
       bands.forEach((wl, b) => {
         let aEm = 0
-        for (let j = i + 1; j < L; j++) aEm += optEm[b][j].att * st.t[j]
+        for (let j = i + 1; j < L; j++) aEm += optEm[b][j].att * segs[j].t
         const I = integral(optEx[i].att + optEm[b][i].att, t)
         arr[b] = DYE_BOOST * scale * kappa * f.quantum_yield * quench * exUp * Math.exp(-aEm) * I * (emissionShape(f, wl) / (sig * Math.sqrt(2 * Math.PI))) * opts.bandStep
       })
-      out[`dye:${d.fluorophore}@${shape.layers[i].name}`] = arr
+      add(`dye:${d.fluorophore}@${segs[i].name}`, arr)
     }
     if (ph.raman && m.aqueous) {
       const wr = 1e7 / (1e7 / step.ex - 3400)
       const arr = new Float32Array(bands.length)
       bands.forEach((wl, b) => {
         let aEm = 0
-        for (let j = i + 1; j < L; j++) aEm += optEm[b][j].att * st.t[j]
+        for (let j = i + 1; j < L; j++) aEm += optEm[b][j].att * segs[j].t
         arr[b] = scale * 4e-5 * m.raman_strength * exUp * Math.exp(-aEm) * integral(optEx[i].att + optEm[b][i].att, t) * Math.exp(-0.5 * ((wl - wr) / (6.4 + opts.sigmaBand)) ** 2)
       })
-      out[`raman@${shape.layers[i].name}`] = arr
+      add(`raman@${segs[i].name}`, arr)
     }
   }
   if (ph.elastic_leak) {
     let top = L - 1
-    while (top > 0 && st.t[top] < 1e-6) top--
+    while (top > 0 && segs[top].t < 1e-6) top--
     const refl = 0.02 + 0.2 * Math.min(1, optEx[top].musp * 0.1)
     const arr = new Float32Array(bands.length)
     bands.forEach((wl, b) => { arr[b] = scale * refl * 4e-4 * Math.exp(-0.5 * ((wl - step.ex) / (opts.sigmaBand * 1.2)) ** 2) })
