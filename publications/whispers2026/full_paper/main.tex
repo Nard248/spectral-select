@@ -48,14 +48,14 @@ $^{4}$George Washington University, Washington, DC, USA \\
 \maketitle
 
 \begin{abstract}
-Acquiring four-dimensional fluorescence hyperspectral data is slow and costly. An
+Acquiring multi-excitation fluorescence hyperspectral datasets can be slow and costly. An
 instrument records a full emission spectrum at each of several excitation wavelengths and
 for every pixel, fluorescence signals are weak and easily buried in scatter and
 autofluorescence, and the illumination needed to raise them photobleaches the sample, so a
-single cube can consume hours of scarce instrument time. This makes it hard to plan
+single dataset can consume hours of scarce instrument time. This makes it hard to plan
 acquisitions, prototype processing methods, or build shared benchmarks. We present
 \textbf{SpectralForge}, an open, physics-based simulator that renders realistic 4D
-excitation-emission cubes with perfect ground truth from a parametric fluorophore model
+excitation-emission cubes with ground truth from a parametric fluorophore model
 obeying the standard laws of fluorescence photophysics (Kasha, Vavilov, Franck-Condon,
 Stokes shift), with optional inner-filter attenuation, reabsorption, Foerster resonance
 energy transfer (FRET), scatter, photon and read noise, and instrument clutter. Because
@@ -67,9 +67,7 @@ variance is decoupled from class informativeness (measured correlation $\approx 
 task is not solved by variance ranking, and two controls, a random baseline and the full
 spectrum, tell a real gain from a chance one. Fitting the model to measured drop and collagen spectra tests it against real data, and running a panel of selectors through the
 simulator shows it behaving as designed and marks where label-free selection helps and
-where it does not. SpectralForge and its workbench are in active development, with early
-access for interested labs on request; the full study is released for reproducible
-use in 4D fluorescence imaging.
+where it does not.
 \end{abstract}
 
 \begin{keywords}
@@ -82,7 +80,7 @@ A multi-excitation fluorescence measurement illuminates a sample at several exci
 wavelengths and, for each, records an emission spectrum. Every pixel therefore carries an
 excitation-emission matrix (EEM), and an image is a four-dimensional array over excitation,
 emission, height, and width (Fig.~\ref{fig:cube4d}). Fluorophores, tissue states, and species
-separate in this joint domain, which is why it is used for biomedical and material imaging,
+separate in this joint domain, which is why it can be used for biomedical and material imaging,
 for example label-free imaging of cardiac tissue by its endogenous
 autofluorescence~\cite{ref_mercader,ref_gil}. Added excitations separate overlapping
 fluorophores that a single-excitation image cannot, improving tissue and material
@@ -120,8 +118,8 @@ variance is dominated by uninformative signal.}
 \label{fig:cube4d}
 \end{figure*}
 
-\section{The SpectralForge Forward Model}
-\vspace{-4pt}\subsection{Photophysics}
+\vspace{9pt}\section{The SpectralForge Forward Model}
+\vspace{8pt}\subsection{Photophysics}
 The generator is built on the physics of fluorescence~\cite{ref_lakowicz,ref_valeur} so that ``informative''
 means what it means physically. A fluorophore absorbs a photon, relaxes
 non-radiatively to the lowest vibrational level of the first excited singlet, and
@@ -181,7 +179,7 @@ highest-variance bands are uninformative (Fig.~\ref{fig:scene}) and variance ran
 \centering
 \includegraphics[width=0.405\textwidth]{fig_studio_design_crop.png}\hfill
 \includegraphics[width=0.575\textwidth]{fig_studio_explore_crop.png}
-\caption{SpectralForge Studio (in development). (a) Design: lamp, LCTF camera and samples placed in 3D, with the camera view. (b) Explore: a band image and, for the selected pixel, its ground-truth physical components, spectra and EEM. The study below used the core generator of Sec.~2, not Studio's added physics.}
+\caption{SpectralForge Studio. (a) Design: lamp, LCTF camera and samples placed in 3D, with the camera view. (b) Explore: a band image and, for the selected pixel, its ground-truth physical components, spectra and EEM. The data analysis shown in Fig.~\ref{fig:results} used the core generator of Sec.~2, not Studio's added physics.}
 \label{fig:gui}
 \end{sfigure*}
 
@@ -216,7 +214,7 @@ Every render returns a ground-truth sidecar with concentration maps, clean cubes
 per-fluorophore emission peaks, which enables a tight \emph{peak-recovery} metric (did a selected
 band land within a tolerance of a true emission peak; a random selector scores about $0.33$) in
 addition to information-retention metrics. The study scripts (\texttt{build\_dataset} in \texttt{reports/}, not library API) call \texttt{render} with explicit knobs and record exact parameters. Parametric dyes can be replaced by measured spectra
-from a downloaded FPbase payload via a library importer (not yet exposed in the workbench). The in-development 3D workbench, SpectralForge Studio (Fig.~\ref{fig:gui}), lets a user place a lamp, camera, and samples in a 3D scene, render the 4D cube, and inspect it against ground truth. Each Studio scene is a plain JSON document with its seed and capture settings, so any capture can be saved, shared with collaborators and re-rendered exactly from that one file.
+from a downloaded FPbase payload via a library importer. The 3D workbench, SpectralForge Studio (Fig.~\ref{fig:gui}), lets a user place a lamp, camera, and samples in a 3D scene, render the 4D cube, and inspect it against ground truth. Each Studio scene is a plain JSON document with its seed and capture settings, so any capture can be saved, shared with collaborators and re-rendered exactly from that one file.
 
 \begin{figure*}[!t]
 \centering
@@ -228,7 +226,7 @@ from a downloaded FPbase payload via a library importer (not yet exposed in the 
 \begin{figure*}[!t]
 \centering
 \includegraphics[width=\textwidth]{fig_realdata}
-\caption{Real-data validation. (a)~Drop 5 (median SAM): measured (markers) and predicted (lines) at held-out excitations. (b)~Collagen ROI 4 (median case of 24): measured, predicted and residual at held-out 310/325/340\,nm. (c)~Collagen held-out SAM, mean $\pm$ SD (24 cases).}
+\caption{Real-data validation. (a)~The drop with the median SAM (of 16): measured (markers) and predicted (lines) at held-out excitations. (b)~The collagen region of interest with the median SAM (of 24): measured, predicted and residual at held-out 310/325/340\,nm. (c)~Collagen held-out SAM, mean $\pm$ SD (24 cases).}
 \label{fig:realdata}
 \end{figure*}
 
@@ -283,7 +281,7 @@ labels-using reference), and a fully unsupervised autoencoder~\cite{ref_hinton}-
 selector, which reconstructs the standardized cube, perturbs each latent dimension, and
 turns the per-band reconstruction sensitivity into a per-band influence. The question is whether decoupling variance from informativeness makes the benchmark discriminate methods and regimes.
 
-It does. On confounded scenes a variance ranker does no better than, and usually below, random subsets (e.g.\ $0.40$ vs $0.45$ on the realistic regime). PCA loadings is the
+The results show that it does. On confounded scenes a variance ranker does no better than, and usually below, random subsets (e.g.\ $0.40$ vs $0.45$ on the realistic regime). PCA loadings is the
 strongest blind selector only in the idealized \emph{clean} regime, where the informative
 bands are also the brightest. No real fluorescence acquisition reaches that regime, since
 real cubes always carry scatter, autofluorescence, and noise; once those enter, on the
@@ -324,7 +322,7 @@ class shares the same per-pixel spectrum, per-pixel selection falls below random
 (texture variance or MI, $0.66$ to $0.69$; a spatial CNN, $0.53$ in a separate finer configuration with random $0.58$) beats random, so spatial selection remains open.
 
 \section{Discussion and Conclusion}
-SpectralForge gives 4D fluorescence imaging an open, physically realistic source of cubes
+SpectralForge provides researchers in the 4D fluorescence imaging field with an open, physically realistic source of cubes
 with perfect ground truth, so methods can be tested before scarce instrument time is spent.
 With random and full-spectrum controls, the simulator turns ``does this selector help'' into a measured, reproducible question, and its answer is specific: PCA loadings is the strongest blind
 baseline only in the idealized clean regime that no real acquisition reaches, ties
@@ -339,15 +337,11 @@ Furthermore, the instrument model assumes an idealized optical train with spatia
 illumination, uniform spectral detector response, and static photophysics, omitting dynamic
 exposure photobleaching kinetics during sequence acquisition as well as chromatic
 aberrations and thermal drift. Expanding the engine to incorporate full radiative transport
-and dynamic bleaching models remains an important direction for future extensions; the in-development workbench (Fig.~\ref{fig:gui}) already adds 3D Monte Carlo transport and photobleaching.
+and dynamic bleaching models remains an important direction for future extensions; the workbench shown in Fig.~\ref{fig:gui} already adds 3D Monte Carlo transport and photobleaching.
 
 A natural next step is to evaluate performance on complex, multi-component target samples
 (heterogeneous biological tissues, environmental specimens, or engineered multi-fluorophore
 composites), where informative spectral structure is decoupled from overall band variance.
-SpectralForge and its workbench are in active development toward a production release, and
-the authors can provide exclusive early access to interested laboratories and individuals
-on request (contact the corresponding author by email); the full experiment record
-for this study is released for reproducible use.
 
 \section*{Acknowledgment}
 {\setlength{\emergencystretch}{2em}Financial support from the European Union NAS SAR-101087403 award is gratefully acknowledged. A large-language-model assistant was
