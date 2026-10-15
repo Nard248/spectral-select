@@ -63,7 +63,7 @@ def fig_cnr_depth(R, figdir):
                 h, l = ax.get_legend_handles_labels()
                 fig.legend(h, l, ncol=4, loc="upper center", bbox_to_anchor=(0.5, 1.05), handlelength=1.2)
                 fig.text(0.5, 0.925, "solid: instrument CNR (MC averaged over 3 seeds); dotted: raw single capture; band: seed range", ha="center", fontsize=6.8, color="0.3")
-            ax.text(0.03, 3.4, "CNR = 3", transform=ax.get_yaxis_transform(), fontsize=6.5, color="0.35")
+            ax.text(0.98, 3.5, "CNR = 3", transform=ax.get_yaxis_transform(), fontsize=6.5, color="0.35", ha="right", va="bottom")
     fig.subplots_adjust(top=0.88)
     save(fig, figdir, "E4_cnr_depth")
 

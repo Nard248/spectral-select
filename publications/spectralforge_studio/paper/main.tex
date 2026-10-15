@@ -6,11 +6,11 @@
 \usepackage{booktabs,array,multirow}
 \usepackage{xcolor}
 \usepackage{cite}
+\usepackage{balance}
 \usepackage{url}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit}
 \graphicspath{{figures/}}
-\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 \newcommand{\mua}{\mu_a}
 \newcommand{\mus}{\mu_s}
 \newcommand{\musp}{\mu_s'}
@@ -30,7 +30,7 @@
 \maketitle
 
 \begin{abstract}
-Multi-excitation fluorescence hyperspectral imaging (ME-HSI) records an excitation--emission matrix at every pixel, but the signal of a buried fluorophore is distorted by the tissue above it, and real acquisitions carry no ground truth. We present SpectralForge Studio, an open simulator and experiment-design environment for ME-HSI of layered tissue. It combines a 3D scene editor, a forward model (ray optics, dye photophysics, a layered-block 3D Monte Carlo with voxel inclusions, a tissue-optics library, a tunable-filter camera chain) and a research toolkit: sensitivity analysis, unmixing, maximum-likelihood retrieval, Fisher-information analysis with a model-error term and channel selection, and calibration of a digital twin. The transport engine reproduces the MCML benchmark to $0.1\,\%$, conserves energy to $10^{-9}$ and matches an independent Monte Carlo for radial reflectance to $1\,\%$. A calibrated twin predicts held-out excitation lines of measured collagen spectra with a mean spectral angle of $8.4^\circ$ (nominal instrument $14.2^\circ$), though not better than a copy of a measured spectrum ($7.7^\circ$). In simulations of collagen-covered tissue, the buried signal decays with an effective depth of $0.07$--$0.36$~mm for 340--430~nm excitation; cover parameters carry a first-order share of $0.66$ of the optical redox-ratio variance against $0.16$ for NADH and FAD; about 30 of 248 channels come within $10\,\%$ of the full-protocol Cram\'er--Rao bound, yet thickness retrieval is limited by model error (RMSE $160$--$260$~\textmu m), not photon noise; and unmixing with a thin-cover library fails from $0.1$~mm depth. The software is open source.
+Multi-excitation fluorescence hyperspectral imaging (ME-HSI) records an excitation--emission matrix at every pixel, but the signal of a buried fluorophore is distorted by the tissue above it, and real acquisitions carry no ground truth. We present SpectralForge Studio, an open simulator and experiment-design environment for ME-HSI of layered tissue. It combines a 3D scene editor, a forward model (ray optics, dye photophysics, a layered-block 3D Monte Carlo with voxel inclusions, a tissue-optics library, a tunable-filter camera chain) and a research toolkit: sensitivity analysis, unmixing, maximum-likelihood retrieval, Fisher-information analysis with a model-error term and channel selection, and calibration of a digital twin. The transport engine reproduces the MCML benchmark to $0.1\,\%$, conserves energy to $10^{-9}$ and matches an independent Monte Carlo for radial reflectance to $1\,\%$. A calibrated twin predicts held-out excitation lines of measured collagen spectra with a mean spectral angle of $8.4^\circ$ (nominal instrument $14.2^\circ$), though not better than a copy of a measured spectrum ($7.7^\circ$). In simulations of collagen-covered tissue, the buried signal decays with an effective depth of $0.07$--$0.36$~mm for 340--430~nm excitation; cover parameters carry a first-order share of $0.66$ of the optical redox-ratio variance against $0.16$ for NADH and FAD; about 30 of 248 channels come within $10\,\%$ of the full-protocol Cram\'er--Rao bound, yet thickness retrieval is limited by model error (RMSE $160$--$260$~\textmu m), not photon noise; unmixing with a thin-cover library fails from $0.1$~mm depth; an absorbing vessel under a dense collagen cover is detectable per pixel only to $0.24$--$0.44$~mm at 340~nm and an endogenous-contrast nodule not at all; and the engine's per-pixel noise follows $N^{-1/2}$ with bit-identical output across thread counts. The software is open source.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -53,7 +53,7 @@ Photon-transport codes are mature~\cite{wang1995mcml,fang2009mcx,shen2010timos,l
 \item \textbf{A physically comprehensive forward model}: ray optics with Fresnel/Snell and microfacet glint, dye photophysics, white-Monte-Carlo transport kernels with reciprocity, and a layered-block 3D Monte Carlo with layer-conforming tallies, a peel-off estimator with multiple-importance weights, voxelised inclusions, and a literature tissue-optics model (Section~\ref{sec:physics}).
 \item \textbf{A research toolkit}: a study engine with provenance, Sobol'/Morris sensitivity, unmixing, surrogate maximum-likelihood retrieval, Fisher-information/CRLB analysis with D-optimal channel selection, and calibration of a digital twin (Section~\ref{sec:toolkit}).
 \item \textbf{A validation suite} against analytic and published references, including a check of the voxel inclusions against an independent Monte Carlo, and a sim-to-real study with measured collagen and droplet data (Section~\ref{sec:validation}).
-\item \textbf{A set of simulation experiments} on collagen-covered tissue that quantify attenuation and spectral distortion, confounding of the redox ratio, information-optimal acquisition and its limits under model error, thickness retrieval, depth-dependent unmixing failure and label-free segmentation (Section~\ref{sec:experiments}). \todo{add inclusion detectability (E4) and performance (E10) when complete}
+\item \textbf{A set of simulation experiments} on collagen-covered tissue that quantify attenuation and spectral distortion, confounding of the redox ratio, information-optimal acquisition and its limits under model error, thickness retrieval, depth-dependent unmixing failure and label-free segmentation, together with the depth to which absorbing and fluorescent inclusions can be detected under the cover (E4) and the convergence, parallel scaling and cost of the engine (E10) (Section~\ref{sec:experiments}).
 \end{enumerate}
 
 \section{Related Work}
@@ -80,26 +80,36 @@ SpectralForge Studio consists of a typed experiment contract, a Python engine an
 
 \begin{figure*}[!t]
 \centering
-\resizebox{0.95\textwidth}{!}{%
-\begin{tikzpicture}[font=\footnotesize,node distance=6mm and 10mm,
- box/.style={draw,rounded corners=2pt,minimum height=8mm,minimum width=24mm,align=center,fill=blue!6},
- eng/.style={draw,rounded corners=2pt,minimum height=8mm,minimum width=24mm,align=center,fill=orange!10},
- ct/.style={draw,rounded corners=2pt,minimum height=9mm,minimum width=34mm,align=center,fill=green!10},
- arr/.style={-{Stealth[length=2mm]}}]
-\node[ct] (schema) {Experiment contract\\(Pydantic schema, JSON)};
-\node[box,left=of schema,xshift=-6mm] (web) {Web 3D editor\\(React, three.js)};
-\node[box,above=of web] (mock) {Result viewers,\\Explore, analysis};
-\node[eng,right=of schema,xshift=6mm] (api) {Python API / CLI\\FastAPI server};
-\node[eng,right=of api] (cap) {Capture engine\\tracer, kernels, 3D MC, sensor};
-\node[eng,below=of api] (study) {Study engine\\DoE, Sobol'/Morris, provenance};
-\node[eng,below=of cap] (inv) {Inverse tools\\unmix, surrogate, CRLB, design};
-\node[eng,above=of cap] (cal) {Calibration\\digital twin};
-\draw[arr] (web) -- (schema); \draw[arr] (schema) -- (api); \draw[arr] (api) -- (cap);
-\draw[arr] (api) -- (study); \draw[arr] (study) -- (cap); \draw[arr] (cap) -- (inv); \draw[arr] (cal) -- (cap);
-\draw[arr] (mock) -- (web);
-\node[draw,dashed,fit={(web)(mock)},inner sep=2mm,label={[font=\scriptsize]above:browser}] {};
+\resizebox{0.97\textwidth}{!}{%
+\begin{tikzpicture}[font=\footnotesize,
+ box/.style={draw,rounded corners=2pt,align=center,inner sep=3pt,text width=38mm,minimum height=9mm},
+ wide/.style={box,text width=58mm},
+ blue/.style={fill=blue!7},
+ green/.style={fill=green!10},
+ orange/.style={fill=orange!12},
+ purple/.style={fill=violet!8},
+ arr/.style={-{Stealth[length=2mm]},thick},
+ lab/.style={font=\scriptsize,midway,fill=white,inner sep=1pt}]
+\node[box,green,text width=44mm] (py) at (0,0) {\textbf{Python schema} (Pydantic)\\\texttt{schema.py}, \texttt{study\_schema.py}};
+\node[box,green,text width=44mm] (ts) at (6.2,0) {\textbf{JSON Schema $+$ TypeScript types}\\(exported from the schema)};
+\node[box,blue,text width=50mm] (web) at (13.0,0) {\textbf{Web editor} (\texttt{apps/studio-web})\\Vite, React, three.js; Explain pixel, analysis};
+\draw[arr] (py) -- (ts); \draw[arr] (ts) -- (web);
+\node[wide,purple,text width=160mm] (api) at (8.2,-2.0) {\textbf{FastAPI server and CLI} (\texttt{server.py}, \texttt{cli.py}); routes for capture, study, inverse tools and materials; jobs and sweeps};
+\draw[arr] (web.south) -- (web.south |- api.north) node[lab,pos=0.5] {HTTP / WebSocket};
+\draw[arr] (py.south) -- (py.south |- api.north) node[lab,pos=0.5] {validates};
+\node[box,orange,text width=47mm,minimum height=19mm] (eng) at (0.5,-5.2) {\textbf{Engine}\\\scriptsize layered blocks; 3D Monte Carlo with voxel inclusions (\texttt{transport3d\_mc}, \texttt{inclusions}); ray tracer and 1D kernels; dye photophysics; tissue optics; camera and LCTF model (\texttt{sensor}); provenance};
+\node[box,orange,text width=38mm,minimum height=19mm] (study) at (7.0,-5.2) {\textbf{Study engine}\\\scriptsize design of experiments, Sobol'/Morris (\texttt{study}, \texttt{sensitivity}, \texttt{sweeps}), run provenance};
+\node[box,orange,text width=38mm,minimum height=19mm] (inv) at (11.7,-5.2) {\textbf{Inverse tools}\\\scriptsize unmixing, surrogate ML retrieval, Fisher/CRLB, channel design (\texttt{unmix}, \texttt{surrogate}, \texttt{information})};
+\node[box,orange,text width=30mm,minimum height=19mm] (cal) at (15.9,-5.2) {\textbf{Calibration}\\\scriptsize sim-to-real digital twin (\texttt{calibration}, \texttt{realdata})};
+\draw[arr] (eng.north |- api.south) -- (eng.north);
+\draw[arr] (study.north |- api.south) -- (study.north);
+\draw[arr] (inv.north |- api.south) -- (inv.north);
+\draw[arr] (cal.north |- api.south) -- (cal.north);
+\draw[arr] (study.west) -- (eng.east);
+\draw[arr] (inv.south) -- ++(0,-0.7) -| ([xshift=8mm]eng.south);
+\draw[arr] (cal.south) -- ++(0,-0.35) -| ([xshift=-8mm]eng.south);
 \end{tikzpicture}}
-\caption{Architecture of SpectralForge Studio. The experiment contract is defined once in Python and exported as JSON Schema and TypeScript types for the browser, so the editor and the engine cannot diverge. \todo{replace the sketch with the final architecture diagram}}
+\caption{Architecture of SpectralForge Studio. The experiment contract is defined once in Python (Pydantic) and exported as JSON Schema and TypeScript types for the browser, so the editor and the engine cannot diverge. The server exposes the engine, the study engine, the inverse tools and calibration to the editor and to headless clients; module names refer to the \texttt{spectraforge.studio} package.}
 \label{fig:arch}
 \end{figure*}
 
@@ -513,7 +523,31 @@ peak wavelength$^{*}$ & $0.31$ & $0.21$ & $3.51$ & $1.23$\\
 \emph{Take-home.} In this model, the redox ratio is mainly a measure of the cover (thickness alone $S_i=0.49$), and the simple ratio corrections tested do not remove this.
 
 \subsection{E4: Inclusion detectability}
-\todo{E4 results pending}
+\emph{Question.} Down to which depth under the collagen cover can a buried fluorescent nodule or an absorbing blood vessel be detected, and how does the contrast decay with depth?
+
+\emph{Setup.} A $16\times16$~mm block with a dense-collagen cover of thickness $d$ on autofluorescent tissue (the buried-optics scene of E2); the top of the inclusion touches the cover, so $d$ is the depth of the inclusion. Inclusions are voxel spheres (nodule, $r=0.5$, $1$, $2$~mm, of NADH $400$~\textmu M and FAD $150$~\textmu M, i.e.\ $6.7\times$ and $3.8\times$ the host; an author-chosen composition, not a literature value) and vessels (cylinders of oxygenated blood, $r=0.25$, $0.5$, $1$~mm) with $0.1$~mm voxels, at 340, 365, 400 and 430~nm excitation with the laboratory protocol exposures ($1000$, $250$, $50$, $80$~ms) and the Nuance LCTF (31 bands) at the native $348\times256$ pixels ($0.21$~mm on the block). Depths are $0.05$--$3$~mm (nodule) and $0.05$--$2$~mm (vessel), with $1.2\cdot10^6$ photons per pass and three seeds. The contrast is the difference of the region-of-interest (ROI) and annulus signals (bands at least 25~nm above the excitation) between the capture with the inclusion and a matched capture without it, which uses the same random numbers (common random numbers). The CNR divides this by the sensor noise of a native pixel ($44$--$55$~e$^-$; the analytic variance agrees with 40 detector realisations); the ROI-averaged CNR uses the noise of the ROI mean. Detectability is CNR $=3$.
+
+\emph{Results.} Absorbing vessels are detectable per pixel only close to the surface and only in the UV: the CNR$=3$ depth at 340~nm is $0.24$, $0.39$ and $0.44$~mm for $r=0.25$, $0.5$ and $1$~mm, while at 365, 400 and 430~nm the per-pixel CNR is already below 3 at the shallowest depth ($0.05$~mm; Figs.~\ref{fig:e4a}, \ref{fig:e4b}a). Averaging over the ROI helps with larger inclusions, to $0.4$--$1.5$~mm (e.g.\ $0.67$, $1.47$, $1.34$~mm at 340~nm), but the values beyond about $0.75$~mm are within twice the Monte Carlo floor and are upper bounds (Fig.~\ref{fig:e4b}b). The nodule never reaches CNR $=3$ at any depth, size or line: the peak per-pixel CNR is $2.6$ ($r=0.5$~mm, 340~nm), of the order of the Monte Carlo floor ($1.0$--$2.1$), and its contrast changes sign with depth and seed. Exogenous labels (EBFP2, DAPI, fluorescein, PpIX at $10$--$50$~\textmu M, $d=0.5$--$1$~mm, $r=1$~mm) gave no positive contrast either. The reason in this model is physical: with the dense cover the excitation is absorbed within $1/\mu_{\rm eff}=0.07$--$0.1$~mm at 340--365~nm, and the autofluorescence of the cover itself is the dominant background; the nodule mainly changes the image by modulating the cover fluorescence through its different scattering.
+
+The contrast of the vessel decays with a length $\delta=0.5$--$1.7$~mm (fits of $|\Delta|\propto e^{-d/\delta}$ to four to six points, intervals $0.4$ to above $4$~mm; Fig.~\ref{fig:e4b}d). This is $5$--$10\times$ longer than the buried-emitter prediction $1/(\mu_{\rm eff,ex}+\mu_{\rm eff,em})$ of the cover ($0.07$--$0.5$~mm) and $2$--$4\times$ shorter than the emission-only length $1/\mu_{\rm eff,em}$ ($2.0$--$3.2$~mm). The vessel is therefore not seen as an emitter attenuated twice by the cover; it acts as an absorber of the diffusely transported emission of the cover and the tissue, and its contrast decays on a scale set by the emission side. The CNR ordering is 340 $>$ 365 $>$ 430 $>$ 400~nm: the 400~nm line is limited by its $50$~ms exposure (background $250$~e$^-$ against $1300$--$2400$~e$^-$ in the UV).
+
+\emph{Caveats.} Only three seeds and $1.2\cdot10^6$ photons: the Monte Carlo noise of the contrast ($50$--$110$~e$^-$ at 340 and 365~nm) is comparable to the signal beyond $0.5$~mm and exceeds the sensor noise, so the maximum depths are upper bounds with crude bootstrap intervals; common random numbers reduce the noise of the difference by $1.5$--$6\times$ but do not cancel it, because the emission source list changes when an inclusion is added. The results are specific to the dense-collagen cover; a clearer cover would give millimetre-scale depths. The nodule composition is an assumption, the exposures differ between lines, and a vessel of $r=0.25$~mm is only 2.5 voxels in radius.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.78\textwidth]{E4_cnr_depth.pdf}
+\caption{E4, contrast-to-noise ratio of the per-pixel instrument contrast against the depth of the inclusion top for nodules (top) and vessels (bottom) at three radii and four excitation lines: solid, mean over three seeds with the seed range shaded; dotted, single capture without a matched baseline. The dashed line is CNR $=3$. No nodule reaches it; vessels do so only at 340~nm and below about $0.45$~mm.}
+\label{fig:e4a}
+\end{figure*}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\columnwidth]{E4_max_depth.pdf}
+\caption{E4, summary. (a, b) Depth at which the vessel reaches CNR $=3$, per pixel and ROI-averaged (triangles: already below 3 at $0.05$~mm). (c) Peak CNR of the nodule over depth (dots) and the Monte Carlo floor of the three-seed mean (crosses). (d) Fitted decay length of the vessel contrast against the diffusion length of the cover: filled, emission-only $1/\mu_{\rm eff}(\lem)$; open, two-way $1/(\mu_{\rm eff,ex}+\mu_{\rm eff,em})$.}
+\label{fig:e4b}
+\end{figure}
+
+\emph{Take-home.} Under a dense collagen cover, absorbing vessels are detectable per pixel only to about $0.2$--$0.45$~mm (340~nm) and ROI-averaged to about $0.4$--$1.5$~mm, and an endogenous-contrast nodule is not detectable at all; the contrast decays on the emission-side diffusion scale.
 
 \subsection{E5: Information-optimal acquisition}
 \emph{Question.} Which channels of the $8\times31=248$-channel lab-replica protocol carry the information on cover thickness, how many reach the Cram\'er--Rao bound (CRLB) of the full protocol, and how robust is this to model error?
@@ -665,7 +699,29 @@ $k$-means, raw pixels & $0.72$ & $0.60$ & $0.43$ & $0.30$ & $0.19$ & $0.12$ & $0
 \emph{Take-home.} Label-free separation of tissue types degrades monotonically with burial (ARI $0.92\to0.08$) although the information remains in the spectra, and channel sets designed for thickness are not suited to tissue classification.
 
 \subsection{E10: Performance and convergence}
-\todo{E10 results pending}
+\emph{Question.} How does the cost and the noise of the 3D Monte Carlo scale with the photon count and the number of threads, what do the peel-off estimator and the voxel inclusions cost, and is the preview mode consistent with a full capture?
+
+\emph{Setup.} The E2 scene (a $0.5$~mm collagen cover on a $40\times40$~mm block, 400~nm, preview grid $87\times64$), timing the Monte Carlo stage (one excitation pass and nine emission nodes) for $N=10^4$--$6.4\cdot10^5$ packets per pass. Per-pixel noise is the spatial standard deviation of a plane-detrended $24\times24$ ROI; the ROI-mean error uses eight seeds. Speed-ups are paired over five interleaved repetitions, the peel-off and raw-cone estimators are compared at equal packets, the preview ($10\,\%$ of the photons, $87\times64$) is compared with a full capture ($348\times256$, $4\times4$-binned) on the $0$--$2$~mm wedge, and the inclusion overhead is measured on the E4 scene (sphere and vessel of $r=1$~mm, and a sphere filled with host optics, $N=10^5$, nine interleaved rounds). The machine was a shared workstation with a high load throughout, so absolute times are inflated; the ratios come from interleaved repetitions with interquartile ranges of a few percent.
+
+\emph{Results.} The per-pixel noise falls as $N^{-0.47}$ ($95\,\%$ interval $[-0.48,-0.46]$) for the peel-off estimator and $N^{-0.50}$ for the raw cone estimator, i.e.\ as the expected $N^{-1/2}$ (Fig.~\ref{fig:e10a}b). The ROI-mean error does not follow it: its slope is $-0.32$ $[-0.45,-0.16]$ and it flattens at about $1\,\%$ above $N\approx1.6\cdot10^5$; we hypothesise a seed-to-seed component that does not shrink with the packet count, which we did not test, so the $N^{-1/2}$ law is shown for per-pixel noise only. The runtime is $0.96$~s $+12.3$~s per $10^5$ packets for peel-off. Multithreading gives speed-ups of $1.88$, $3.60$, $6.44$ and $7.10$ for 2, 4, 8 and 14 threads (efficiency $0.94$, $0.90$, $0.80$, $0.51$; the last point mixes performance and efficiency cores on a loaded machine), and the output is bit-identical for 1, 2, 4, 8 and 14 threads in all repetitions. At equal packets the peel-off estimator is $2.1$--$2.4\times$ slower per packet but has $2.9$--$3.4\times$ lower per-pixel noise, so the noise-variance efficiency is $3.6$--$5.3\times$ higher (Fig.~\ref{fig:e10b}a,b); at $N=6.4\cdot10^5$ the cone estimator's noise is matched by peel-off with about $5.7\cdot10^4$ packets in $7$~s against $33$~s. The ROI mean of the cone estimator differs from that of peel-off by $-0.09\,\%$ ($|z|<1.3$ at every $N$), so no bias is detectable. The preview differs from a full capture by a relative rms of $0.32$ against $0.13$ between two full captures with different seeds; with the preview's own seed-to-seed difference ($0.43$) this is explained by Monte Carlo noise alone (predicted $0.32$), with a ratio of sums of $0.998$ (Fig.~\ref{fig:e10a}d). Voxel inclusions cost $1.99\times$ (sphere), $1.74\times$ (vessel) and $1.59\times$ (host-filled sphere with no boundary physics) of the capture without an inclusion (Fig.~\ref{fig:e10b}c). The design target of $1.6\times$ is therefore missed for real inclusions. The number of steps per photon is unchanged, and the host-filled sphere already costs $1.59\times$, so the per-step voxel lookup is the main cost; we did not profile the compiled kernels, and a coarse occupancy grid is a likely remedy.
+
+\emph{Caveats.} Timings were taken on one machine (Apple M4 Pro, 14 cores) under load; the per-pixel efficiency gain of peel-off refers to pixel noise, not to ROI-mean noise, where the data are too noisy to interpret; the preview comparison uses one scene, two seeds and one line; and the inclusion overhead was measured at one photon count and voxel size.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.62\textwidth]{E10_performance.pdf}
+\caption{E10, performance and convergence. (a) Runtime against packets per pass for the peel-off and raw-cone estimators; (b) relative per-pixel Monte Carlo noise against $N$ with fitted slopes ($95\,\%$ intervals) and the ROI-mean error, which flattens at about $1\,\%$; (c) thread speed-up against one thread (median and interquartile range, labels give the parallel efficiency); (d) preview against full capture, pixel by pixel.}
+\label{fig:e10a}
+\end{figure*}
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=0.75\textwidth]{E10_estimators_inclusions.pdf}
+\caption{E10, estimators and inclusions. (a) Peel-off against raw cone at equal packets: per-pixel noise ratio (cone$/$peel) and time ratio (peel$/$cone); (b) efficiency gain of peel-off, $\sigma^2T$(cone)$/\sigma^2T$(peel); (c) time ratio of the capture with an inclusion to that without (median and interquartile range); the dashed line is the $1.6\times$ design target.}
+\label{fig:e10b}
+\end{figure*}
+
+\emph{Take-home.} The engine scales as $N^{-1/2}$ in per-pixel noise, is deterministic across thread counts and gains a factor of $3.6$--$5.3$ in efficiency from peel-off; voxel inclusions cost about $1.6$--$2\times$, above the $1.6\times$ target.
 
 \section{Discussion and Limitations}
 \label{sec:limits}
@@ -675,18 +731,19 @@ $k$-means, raw pixels & $0.72$ & $0.60$ & $0.43$ & $0.30$ & $0.19$ & $0.12$ & $0
 
 \textbf{Monte Carlo noise.} The 3D result is a Monte Carlo estimate (about $10\,\%$ rms per 0.5~mm face cell before smoothing; $2$--$3\,\%$ in a 3~mm region of interest), which is why studies report replicate noise floors. The `fast' mode used for datasets has a per-pixel tally noise of about $39\,\%$ per channel (median over channels), which affects the pixel-level analyses: it produced the artefactual floor of the first E7 version and part of the held-out E7 errors, and it contributes to the degradation of unbinned clustering in E9 (a separate check gives about $4\,\%$ Monte Carlo and $7\,\%$ sensor noise in a channel-mean-normalised metric, so the two figures are not comparable). Sobol' indices were estimated with $N=64$ base rows, so total indices are rank-level evidence only, and the group-index intervals are degenerate.
 
-\textbf{Experimental design caveats.} E7 uses oracle endmember libraries built from the same pixels as the data; the held-out variant, which includes library-estimation noise, is the realistic one and is substantially worse beyond $0.4$~mm. Most experiments use a single scene family and a single noise realisation (E6, E7), one ROI (E5, E8) or one design of 14 captures (E9), and the surrogate used in E5 and E6 is trained on uniform blocks, so lateral transport at the wedge slope is unmodelled. The lateral blur of the wedge (E2) could not be resolved above the noise. The `autofluorescence fraction' of E2 uses the engine's own component bookkeeping and cannot be measured in real data without the cover alone. Voxel inclusions slow the 3D Monte Carlo by about $2\times$ (the $1.6\times$ target was not demonstrated on an idle machine), and they are index-matched to the host.
+\textbf{Experimental design caveats.} E7 uses oracle endmember libraries built from the same pixels as the data; the held-out variant, which includes library-estimation noise, is the realistic one and is substantially worse beyond $0.4$~mm. Most experiments use a single scene family and a single noise realisation (E6, E7), one ROI (E5, E8) or one design of 14 captures (E9), and the surrogate used in E5 and E6 is trained on uniform blocks, so lateral transport at the wedge slope is unmodelled. The lateral blur of the wedge (E2) could not be resolved above the noise. The `autofluorescence fraction' of E2 uses the engine's own component bookkeeping and cannot be measured in real data without the cover alone. Voxel inclusions slow the 3D Monte Carlo by about $2\times$ (the $1.6\times$ design target was missed in E10), and they are index-matched to the host.
 
 \textbf{Physics limitations.} Absorption and emission spectra of the dyes are parametric (Gaussians with skew and an optional vibronic shoulder), so there is no S$_0\!\to$S$_2$ band (fluorescein absorbs nothing at 405~nm in the model against about $3\,\%$ of its peak in reality), no exact mirror image and no solvent shift. Scattering is a power law with one Henyey--Greenstein $g$ per material, with no wavelength-dependent $g$, polarisation or coherence. Fluorescence has a single Stern--Volmer constant, FRET without overlap integral or orientation factor, one-generation isotropic secondary emission, only the 3400~cm$^{-1}$ water Raman band, and no lifetimes, depolarisation, temperature dependence or triplet saturation. Bleaching in the 1D engine uses the surface fluence. Block pixels have no secondary emission (fluorescence re-absorbed in the block is lost, making it a few percent to about $10\,\%$ dimmer for strongly overlapping dyes), a single camera direction per block, planar interfaces and a rectangular footprint. Tissue pigments measured in organic solvents are proxies for the bound pigments. The bottom of the block is a Fresnel interface to air and the stage never reflects. Indirect diffuse interreflection between objects is not implemented. Fisher information is a local bound that assumes an unbiased estimator and neglects fixed-pattern noise; calibration intervals are statistical, and the twin is calibrated on thin, dilute-equivalent samples, so collagen and droplet parameters are effective rather than intrinsic.
 
-\textbf{Validation scope.} The validation is against analytic results, MCML-type benchmarks, an independent Monte Carlo and one laboratory's measurements; we have not compared 3D inclusion or tissue-phantom predictions with phantom measurements, and the cover-scene check of E8 uses thin measured samples. \todo{state any phantom measurement added before submission}
+\textbf{Validation scope.} The validation is against analytic results, MCML-type benchmarks, an independent Monte Carlo and one laboratory's measurements; we have not compared 3D inclusion or tissue-phantom predictions with phantom measurements, and the cover-scene check of E8 uses thin measured samples.
 
 \section{Conclusion}
-SpectralForge Studio couples a literature-grade layered-tissue 3D Monte Carlo with voxel inclusions, dye photophysics and a camera model with a study engine, inverse tools, information-theoretic design and calibration in one schema-driven, reproducible environment. The transport engine matches established benchmarks and an independent Monte Carlo to about one percent or better, and the calibrated twin predicts held-out excitation lines with a mean spectral angle of $8.4^\circ$, though not better than a copy of a measured spectrum. In simulations of collagen-covered tissue, the cover rather than metabolism dominates the optical redox ratio in this model (first-order share $0.66$ against $0.16$) and simple ratio corrections do not remove it; about 30 of 248 channels carry the information of the full protocol on cover thickness, but model bias, not photon noise, limits retrieval, so photon-limited bounds should be reported together with a model-error floor; and unmixing needs depth-matched endmembers between $0.1$ and $0.6$~mm and fails beyond, where the signal is below the noise. \todo{add inclusion-detectability (E4) and performance (E10) conclusions when complete}
+SpectralForge Studio couples a literature-grade layered-tissue 3D Monte Carlo with voxel inclusions, dye photophysics and a camera model with a study engine, inverse tools, information-theoretic design and calibration in one schema-driven, reproducible environment. The transport engine matches established benchmarks and an independent Monte Carlo to about one percent or better, and the calibrated twin predicts held-out excitation lines with a mean spectral angle of $8.4^\circ$, though not better than a copy of a measured spectrum. In simulations of collagen-covered tissue, the cover rather than metabolism dominates the optical redox ratio in this model (first-order share $0.66$ against $0.16$) and simple ratio corrections do not remove it; about 30 of 248 channels carry the information of the full protocol on cover thickness, but model bias, not photon noise, limits retrieval, so photon-limited bounds should be reported together with a model-error floor; and unmixing needs depth-matched endmembers between $0.1$ and $0.6$~mm and fails beyond, where the signal is below the noise. Under a dense collagen cover, absorbing vessels are detectable per pixel only to about $0.2$--$0.45$~mm at 340~nm and an endogenous-contrast fluorescent nodule is not detectable at all, and the engine's per-pixel noise follows $N^{-1/2}$ with bit-identical results across thread counts, although voxel inclusions cost $1.6$--$2\times$ of an inclusion-free capture.
 
 \section*{Code Availability}
 The source code, documentation, validation scripts and presets are available at \url{https://github.com/Nard248/spectral-select}.
 
+\balance
 \bibliographystyle{IEEEtran}
 \bibliography{refs}
 \end{document}
