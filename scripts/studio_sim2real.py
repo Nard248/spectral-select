@@ -214,7 +214,18 @@ def partA(res: dict, t0: float, bootstrap: bool, outdir: Path) -> dict:
     return {"cubes": cubes, "eems": eems, "fits": fits}
 
 
+PAPER_RC = {"font.family": "serif", "font.serif": ["Times New Roman", "Times", "STIXGeneral"], "mathtext.fontset": "stix",
+            "font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8, "xtick.labelsize": 7.5, "ytick.labelsize": 7.5,
+            "legend.fontsize": 7, "axes.linewidth": 0.6, "savefig.dpi": 300}
+
+
 def fig27(cube, e_meas, fit, fit_nominal, path: Path, res: dict) -> None:
+    import matplotlib.pyplot as plt
+    with plt.rc_context(PAPER_RC):
+        _fig27(cube, e_meas, fit, fit_nominal, path, res)
+
+
+def _fig27(cube, e_meas, fit, fit_nominal, path: Path, res: dict) -> None:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -233,52 +244,50 @@ def fig27(cube, e_meas, fit, fit_nominal, path: Path, res: dict) -> None:
     M, S, N = e_meas.grid_value / peak, e_sim.grid_value / peak, e_nom.grid_value / peak
     R = M - S
 
-    fig = plt.figure(figsize=(19, 8.6))
-    gs = GridSpec(2, 12, figure=fig, height_ratios=[1.15, 1.0], hspace=0.42, wspace=2.6)
+    fig = plt.figure(figsize=(7.16, 5.8))
+    gs = GridSpec(3, 12, figure=fig, height_ratios=[1.1, 1.0, 1.0], hspace=0.62, wspace=4.2)
     ext = [grid[0], grid[-1], len(exs) - 0.5, -0.5]
-    panels = [("measured (Pepsin ROI 2), fraction of excitation peak", M, "viridis", (0, 1)), ("simulated (calibrated twin)", S, "viridis", (0, 1)),
-              ("residual: measured - simulated", R, "RdBu_r", (-0.25, 0.25))]
+    panels = [("(a) measured", M, "viridis", (0, 1)), ("(b) calibrated twin", S, "viridis", (0, 1)),
+              ("(c) residual", R, "RdBu_r", (-0.25, 0.25))]
     for j, (title, arr, cmap, (lo, hi)) in enumerate(panels):
         ax = fig.add_subplot(gs[0, 3 * j:3 * j + 3])
         im = ax.imshow(arr, aspect="auto", extent=ext, cmap=cmap, vmin=lo, vmax=hi, interpolation="nearest")
         ax.set_yticks(range(len(exs)))
-        ax.set_yticklabels([f"{e:g}" for e in exs])
+        ax.set_yticklabels([f"{e:g}" for e in exs] if j == 0 else [])
         ax.set_xlabel("emission (nm)")
         ax.set_ylabel("excitation (nm)" if j == 0 else "")
-        ax.set_title(title, fontsize=10)
-        plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+        ax.set_title(title, fontsize=8)
+        cb = plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+        cb.ax.tick_params(labelsize=7)
     ax = fig.add_subplot(gs[0, 9:12])
     sam = cal.pixel_sam_map(cube, fit)
     im = ax.imshow(sam, cmap="magma", vmin=0, vmax=30)
-    ax.set_title("per-pixel spectral angle to model (deg)", fontsize=10)
+    ax.set_title("(d) pixel SAM (deg)", fontsize=8)
     ax.set_xticks([])
     ax.set_yticks([])
-    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03)
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.03).ax.tick_params(labelsize=7)
     res.setdefault("fig27", {})["pixel_sam_median_deg"] = float(np.nanmedian(sam))
     res["fig27"]["pixel_sam_mean_deg"] = float(np.nanmean(sam))
     for i, ex in enumerate(exs):
-        ax = fig.add_subplot(gs[1, 2 * i:2 * i + 2])
+        ax = fig.add_subplot(gs[1 + i // 3, 4 * (i % 3):4 * (i % 3) + 4])
         em = np.asarray(e_meas.emission_nm[ex])
         y = e_meas.value[ex]
         sc = np.nanmax(y)
         ax.errorbar(em, y / sc, yerr=e_meas.std[ex] / sc, fmt="o", ms=3, color="k", lw=0.5, alpha=0.7,
-                    label="measured (ROI mean +- sd)")
-        ax.plot(em, pred[ex] / sc, "-", color="C3", lw=1.8, label="calibrated twin")
-        ax.plot(em, pred_nom[ex] / sc, "--", color="C0", lw=1.0, label="nominal instrument")
+                    label="measured")
+        ax.plot(em, pred[ex] / sc, "-", color="C3", lw=1.8, label="calibrated")
+        ax.plot(em, pred_nom[ex] / sc, "--", color="C0", lw=1.0, label="nominal")
         ax.axvline(ex + 20, color="0.6", lw=0.6, ls=":")
-        ax.set_title(f"{ex:g} nm excitation   SAM {fit.diagnostics['sam_deg'][ex]:.1f} deg", fontsize=9)
+        ax.set_title(f"{ex:g} nm: SAM {fit.diagnostics['sam_deg'][ex]:.1f}$^\\circ$", fontsize=8)
         ax.set_xlabel("emission (nm)")
-        if i == 0:
+        if i % 3 == 0:
             ax.set_ylabel("normalised")
-            ax.legend(fontsize=6.5, loc="upper right")
+        if i == 0:
+            ax.legend(fontsize=7, loc="upper right", borderaxespad=0.1)
         ax.set_ylim(0, 1.25)
     d = fit.diagnostics
     s = fit.specs[0]
-    fig.suptitle(f"Sim-to-real: collagen (Pepsin, ROI 2).  Calibrated: em {s.em_peak_nm:.0f} nm, FWHM {s.em_fwhm_nm:.0f} nm, "
-                 f"skew {s.em_skew:.2f};  R2 = {d['r2']:.3f}, mean SAM = {d['sam_mean_deg']:.1f} deg "
-                 f"(nominal instrument: R2 = {fit_nominal.diagnostics['r2']:.3f}, SAM = "
-                 f"{fit_nominal.diagnostics['sam_mean_deg']:.1f} deg)", fontsize=11)
-    fig.savefig(path, dpi=130, bbox_inches="tight")
+    fig.savefig(path, dpi=300, bbox_inches="tight")
     plt.close(fig)
     print(f"   wrote {path.name}")
 
@@ -389,11 +398,17 @@ def partB(res: dict, t0: float, A: dict, outdir: Path) -> None:
 
 
 def fig28(out: dict, path: Path) -> None:
+    import matplotlib.pyplot as plt
+    with plt.rc_context(PAPER_RC):
+        _fig28(out, path)
+
+
+def _fig28(out: dict, path: Path) -> None:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, axs = plt.subplots(1, 3, figsize=(16, 4.6))
+    fig, axs = plt.subplots(1, 3, figsize=(7.16, 2.7), gridspec_kw=dict(wspace=0.6))
     b1 = out["B1_heldout_excitations"]["mean_sam_deg"]
     order = ["in_sample_refit_K1", "corrected_K1", "corrected_ripple_K1", "corrected_K2", "nominal_K1",
              "baseline_empirical", "baseline_flat"]
@@ -403,9 +418,9 @@ def fig28(out: dict, path: Path) -> None:
     ax = axs[0]
     ax.bar(range(len(order)), [b1[o] for o in order], color=cols)
     ax.set_xticks(range(len(order)))
-    ax.set_xticklabels(lab, fontsize=8)
-    ax.set_ylabel("mean spectral angle on held-out excitations (deg)")
-    ax.set_title("B1: calibrate on 3 excitations, predict the other 3\n(6 collagen ROIs x 4 splits)", fontsize=10)
+    ax.set_xticklabels([l.replace("\n", " ") for l in lab], fontsize=7, rotation=90)
+    ax.set_ylabel("mean SAM, held out (deg)")
+    ax.set_title("B1: held-out excitations", fontsize=8)
     b2 = out["B2_heldout_samples"]
     ax = axs[1]
     w = 0.38
@@ -414,8 +429,9 @@ def fig28(out: dict, path: Path) -> None:
                                                       ["in_sample" if o == "in_sample_refit_K1" else o for o in order]],
                w, color=cols, alpha=0.55 if j else 1.0, hatch="//" if j else None, edgecolor="k", linewidth=0.4)
     ax.set_xticks(range(len(order)))
-    ax.set_xticklabels(lab, fontsize=8)
-    ax.set_title("B2: calibrate on one ROI, predict another\nsolid = same dataset, hatched = other dataset", fontsize=10)
+    ax.set_xticklabels([l.replace("\n", " ") for l in lab], fontsize=7, rotation=90)
+    ax.set_title("B2: held-out ROIs", fontsize=8)
+    ax.text(0.03, 0.97, "solid: same dataset\nhatched: other dataset", transform=ax.transAxes, va="top", fontsize=7)
     ax = axs[2]
     rows = [r for r in out["B3_heldout_excitations_absolute_drops"]["rows"] if r["deg"] == 2]
     pm, tm = [], []
@@ -423,13 +439,13 @@ def fig28(out: dict, path: Path) -> None:
         for ex, ratio in r["peak_ratio"].items():
             pm.append(r["peak_brightness"])
             tm.append(ratio)
-    ax.scatter(pm, tm, s=18, c="C3")
+    ax.scatter(pm, tm, s=9, c="C3")
     ax.axhline(1.0, color="k", lw=0.8)
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("drop peak brightness (relative units)")
-    ax.set_ylabel("predicted / measured peak at held-out excitations")
-    ax.set_title("B3: droplets, global gain: train 310/340/385/415 nm,\nabsolute prediction at 325/365/400 nm", fontsize=10)
+    ax.set_xlabel("drop peak brightness (a.u.)")
+    ax.set_ylabel("predicted / measured peak")
+    ax.set_title("B3: droplets, absolute", fontsize=8)
     fig.savefig(path, dpi=130, bbox_inches="tight")
     plt.close(fig)
     print(f"   wrote {path.name}")

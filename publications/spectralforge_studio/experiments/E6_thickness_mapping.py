@@ -143,7 +143,7 @@ def make_figure(out, scat, q):
     a.plot([0, 2], [0, 2], "k-", lw=0.6)
     a.set_xlim(0, 2.05); a.set_ylim(0, 2.05)
     a.set_xlabel("true cover (mm)"); a.set_ylabel("retrieved cover (mm)"); a.set_title("(a) all channels, level 1", fontsize=8)
-    a.legend(fontsize=6, loc="upper left", markerscale=2)
+    a.legend(fontsize=7, loc="upper left", markerscale=2)
     for j, (key, ttl, yl) in enumerate((("rmse_um", "(b) RMSE", "RMSE (µm)"), ("coverage_95", "(c) 95 % CI coverage", "coverage"),
                                         ("bias_um", "(d) bias", "bias (µm)"))):
         a = ax[1 + j]
@@ -165,7 +165,7 @@ def make_figure(out, scat, q):
          plt.Line2D([], [], color="0.3", ls="-", label="tissue"), plt.Line2D([], [], color="0.3", ls="--", label="phantom"),
          plt.Line2D([], [], color="0.3", marker="o", ls="", label="fit $\\epsilon$ = 0"),
          plt.Line2D([], [], color="0.3", marker="s", mfc="none", ls="", label="fit $\\epsilon$ = 2 %")]
-    fig.legend(handles=h, loc="lower center", ncol=6, fontsize=6.3, bbox_to_anchor=(0.5, -0.07))
+    fig.legend(handles=h, loc="lower center", ncol=6, fontsize=7, bbox_to_anchor=(0.5, -0.07))
     fig.tight_layout(w_pad=0.7)
     C.savefig(fig, "E6_thickness_mapping" + ("_quick" if q else ""))
 

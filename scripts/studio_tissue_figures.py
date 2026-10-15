@@ -47,23 +47,33 @@ def fig20() -> None:
     plt.close(fig)
 
 
+PAPER_RC = {"font.family": "serif", "font.serif": ["Times New Roman", "Times", "STIXGeneral"], "mathtext.fontset": "stix",
+            "font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8, "xtick.labelsize": 7.5, "ytick.labelsize": 7.5,
+            "axes.linewidth": 0.6, "savefig.dpi": 300}
+
+
 def fig21() -> None:
+    with plt.rc_context(PAPER_RC):
+        _fig21()
+
+
+def _fig21() -> None:
     FL = {f.name: f for f in builtin_fluorophores()}
     nm = np.arange(380.0, 900.0, 2.0)
     mats = presets_tissue.tissue_materials()
     cmap = plt.get_cmap("tab20")
-    fig, (a, b) = plt.subplots(1, 2, figsize=(12, 5), constrained_layout=True)
+    fig, (a, b) = plt.subplots(1, 2, figsize=(7.16, 3.9), constrained_layout=True)
     for i, m in enumerate(mats):
         o = optics.material_optics(m, FL, nm)
         c = cmap(i % 20)
-        a.semilogy(nm, o.mua_per_mm, c=c, lw=1.3, label=m.name.replace("Epidermis (","Epidermis, ").replace(" skin, ", " ").split(" (")[0].rstrip(")"))
+        a.semilogy(nm, o.mua_per_mm, c=c, lw=1.0, label=m.name.replace("Epidermis (","Epidermis, ").replace(" skin, ", " ").split(" (")[0].rstrip(")"))
         if not o.clear:
-            b.semilogy(nm, o.mus_per_mm * (1 - o.g), c=c, lw=1.3)
+            b.semilogy(nm, o.mus_per_mm * (1 - o.g), c=c, lw=1.0)
     a.set(xlabel="Wavelength (nm)", ylabel=r"$\mu_a$ (mm$^{-1}$)", xlim=(380, 900), title="(a) Absorption of the tissue library")
     b.set(xlabel="Wavelength (nm)", ylabel=r"$\mu_s'$ (mm$^{-1}$)", xlim=(380, 900), title="(b) Reduced scattering")
     for ax in (a, b):
         ax.grid(alpha=0.25, which="both", lw=0.4)
-    fig.legend(*a.get_legend_handles_labels(), loc="outside lower center", ncol=6, frameon=False, fontsize=7.5)
+    fig.legend(*a.get_legend_handles_labels(), loc="outside lower center", ncol=4, frameon=False, fontsize=7)
     fig.savefig(OUT / "fig21_tissue_optics.png")
     plt.close(fig)
 

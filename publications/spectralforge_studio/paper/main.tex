@@ -224,7 +224,7 @@ with $\mus=\musp/(1-g)$. Intralipid phantoms use the measured $\mus(\lambda)$ an
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.92\textwidth]{fig21_tissue_optics.png}
+\includegraphics[width=\textwidth]{fig21_tissue_optics.png}
 \caption{Literature tissue-optics library: (a) absorption and (b) reduced scattering of the 18 materials, 380--900~nm.}
 \label{fig:tissue}
 \end{figure*}
@@ -355,60 +355,85 @@ Twin fast model vs.\ full capture & full engine & $4.1\cdot10^{-4}$ max.\ rel.\ 
 
 \subsection{Monte Carlo transport against standard benchmarks}
 \label{sec:v_mc}
-The baked white-Monte-Carlo tables and a conventional MCML implementation both reproduce the Wang--Jacques/Prahl slab benchmark ($\mua=1$, $\mus=9$~mm$^{-1}$, $g=0.75$, $n=1$, $d=0.2$~mm; $R_d=0.09734$, $T_t=0.66096$) to better than $0.1\,\%$ (Fig.~\ref{fig:mcml}), conserve energy to $10^{-9}$, match the exact incoherent multiple-reflection solution for a non-scattering, index-mismatched slab to $0.01\,\%$ and agree with each other for an oblique, index-mismatched turbid slab to $\le0.05\,\%$. Semi-infinite diffuse reflectance agrees with the Farrell--Patterson albedo formula~\cite{farrell1992} to $0.3\,\%$ ($n=1$) and $1.1\,\%$ ($n=1.4$; the dipole formula itself is good to a few percent at an index step). For a high-albedo medium ($\mua=0.01$, $\musp=1$~mm$^{-1}$, $g=0.9$) the absorbed-weight profile decays as $\exp(-\mu_{\rm eff}z)$ with a fitted $\mu_{\rm eff}=0.1736$~mm$^{-1}$ against $\sqrt{3\mua(\mua+\musp)}=0.1741$~mm$^{-1}$ ($-0.29\,\%$) over nine decades~\cite{patterson1989}.
+The baked white-Monte-Carlo tables and a conventional MCML implementation both reproduce the Wang--Jacques/Prahl slab benchmark ($\mua=1$, $\mus=9$~mm$^{-1}$, $g=0.75$, $n=1$, $d=0.2$~mm; $R_d=0.09734$, $T_t=0.66096$) to better than $0.1\,\%$ (Table~\ref{fig:mcml}), conserve energy to $10^{-9}$, match the exact incoherent multiple-reflection solution for a non-scattering, index-mismatched slab to $0.01\,\%$ and agree with each other for an oblique, index-mismatched turbid slab to $\le0.05\,\%$. Semi-infinite diffuse reflectance agrees with the Farrell--Patterson albedo formula~\cite{farrell1992} to $0.3\,\%$ ($n=1$) and $1.1\,\%$ ($n=1.4$; the dipole formula itself is good to a few percent at an index step). For a high-albedo medium ($\mua=0.01$, $\musp=1$~mm$^{-1}$, $g=0.9$) the absorbed-weight profile decays as $\exp(-\mu_{\rm eff}z)$ with a fitted $\mu_{\rm eff}=0.1736$~mm$^{-1}$ against $\sqrt{3\mua(\mua+\musp)}=0.1741$~mm$^{-1}$ ($-0.29\,\%$) over nine decades~\cite{patterson1989}.
 
-\begin{figure}[!t]
+\begin{table*}[!t]
 \centering
-\includegraphics[width=\columnwidth]{fig01_mcml_table.png}
-\caption{Baked Monte Carlo tables and a conventional MCML code against the Wang--Jacques slab benchmark~\cite{wang1995mcml}.}
+\caption{Baked Monte Carlo tables and a conventional MCML code against the Wang--Jacques slab benchmark~\cite{wang1995mcml} and further closed-form references. $R_d$, $T_t$, $A$: diffuse reflectance, total transmittance, absorptance.}
 \label{fig:mcml}
-\end{figure}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}llrrrl@{}}
+\toprule
+Case & Quantity & Engine & Reference & Diff. & Reference source \\
+\midrule
+MCML slab ($\mua{=}1$, $\mus{=}9$, $g{=}0.75$, $n{=}1$, $d{=}0.2$~mm) & $R_d$ & 0.09742 & 0.09734 & $+0.08\,\%$ & Wang--Jacques \\
+ & $T_t$ & 0.66090 & 0.66096 & $-0.01\,\%$ & \\
+ & $R{+}T{+}A$ & 1.00000 & 1.00000 & $+0.00\,\%$ & energy conservation \\
+Baked tables, same slab & $R_d$ & 0.09736 & 0.09734 & $+0.02\,\%$ & as above \\
+ & $T_t$ & 0.66137 & 0.66096 & $+0.06\,\%$ & \\
+Clear slab ($n{=}1.5$, $\mua{=}0.8$/mm, $d{=}1$~mm) & $T_t$ & 0.41426 & 0.41424 & $+0.01\,\%$ & exact multiple reflections \\
+ & $R_d$ & 0.00744 & 0.00745 & $-0.06\,\%$ & \\
+Tables vs MCML ($n{=}1.4$, oblique, turbid) & $R_d$ & 0.16519 & 0.16525 & $-0.04\,\%$ & independent code \\
+ & $T_t$ & 0.23807 & 0.23804 & $+0.01\,\%$ & \\
+ & $A$ & 0.59655 & 0.59670 & $-0.03\,\%$ & \\
+Semi-infinite, $a'{=}0.99$, $n{=}1.0$ & $R_d$ & 0.74465 & 0.74671 & $-0.28\,\%$ & Farrell--Patterson \\
+Semi-infinite, $a'{=}0.99$, $n{=}1.4$ & $R_d$ & 0.61927 & 0.61277 & $+1.06\,\%$ & Farrell--Patterson \\
+\bottomrule
+\end{tabular}
+\end{table*}
 
 \subsection{Optics, photophysics and sensor}
 \label{sec:v_opt}
 Two independent implementations of the clear-medium physics, the closed form of Eq.~\eqref{eq:Gclear} and the per-pixel volume quadrature, agree to $0.008\,\%$ from $0.1$~\textmu M to 1~mM fluorescein for a laterally uniform beam. In the dilute limit the 3D engine and the legacy 2D engine give the same emission shapes and cross-excitation ratios up to one geometry constant (61 points; coefficient of variation $0.09\,\%$). The inner-filter effect behaves as expected~\cite{kubista1994} (Fig.~\ref{fig:inner}): in front-face geometry the signal per unit concentration saturates, while in 90$^\circ$ geometry the cuvette-integrated signal peaks near 13~\textmu M ($A_{1\,\rm cm}\approx0.9$) and the centre-pixel signal falls as $10^{-A/2}$. Reabsorption shifts the apparent fluorescein maximum from 512~nm (dilute) to 540~nm at 500~\textmu M across 9~mm of liquid, but only to 518~nm in the front-face slab. Photobleaching follows $\exp(-kn)$ with $k=0.094$ per step in a worked case, and the same total dose delivered as 300$\to$40~mW or 40$\to$300~mW records 76/55\,\% versus 96/71\,\% of the un-bleached signals. The photon-transfer curve of the detector chain returns the configured gain ($1.501$ against $1.5$~e$^-$/ADU) and read noise ($7.99$ against $8.0$~e$^-$) within $0.2\,\%$ and $0.1\,\%$. The depth-of-field blur coincides with the analytic thin-lens circle of confusion, and a 600~nm band shifts by $-1.5$~nm at the corner of the lab-replica field ($\theta_{\max}=8^\circ$, $-13$~nm at $25^\circ$).
 
-\begin{figure}[!t]
+\begin{figure*}[!t]
 \centering
-\includegraphics[width=\columnwidth]{fig05_inner_filter.png}
+\includegraphics[width=0.8\textwidth]{fig05_inner_filter.png}
 \caption{Inner-filter effect for fluorescein excited at 488~nm: front-face versus 90$^\circ$ geometry. The dotted curve is the excitation-only prediction $10^{-A/2}$ for the cell centre.}
 \label{fig:inner}
-\end{figure}
+\end{figure*}
 
 \subsection{Layered-block 3D Monte Carlo}
 \label{sec:v_3d}
 Homogeneous slabs reproduce the MCML implementation to Monte Carlo noise (benchmark slab $R$ $-0.21\,\%$, $T$ $+0.04\,\%$; index-mismatched slab $R$ $-0.05\,\%$, $T$ $+0.07\,\%$; tissue-like slab $R$ $-0.55\,\%$, $T$ $+0.98\,\%$, $A$ $-0.54\,\%$), energy is conserved to $10^{-9}$, and two identical stacked layers equal one layer of the summed thickness ($R$ $-0.04\,\%$, $T$ $-0.11\,\%$). A 2~mm fluorescent layer reproduces the 1D kernel result of Eq.~\eqref{eq:radiance} to $+0.14\,\%$ for fluorescence and $-4.04\,\%$ for elastic remission (Fig.~\ref{fig:blkref}). For clear slabs the bottom-boundary treatment matches the closed forms $T=(1-R_0)^2e^{-\tau}/(1-R_0^2e^{-2\tau})$ and $R_{\rm top}=(1-R_0)^2R_0e^{-2\tau}/(1-R_0^2e^{-2\tau})$ to the digits reported (e.g.\ $n=1.5$, $\mua d=0.5$: $T_{\rm bottom}=0.55931$ for both). Turbid fluorescent slabs captured as a block and as a 1D box (secondary emission off) agree: block$/$1D $=0.982$ at 6~mm and $0.987$ at 1~mm. Thick slabs (about 20~mm) differ by up to $20\,\%$ in the red tail for a physical reason: the 1D engine assumes laterally uniform irradiance while the block sees the finite lamp spot.
 
-The peel-off estimator agrees with the cone estimator within $0.993$--$1.010$ across four configurations (Fig.~\ref{fig:peel}); at equal photon count the cell-to-cell standard deviation of a uniform field is reduced by a factor $3.7$ at $10^5$ photons and $2.0$ at $3\cdot10^6$ photons (about $6\times$ for $g=0$ and $2\times$ for $g=0.9$), and a sub-cell smoothing of $0.35$~mm reaches the noise level of the old cone estimator with five times fewer photons. For a buried fluorescein layer under a wedge cover the signal per unit surface irradiance falls roughly exponentially with local thickness (effective attenuation $0.43$~mm$^{-1}$ at 490~nm excitation) and the blue/red emission ratio stays within $1.78$--$1.83$, i.e.\ this nearly neutral cover attenuates but does not distort (Fig.~\ref{fig:wedge}). Under collagen (tissue with NADH/FAD at 365~nm), the buried signal drops by more than an order of magnitude between 0.2 and about 1~mm and the 440~nm band falls less than the 520~nm band, and the cover's own autofluorescence saturates with a decay length of $0.37$~mm (Fig.~\ref{fig:collagen}).
-
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.92\textwidth]{fig12_blk_3d_vs_reference.png}
+\includegraphics[width=\textwidth]{fig12_blk_3d_vs_reference.png}
 \caption{The 3D Monte Carlo against the MCML implementation and the 1D engine for homogeneous slabs and a fluorescent layer.}
 \label{fig:blkref}
 \end{figure*}
+
+The peel-off estimator agrees with the cone estimator within $0.993$--$1.010$ across four configurations (Fig.~\ref{fig:peel}); at equal photon count the cell-to-cell standard deviation of a uniform field is reduced by a factor $3.7$ at $10^5$ photons and $2.0$ at $3\cdot10^6$ photons (about $6\times$ for $g=0$ and $2\times$ for $g=0.9$), and a sub-cell smoothing of $0.35$~mm reaches the noise level of the old cone estimator with five times fewer photons.
+
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.92\textwidth]{fig14_blk_peel_vs_cone.png}
+\includegraphics[width=\textwidth]{fig14_blk_peel_vs_cone.png}
 \caption{Peel-off versus acceptance-cone estimator: agreement of region sums and noise reduction at equal photon count.}
 \label{fig:peel}
 \end{figure*}
+
+For a buried fluorescein layer under a wedge cover the signal per unit surface irradiance falls roughly exponentially with local thickness (effective attenuation $0.43$~mm$^{-1}$ at 490~nm excitation) and the blue/red emission ratio stays within $1.78$--$1.83$, i.e.\ this nearly neutral cover attenuates but does not distort (Fig.~\ref{fig:wedge}). Under collagen (tissue with NADH/FAD at 365~nm), the buried signal drops by more than an order of magnitude between 0.2 and about 1~mm and the 440~nm band falls less than the 520~nm band, and the cover's own autofluorescence saturates with a decay length of $0.37$~mm (Fig.~\ref{fig:collagen}).
+
+
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.92\textwidth]{fig15_blk_wedge_response.png}
-\caption{Buried fluorophore under a wedge cover: signal against local cover thickness, and band ratios for a nearly neutral cover and for tissue under collagen.}
+\includegraphics[width=\textwidth]{fig15_blk_wedge_response.png}
+\caption{Buried fluorophore under a wedge cover, signal against local cover thickness (noise-free sensor, 8 pixels per bin). Top: fluorescein under an intralipid-like wedge (490~nm); (a) signal per unit irradiance with exponential fit, (b) blue (495--525~nm) to red (535--560~nm) ratio, (c) band radiance at two bands, raw and divided by the surface irradiance. Bottom: NADH/FAD tissue under collagen (365~nm); (d), (f) as above, (e) blue (420--480~nm) to green-red (520--600~nm) ratio.}
 \label{fig:wedge}
-\end{figure*}
-\begin{figure*}[!t]
-\centering
-\includegraphics[width=0.92\textwidth]{fig17_blk_collagen_autofluorescence.png}
-\caption{Collagen cover autofluorescence against thickness (saturating with decay length $0.37$~mm) while the buried NADH/FAD signal falls.}
-\label{fig:collagen}
 \end{figure*}
 
 \subsection{Voxel inclusions and lateral transport}
 \label{sec:v_incl}
 \emph{Identities.} A null inclusion (same optics as the host) reproduces $R$, $T$ and $A$ of the host-only run to the last bit with the peel-off off ($2\cdot10^5$ photons), and the camera radiance to $6\cdot10^{-16}$ with it on. A box that fills a wedge layer equals replacing the layer, again to the last bit without peel-off; with peel-off on, $R$ differs by $0.19\,\%$ ($0.161004$ against $0.161303$), the camera radiance by $0.12\,\%$ and the layer absorption by $0.07\,\%$. $R+T+A+\text{specular}=1$ to better than $10^{-9}$ in all six test scenes (edge-straddling, wedge-crossing, clear, vessel with box), and the results are bit-identical for 1, 4 and 14 threads.
+
+\begin{figure*}[!t]
+\centering
+\includegraphics[width=\textwidth]{fig17_blk_collagen_autofluorescence.png}
+\caption{Collagen cover autofluorescence against thickness (saturating with decay length $0.37$~mm) while the buried NADH/FAD signal falls.}
+\label{fig:collagen}
+\end{figure*}
 
 \emph{Lateral transport.} For a pencil beam on a semi-infinite block ($\mua=0.01$, $\musp=1$~mm$^{-1}$, $g=0$, $n=1.4$) the radial diffuse reflectance $R(\rho)$ of the 3D engine ($4\cdot10^6$ photons) agrees with an independent MCML-type code ($2\cdot10^7$ photons, no shared code) to within $1.1\,\%$ in all eight annuli between 1 and 10~mm (ratio $0.989$--$1.000$; statistical noise about $0.5\,\%$; total diffuse reflectance $0.6046$; Fig.~\ref{fig:radial}). Against the Farrell--Patterson--Wilson dipole~\cite{farrell1992} the engine is $-28\,\%$ at 1--1.5~mm, $+0.1\,\%$ at 2--3~mm and up to $+12\,\%$ at 3--6~mm; the independent code shows the same ratios, so the difference belongs to the diffusion model (which fails within about two transport mean free paths of the source and uses an empirical boundary parameter), not to the engine.
 
@@ -418,13 +443,13 @@ The peel-off estimator agrees with the cone estimator within $0.993$--$1.010$ ac
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.92\textwidth]{fig22_radial_reflectance.png}
-\caption{Radial diffuse reflectance of a pencil beam on a semi-infinite medium ($\mua=0.01$, $\musp=1$~mm$^{-1}$, $n=1.4$). Left: 3D engine, independent MCML-type Monte Carlo and Farrell--Patterson--Wilson dipole. Right: ratios; the engine follows the independent Monte Carlo within $1.1\,\%$ (blue band $\pm3\,\%$), while the dipole deviates by $-28$ to $-16\,\%$ inside two reduced mean free paths (grey, annulus means) and by up to $+12\,\%$ at 3--6~mm.}
+\includegraphics[width=\textwidth]{fig22_radial_reflectance.png}
+\caption{Radial diffuse reflectance of a pencil beam on a semi-infinite medium ($\mua=0.01$, $\musp=1$~mm$^{-1}$, $n=1.4$). Left: 3D engine, independent MCML-type Monte Carlo and Farrell--Patterson--Wilson dipole. Right: ratios; the engine follows the independent Monte Carlo within $1.1\,\%$ (blue band $\pm3\,\%$), while the dipole deviates by $-28$ to $-16\,\%$ inside two reduced mean free paths (grey shading) and by up to $+12\,\%$ at 3--6~mm.}
 \label{fig:radial}
 \end{figure*}
 \begin{figure}[!t]
 \centering
-\includegraphics[width=0.85\columnwidth]{fig22b_perturbation.png}
+\includegraphics[width=\columnwidth]{fig22b_perturbation.png}
 \caption{Perturbation check: decrease of diffuse reflectance caused by absorbing spheres against the increase of their absorption, from the Monte Carlo with common random numbers and from first-order theory.}
 \label{fig:perturb}
 \end{figure}
@@ -440,12 +465,12 @@ The peel-off estimator agrees with the cone estimator within $0.993$--$1.010$ ac
 \begin{figure*}[!t]
 \centering
 \includegraphics[width=\textwidth]{fig27_sim2real_collagen.png}
-\caption{Calibrated twin for collagen (Pepsin ROI 2): measured and simulated EEM, residual, per-pixel spectral angle and spectra at each excitation (calibrated and nominal instrument).}
+\caption{Calibrated twin for collagen (Pepsin ROI 2; $R^2=0.919$, mean SAM $7.0^\circ$ against $0.638$ and $14.9^\circ$ for the nominal instrument): (a--c) measured and simulated EEM (fraction of the excitation peak) and residual; (d) per-pixel spectral angle to the model; below, spectra at each excitation (calibrated and nominal instrument).}
 \label{fig:s2r}
 \end{figure*}
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.92\textwidth]{fig28_sim2real_holdout.png}
+\includegraphics[width=\textwidth]{fig28_sim2real_holdout.png}
 \caption{Hold-out validation. B1: held-out excitations. B2: held-out ROIs. B3: absolute amplitude prediction for droplets at held-out lines.}
 \label{fig:holdout}
 \end{figure*}
@@ -479,8 +504,8 @@ $\lex$ (nm) & $\delta_{\rm eff}$ (mm) & diffusion (mm) & MC$/$diffusion\\
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.7\textwidth]{E2_penetration.pdf}\\[2mm]
-\includegraphics[width=0.7\textwidth]{E2_fraction_distortion.pdf}
+\includegraphics[width=\textwidth]{E2_penetration.pdf}\\[2mm]
+\includegraphics[width=\textwidth]{E2_fraction_distortion.pdf}
 \caption{E2, cover-thickness response (three seeds; error bars show the uncertainty over seeds). \emph{Top:} (a) buried-layer signal against collagen thickness with exponential fits (points below $10^{-5}$ of the thin-cover signal, the Monte Carlo floor, are clipped); (b) fitted $\delta_{\rm eff}$ against two-way and band-resolved diffusion theory; (c) their ratio. \emph{Bottom:} (a) fraction of the signal that is cover autofluorescence, with $50\,\%$ crossovers marked; (b) emission-centroid shift relative to $t=0$; (c) blue/red band ratio relative to $t=0$ (log scale).}
 \label{fig:e2a}
 \end{figure*}
@@ -515,7 +540,7 @@ peak wavelength$^{*}$ & $0.31$ & $0.21$ & $3.51$ & $1.23$\\
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.7\textwidth]{E3_sobol.pdf}
+\includegraphics[width=\textwidth]{E3_sobol.pdf}
 \caption{E3, Sobol' indices of eight inputs for four outputs ($N=64$ base rows, $95\,\%$ bootstrap intervals). Light bars: first-order $S_i$; dark bars: total $S_{T_i}$; orange: cover and confounders, blue: metabolic state. Thickness and blood dominate the NADH and FAD bands and the redox ratio.}
 \label{fig:e3}
 \end{figure*}
@@ -535,17 +560,17 @@ The contrast of the vessel decays with a length $\delta=0.5$--$1.7$~mm (fits of 
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.78\textwidth]{E4_cnr_depth.pdf}
+\includegraphics[width=\textwidth]{E4_cnr_depth.pdf}
 \caption{E4, contrast-to-noise ratio of the per-pixel instrument contrast against the depth of the inclusion top for nodules (top) and vessels (bottom) at three radii and four excitation lines: solid, mean over three seeds with the seed range shaded; dotted, single capture without a matched baseline. The dashed line is CNR $=3$. No nodule reaches it; vessels do so only at 340~nm and below about $0.45$~mm.}
 \label{fig:e4a}
 \end{figure*}
 
-\begin{figure}[!t]
+\begin{figure*}[!t]
 \centering
-\includegraphics[width=\columnwidth]{E4_max_depth.pdf}
+\includegraphics[width=\textwidth]{E4_max_depth.pdf}
 \caption{E4, summary. (a, b) Depth at which the vessel reaches CNR $=3$, per pixel and ROI-averaged (triangles: already below 3 at $0.05$~mm). (c) Peak CNR of the nodule over depth (dots) and the Monte Carlo floor of the three-seed mean (crosses). (d) Fitted decay length of the vessel contrast against the diffusion length of the cover: filled, emission-only $1/\mu_{\rm eff}(\lem)$; open, two-way $1/(\mu_{\rm eff,ex}+\mu_{\rm eff,em})$.}
 \label{fig:e4b}
-\end{figure}
+\end{figure*}
 
 \emph{Take-home.} Under a dense collagen cover, absorbing vessels are detectable per pixel only to about $0.2$--$0.45$~mm (340~nm) and ROI-averaged to about $0.4$--$1.5$~mm, and an endogenous-contrast nodule is not detectable at all; the contrast decays on the emission-side diffusion scale.
 
@@ -574,13 +599,13 @@ $k$ (of 248) & 28 & 35 & 28 & 30 & 40 & 45\\
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.72\textwidth]{E5_precision.pdf}\\[2mm]
-\includegraphics[width=0.6\textwidth]{E5_design.pdf}
+\includegraphics[width=\textwidth]{E5_precision.pdf}\\[2mm]
+\includegraphics[width=\textwidth]{E5_design.pdf}
 \caption{E5. \emph{Top:} CRLB standard deviation of the cover thickness, (a) for all 248 channels against thickness and model error $\epsilon=0$ to $7\,\%$, (b) with nuisance parameters (amplitude, per-excitation gain, joint fit with NADH and $\musp$), (c) at $t=0.6$~mm against $\epsilon$; the grey band marks the retrieval errors of E6. \emph{Bottom:} (a) information on thickness per channel at $t=0.6$~mm with the eight channels selected at $\epsilon=0$ (circles) and $5\,\%$ (squares); (b, c) CRLB against the number of channels $k$ for information-optimal, random (median, IQR) and uniform selection and the label-free autoencoder selection, at $\epsilon=0$ and $2\,\%$ (stars mark the $k$ within $10\,\%$ of the full-protocol bound).}
 \label{fig:e5a}
 \end{figure*}
 
-\emph{Take-home.} About 30 of 248 channels carry the information of the full protocol, but the choice depends on the assumed model error, and photon-limited CRLBs overstate what can be retrieved.
+\emph{Take-home.} About 30 of 248 channels carry the information of the full protocol, but the choice depends on the assumed model error and photon-limited CRLBs overstate the precision.
 
 \subsection{E6: Thickness mapping}
 \emph{Question.} How accurately can the cover thickness be mapped on a wedge, and are the retrieval intervals calibrated?
@@ -591,7 +616,7 @@ $k$ (of 248) & 28 & 35 & 28 & 30 & 40 & 45\\
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.75\textwidth]{E6_thickness_mapping.pdf}
+\includegraphics[width=\textwidth]{E6_thickness_mapping.pdf}
 \caption{E6, thickness mapping on a tissue wedge and a phantom wedge. (a) Retrieved against true thickness at nominal exposure (all channels); (b) RMSE, (c) nominal $95\,\%$ interval coverage and (d) bias against relative exposure for all channels and eight information-optimal channels, with photon-only ($\epsilon=0$) or $\epsilon=2\,\%$ weights. Accuracy saturates at about 160--260~\textmu m while the photon-only intervals cover only $5$--$8\,\%$ of the tiles.}
 \label{fig:e6}
 \end{figure*}
@@ -623,7 +648,7 @@ depth, held-out & $-0.003$ & $+0.37$ & $-0.467$ & $-0.398$ & $-1.000$\\
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.85\textwidth]{E7_depth_unmixing.pdf}
+\includegraphics[width=\textwidth]{E7_depth_unmixing.pdf}
 \caption{E7, unmixing against cover thickness. (a) Detected signal of each group relative to $0.05$~mm; (b, c) absolute error of NADH and FAD abundance relative to the shallow true signal for the four libraries (the black line is the true signal); (d) redox-ratio error for joint 8-line, 4-line and 365~nm-only channel sets. The thin-cover library fails from $0.1$~mm; depth-matched endmembers help until the NADH signal falls below the noise floor.}
 \label{fig:e7}
 \end{figure*}
@@ -656,12 +681,12 @@ Flat spectrum & 23.7\,$\pm$\,2.1 & -- & -- \\
 \end{tabular}
 \end{table}
 
-\begin{figure}[!t]
+\begin{figure*}[!t]
 \centering
-\includegraphics[width=\columnwidth]{E8_cover_check.pdf}
+\includegraphics[width=\textwidth]{E8_cover_check.pdf}
 \caption{E8, calibrated collagen emission in the simulated 3~mm collagen slab (normalised): measured spectrum (dots), simulation with the calibrated emission (solid) and with the library collagen (dashed), at three excitations; the titles give the spectral angles (calibrated / library) with the fitted instrument throughput applied.}
 \label{fig:e8}
-\end{figure}
+\end{figure*}
 
 \emph{Take-home.} With the instrument throughput applied, calibration moves the simulated collagen from about $57^\circ$ to about $9^\circ$ of the measured shape, close to the thin-layer fit ($7^\circ$), but the empirical-copy baseline is not beaten.
 
@@ -690,8 +715,8 @@ $k$-means, raw pixels & $0.72$ & $0.60$ & $0.43$ & $0.30$ & $0.19$ & $0.12$ & $0
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.8\textwidth]{E9_ari_vs_thickness.pdf}\\[2mm]
-\includegraphics[width=0.8\textwidth]{E9_channels.pdf}
+\includegraphics[width=\textwidth]{E9_ari_vs_thickness.pdf}\\[2mm]
+\includegraphics[width=\textwidth]{E9_channels.pdf}
 \caption{E9. \emph{Top:} clustering against burial, (a) per-bin ARI of $k$-means with and without binning and supervised LDA accuracy, (b) per-bin ARI of fits on the whole capture, (c) whole-capture ARI and NMI against tissue type and thickness bin. \emph{Bottom:} channel reduction, (a) label-free ARI and (b) supervised accuracy against thickness for 15 channels chosen by the E5 criterion, uniformly or at random, (c) mean ARI over 0--0.35~mm against $k$; the dashed line is the 217-channel value $0.71$.}
 \label{fig:e9a}
 \end{figure*}
@@ -703,23 +728,23 @@ $k$-means, raw pixels & $0.72$ & $0.60$ & $0.43$ & $0.30$ & $0.19$ & $0.12$ & $0
 
 \emph{Setup.} The E2 scene (a $0.5$~mm collagen cover on a $40\times40$~mm block, 400~nm, preview grid $87\times64$), timing the Monte Carlo stage (one excitation pass and nine emission nodes) for $N=10^4$--$6.4\cdot10^5$ packets per pass. Per-pixel noise is the spatial standard deviation of a plane-detrended $24\times24$ ROI; the ROI-mean error uses eight seeds. Speed-ups are paired over five interleaved repetitions, the peel-off and raw-cone estimators are compared at equal packets, the preview ($10\,\%$ of the photons, $87\times64$) is compared with a full capture ($348\times256$, $4\times4$-binned) on the $0$--$2$~mm wedge, and the inclusion overhead is measured on the E4 scene (sphere and vessel of $r=1$~mm, and a sphere filled with host optics, $N=10^5$, nine interleaved rounds). The machine was a shared workstation with a high load throughout, so absolute times are inflated; the ratios come from interleaved repetitions with interquartile ranges of a few percent.
 
-\emph{Results.} The per-pixel noise falls as $N^{-0.47}$ ($95\,\%$ interval $[-0.48,-0.46]$) for the peel-off estimator and $N^{-0.50}$ for the raw cone estimator, i.e.\ as the expected $N^{-1/2}$ (Fig.~\ref{fig:e10a}b). The ROI-mean error does not follow it: its slope is $-0.32$ $[-0.45,-0.16]$ and it flattens at about $1\,\%$ above $N\approx1.6\cdot10^5$; we hypothesise a seed-to-seed component that does not shrink with the packet count, which we did not test, so the $N^{-1/2}$ law is shown for per-pixel noise only. The runtime is $0.96$~s $+12.3$~s per $10^5$ packets for peel-off. Multithreading gives speed-ups of $1.88$, $3.60$, $6.44$ and $7.10$ for 2, 4, 8 and 14 threads (efficiency $0.94$, $0.90$, $0.80$, $0.51$; the last point mixes performance and efficiency cores on a loaded machine), and the output is bit-identical for 1, 2, 4, 8 and 14 threads in all repetitions. At equal packets the peel-off estimator is $2.1$--$2.4\times$ slower per packet but has $2.9$--$3.4\times$ lower per-pixel noise, so the noise-variance efficiency is $3.6$--$5.3\times$ higher (Fig.~\ref{fig:e10b}a,b); at $N=6.4\cdot10^5$ the cone estimator's noise is matched by peel-off with about $5.7\cdot10^4$ packets in $7$~s against $33$~s. The ROI mean of the cone estimator differs from that of peel-off by $-0.09\,\%$ ($|z|<1.3$ at every $N$), so no bias is detectable. The preview differs from a full capture by a relative rms of $0.32$ against $0.13$ between two full captures with different seeds; with the preview's own seed-to-seed difference ($0.43$) this is explained by Monte Carlo noise alone (predicted $0.32$), with a ratio of sums of $0.998$ (Fig.~\ref{fig:e10a}d). Voxel inclusions cost $1.99\times$ (sphere), $1.74\times$ (vessel) and $1.59\times$ (host-filled sphere with no boundary physics) of the capture without an inclusion (Fig.~\ref{fig:e10b}c). The design target of $1.6\times$ is therefore missed for real inclusions. The number of steps per photon is unchanged, and the host-filled sphere already costs $1.59\times$, so the per-step voxel lookup is the main cost; we did not profile the compiled kernels, and a coarse occupancy grid is a likely remedy.
-
-\emph{Caveats.} Timings were taken on one machine (Apple M4 Pro, 14 cores) under load; the per-pixel efficiency gain of peel-off refers to pixel noise, not to ROI-mean noise, where the data are too noisy to interpret; the preview comparison uses one scene, two seeds and one line; and the inclusion overhead was measured at one photon count and voxel size.
-
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.62\textwidth]{E10_performance.pdf}
-\caption{E10, performance and convergence. (a) Runtime against packets per pass for the peel-off and raw-cone estimators; (b) relative per-pixel Monte Carlo noise against $N$ with fitted slopes ($95\,\%$ intervals) and the ROI-mean error, which flattens at about $1\,\%$; (c) thread speed-up against one thread (median and interquartile range, labels give the parallel efficiency); (d) preview against full capture, pixel by pixel.}
+\includegraphics[width=\textwidth]{E10_performance.pdf}
+\caption{E10, performance and convergence. (a) Runtime against packets per pass for the peel-off and raw-cone estimators; (b) relative per-pixel Monte Carlo noise against $N$ with the fitted log--log slopes in the legend (dashed lines: $N^{-1/2}$) and the ROI-mean error, which flattens at about $1\,\%$; (c) thread speed-up against one thread (median and interquartile range, labels give the parallel efficiency); (d) preview against full capture, pixel by pixel.}
 \label{fig:e10a}
 \end{figure*}
 
 \begin{figure*}[!t]
 \centering
-\includegraphics[width=0.75\textwidth]{E10_estimators_inclusions.pdf}
+\includegraphics[width=\textwidth]{E10_estimators_inclusions.pdf}
 \caption{E10, estimators and inclusions. (a) Peel-off against raw cone at equal packets: per-pixel noise ratio (cone$/$peel) and time ratio (peel$/$cone); (b) efficiency gain of peel-off, $\sigma^2T$(cone)$/\sigma^2T$(peel); (c) time ratio of the capture with an inclusion to that without (median and interquartile range); the dashed line is the $1.6\times$ design target.}
 \label{fig:e10b}
 \end{figure*}
+
+\emph{Results.} The per-pixel noise falls as $N^{-0.47}$ ($95\,\%$ interval $[-0.48,-0.46]$) for the peel-off estimator and $N^{-0.50}$ for the raw cone estimator, i.e.\ as the expected $N^{-1/2}$ (Fig.~\ref{fig:e10a}b). The ROI-mean error does not follow it: its slope is $-0.32$ $[-0.45,-0.16]$ and it flattens at about $1\,\%$ above $N\approx1.6\cdot10^5$; we hypothesise a seed-to-seed component that does not shrink with the packet count, which we did not test, so the $N^{-1/2}$ law is shown for per-pixel noise only. The runtime is $0.96$~s $+12.3$~s per $10^5$ packets for peel-off. Multithreading gives speed-ups of $1.88$, $3.60$, $6.44$ and $7.10$ for 2, 4, 8 and 14 threads (efficiency $0.94$, $0.90$, $0.80$, $0.51$; the last point mixes performance and efficiency cores on a loaded machine), and the output is bit-identical for 1, 2, 4, 8 and 14 threads in all repetitions. At equal packets the peel-off estimator is $2.1$--$2.4\times$ slower per packet but has $2.9$--$3.4\times$ lower per-pixel noise, so the noise-variance efficiency is $3.6$--$5.3\times$ higher (Fig.~\ref{fig:e10b}a,b); at $N=6.4\cdot10^5$ the cone estimator's noise is matched by peel-off with about $5.7\cdot10^4$ packets in $7$~s against $33$~s. The ROI mean of the cone estimator differs from that of peel-off by $-0.09\,\%$ ($|z|<1.3$ at every $N$), so no bias is detectable. The preview differs from a full capture by a relative rms of $0.32$ against $0.13$ between two full captures with different seeds; with the preview's own seed-to-seed difference ($0.43$) this is explained by Monte Carlo noise alone (predicted $0.32$), with a ratio of sums of $0.998$ (Fig.~\ref{fig:e10a}d). Voxel inclusions cost $1.99\times$ (sphere), $1.74\times$ (vessel) and $1.59\times$ (host-filled sphere with no boundary physics) of the capture without an inclusion (Fig.~\ref{fig:e10b}c). The design target of $1.6\times$ is therefore missed for real inclusions. The number of steps per photon is unchanged, and the host-filled sphere already costs $1.59\times$, so the per-step voxel lookup is the main cost; we did not profile the compiled kernels, and a coarse occupancy grid is a likely remedy.
+
+\emph{Caveats.} Timings were taken on one machine (Apple M4 Pro, 14 cores) under load; the per-pixel efficiency gain of peel-off refers to pixel noise, not to ROI-mean noise, where the data are too noisy to interpret; the preview comparison uses one scene, two seeds and one line; and the inclusion overhead was measured at one photon count and voxel size.
 
 \emph{Take-home.} The engine scales as $N^{-1/2}$ in per-pixel noise, is deterministic across thread counts and gains a factor of $3.6$--$5.3$ in efficiency from peel-off; voxel inclusions cost about $1.6$--$2\times$, above the $1.6\times$ target.
 

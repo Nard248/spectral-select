@@ -35,6 +35,10 @@ from tests.studio import test_inclusions_validation as V  # noqa: E402
 OUT = ROOT / "docs" / "studio" / "figures"
 NUM = OUT / "inclusion_numbers.json"
 
+PAPER_RC = {"font.family": "serif", "font.serif": ["Times New Roman", "Times", "STIXGeneral"], "mathtext.fontset": "stix",
+            "font.size": 8, "axes.titlesize": 8, "axes.labelsize": 8, "xtick.labelsize": 7.5, "ytick.labelsize": 7.5,
+            "legend.fontsize": 7, "axes.grid": False, "axes.linewidth": 0.6, "savefig.dpi": 300, "lines.linewidth": 1.2}
+
 C_ENG, C_REF, C_FAR = "#1f5fa8", "#d1495b", "#2a9d8f"
 plt.rcParams.update({"font.size": 9, "axes.spines.top": False, "axes.spines.right": False, "axes.linewidth": 0.8,
                      "figure.dpi": 150, "savefig.dpi": 200, "axes.grid": True, "grid.alpha": 0.25,
@@ -71,35 +75,36 @@ def radial(quick: bool) -> dict:
     far = V.farrell_annulus_means(mua, musp, n, edges) * (1 - d["spec"])
     mid = 0.5 * (edges[1:] + edges[:-1])
 
-    fig, ax = plt.subplots(1, 2, figsize=(10.5, 4.1), gridspec_kw=dict(width_ratios=[1.15, 1]))
+    plt.rcParams.update(PAPER_RC)
+    fig, ax = plt.subplots(1, 2, figsize=(7.16, 2.8), gridspec_kw=dict(width_ratios=[1.15, 1]))
     a = ax[0]
     rr = np.linspace(0.3, 10, 400)
     a.semilogy(rr, V.farrell_reflectance(rr, mua, musp, n) * (1 - d["spec"]), color=C_FAR, lw=1.8,
-               label="Farrell, Patterson & Wilson (1992) dipole")
-    a.semilogy(mid, ref, "s", ms=4.5, mfc="none", color=C_REF, mew=1.2, label=f"independent MCML-type MC ({d['n_ref']:.0e} ph)")
-    a.semilogy(mid, eng, "o", ms=3.5, color=C_ENG, label=f"studio 3D engine ({d['n_eng']:.0e} ph)")
+               label="Farrell--Patterson--Wilson dipole")
+    a.semilogy(mid, ref, "s", ms=4.5, mfc="none", color=C_REF, mew=1.2, label=f"independent MC ({d['n_ref']:.0e} ph)")
+    a.semilogy(mid, eng, "o", ms=3.5, color=C_ENG, label=f"3D engine ({d['n_eng']:.0e} ph)")
     a.axvspan(0, 2, color="0.5", alpha=0.12, lw=0)
     a.text(1.0, 0.04, "$\\rho<2$ mfp$'$\n(diffusion\ntheory not valid)", transform=a.get_xaxis_transform(), ha="center",
-           fontsize=7.5, color="0.35")
-    a.set_xlabel("radial distance $\\rho$ from the pencil beam (mm)")
-    a.set_ylabel("diffuse reflectance $R(\\rho)$  (mm$^{-2}$ per transmitted power)")
+           fontsize=7, color="0.35")
+    a.set_xlabel("radial distance $\\rho$ (mm)")
+    a.set_ylabel("$R(\\rho)$ (mm$^{-2}$ per power)")
     a.set_xlim(0, 10)
-    a.legend(frameon=False, fontsize=8, loc="upper right")
-    a.set_title("semi-infinite medium, $\\mu_a=0.01$, $\\mu_s'=1$ mm$^{-1}$, $n=1.4$", fontsize=9)
+    a.legend(frameon=False, fontsize=7, loc="upper right")
+    a.set_title("(a) diffuse reflectance", fontsize=8)
     b = ax[1]
     b.axhline(1.0, color="k", lw=0.8)
     b.axhspan(0.9, 1.1, color=C_FAR, alpha=0.10, lw=0)
     b.axhspan(0.97, 1.03, color=C_ENG, alpha=0.10, lw=0)
-    b.plot(mid, eng / ref, "o-", ms=3.5, lw=1.0, color=C_ENG, label="engine / independent MC")
-    b.plot(mid, eng / far, "o-", ms=3.5, lw=1.0, color=C_FAR, label="engine / Farrell")
-    b.plot(mid, ref / far, "s--", ms=4, lw=0.9, mfc="none", color=C_REF, label="independent MC / Farrell")
+    b.plot(mid, eng / ref, "o-", ms=3.5, lw=1.0, color=C_ENG, label="engine / MC")
+    b.plot(mid, eng / far, "o-", ms=3.5, lw=1.0, color=C_FAR, label="engine / dipole")
+    b.plot(mid, ref / far, "s--", ms=4, lw=0.9, mfc="none", color=C_REF, label="MC / dipole")
     b.axvspan(0, 2, color="0.5", alpha=0.12, lw=0)
     b.set_xlim(0, 10)
     b.set_ylim(0.6, 1.3)
     b.set_xlabel("$\\rho$ (mm)")
     b.set_ylabel("ratio")
-    b.legend(frameon=False, fontsize=8, loc="lower right")
-    b.set_title("blue band: $\\pm3$ % (engine vs MC); green band: $\\pm10$ %", fontsize=9)
+    b.legend(frameon=False, fontsize=7, loc="lower right")
+    b.set_title("(b) ratios", fontsize=8)
     fig.tight_layout()
     fig.savefig(OUT / "fig22_radial_reflectance.png")
     plt.close(fig)
@@ -117,21 +122,30 @@ def radial(quick: bool) -> dict:
 # ============================================================================================
 # fig22b: first-order perturbation
 # ============================================================================================
-def perturbation(quick: bool) -> dict:
-    out = V.perturbation_study(n_photons=2_000_000 if quick else 20_000_000, deltas=(0.01, 0.02, 0.04, 0.08), seeds=(1,) if quick else (1, 2))
-    fig, ax = plt.subplots(figsize=(4.6, 3.6))
+def plot_perturbation(out: dict) -> None:
+    plt.rcParams.update(PAPER_RC)
+    fig, ax = plt.subplots(figsize=(3.5, 2.7))
     d = np.array(out["deltas"])
     ax.errorbar(d, np.array(out["dR_mean"]) * 1e4, yerr=np.array(out["dR_err"]) * 1e4, fmt="o", color=C_ENG, capsize=3,
-                label="MC: $R_{\\rm null}-R_{\\rm perturbed}$ (common random numbers)")
+                label="Monte Carlo (CRN)")
     xs = np.linspace(0, d.max() * 1.05, 20)
-    ax.plot(xs, xs * out["slope_pred"] * 1e4, "-", color=C_FAR, label="first-order theory $\\Delta\\mu_a\\,\\int\\Phi\\Phi^{\\dagger}dV$")
+    ax.plot(xs, xs * out["slope_pred"] * 1e4, "-", color=C_FAR, label="first-order theory")
     ax.set_xlabel("$\\Delta\\mu_a$ of the sphere (mm$^{-1}$)")
-    ax.set_ylabel("decrease of diffuse reflectance  ($10^{-4}$)")
-    ax.legend(frameon=False, fontsize=7.5, loc="upper left")
-    ax.set_title("nine absorbing spheres ($r=1.5$ mm, 3 mm deep), $\\mu_a=0.1$, $\\mu_s'=2$ mm$^{-1}$", fontsize=8.5)
+    ax.set_ylabel("decrease of $R$ ($10^{-4}$)")
+    ax.legend(frameon=False, fontsize=7, loc="upper left")
     fig.tight_layout()
     fig.savefig(OUT / "fig22b_perturbation.png")
     plt.close(fig)
+
+
+def replot_perturbation() -> None:
+    """Re-draw fig22b from the stored numbers (no simulation)."""
+    plot_perturbation(_load()["perturbation"])
+
+
+def perturbation(quick: bool) -> dict:
+    out = V.perturbation_study(n_photons=2_000_000 if quick else 20_000_000, deltas=(0.01, 0.02, 0.04, 0.08), seeds=(1,) if quick else (1, 2))
+    plot_perturbation(out)
     return out
 
 

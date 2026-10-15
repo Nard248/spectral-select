@@ -202,7 +202,7 @@ def make_figure(out, q):
     for n, c in dye.items():
         a.plot(t, np.maximum([r["gt_over_gt_ref"][n] for r in rs], 1e-9), "-o", ms=2.5, color=c, label=n)
     a.set_yscale("log"); a.set_xlabel("cover thickness (mm)"); a.set_ylabel("true signal / signal at 0.05 mm")
-    a.set_title("(a) detected signal", fontsize=8); a.legend(fontsize=6, loc="lower left")
+    a.set_title("(a) detected signal", fontsize=8); a.legend(fontsize=7, loc="lower left")
     for j, (name, ttl) in enumerate((("NADH", "(b) NADH: error vs true signal"), ("FAD", "(c) FAD: error vs true signal"))):
         a = ax[1 + j]
         rs0 = _rows(out, cs_main, "right_depth", "noisy")
@@ -215,7 +215,7 @@ def make_figure(out, q):
                 if rs:
                     a.plot([r["t_mm"] for r in rs], np.where(np.abs([r["err_over_gt_ref"][name] for r in rs]) > 1e-6, np.abs([r["err_over_gt_ref"][name] for r in rs]), np.nan), ls=ls,
                            marker=mk, ms=2.2, lw=0.8, color=col, zorder=2)
-        a.set_yscale("log"); a.set_ylim(1e-6, 3); a.set_xlabel("cover thickness (mm)"); a.set_title(ttl, fontsize=7.5)
+        a.set_yscale("log"); a.set_ylim(1e-6, 3); a.set_xlabel("cover thickness (mm)"); a.set_title(ttl, fontsize=8)
         if j == 0:
             a.set_ylabel("abs. error and true signal\n(relative to true at 0.05 mm)")
     a = ax[3]
@@ -231,12 +231,12 @@ def make_figure(out, q):
     fig.tight_layout(w_pad=0.7)
     hl = [L([], [], color=c, marker=mk, ms=3, label=lab) for lab, c, mk in LIB.values()]
     hl += [L([], [], color="k", lw=1.4, label="true signal"), L([], [], color="0.3", ls="-", label="noisy data"),
-           L([], [], color="0.3", ls="--", label="noise-free (thin, held-out)")]
-    fig.legend(handles=hl, title="(b, c): joint 8-line EEM", title_fontsize=6, loc="upper center", ncol=4, fontsize=6,
-               bbox_to_anchor=(0.43, 0.02), frameon=False)
+           L([], [], color="0.3", ls="--", label="noise-free")]
+    fig.legend(handles=hl, title="(b, c): joint 8-line EEM", title_fontsize=7, loc="upper center", ncol=4, fontsize=7,
+               bbox_to_anchor=(0.40, 0.02), frameon=False)
     hd = [L([], [], color="0.3", ls=ls, label=cs) for cs, ls in zip(out["channel_sets"], ("-", "--", ":"))]
-    fig.legend(handles=hd, title="(d): noisy data, same colours; channel set", title_fontsize=6, loc="upper center", ncol=3,
-               fontsize=6, bbox_to_anchor=(0.88, 0.02), frameon=False)
+    fig.legend(handles=hd, title="(d): channel set", title_fontsize=7, loc="upper center", ncol=3,
+               fontsize=7, bbox_to_anchor=(0.90, 0.02), frameon=False)
     C.savefig(fig, "E7_depth_unmixing" + ("_quick" if q else ""))
 
 

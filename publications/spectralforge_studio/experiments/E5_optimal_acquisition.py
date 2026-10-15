@@ -400,7 +400,7 @@ def make_figures(out, sur, fi_mid, fis, sel_sets, sel_out, ae, EPS, q):
     pts = [r for r in eff if r["channels"] == "all" and r["eps"] == 0.0]
     a.plot([r["t_mm"] for r in pts], [r["emp_sd_um"] for r in pts], "o", mfc="none", color=C.OI["purple"], ms=4, label="empirical SD (ML)")
     a.set_yscale("log"); a.set_xlabel("cover thickness $t$ (mm)"); a.set_ylabel("CRLB SD of $t$ (µm)")
-    a.set_title("(a) all 248 channels, $t$ alone", fontsize=8); a.set_ylim(0.004, 40); a.legend(fontsize=5.6, loc="lower right", ncol=2, columnspacing=0.8, handlelength=1.4)
+    a.set_title("(a) all 248 channels, $t$ alone", fontsize=8); a.set_ylim(0.004, 3000); a.legend(fontsize=7, loc="upper center", ncol=2, columnspacing=0.8, handlelength=1.2, borderaxespad=0.1)
     a = ax[1]
     for key, ls, lab in (("thick", "-", "$t$ alone"), ("thick+amp", "--", "+ amplitude"), ("thick+gain", ":", "+ gain / excitation")):
         for e in (0.0, 0.02):
@@ -408,8 +408,8 @@ def make_figures(out, sur, fi_mid, fis, sel_sets, sel_out, ae, EPS, q):
     a.plot([], [], "-", color="0.3", label="$t$ alone"); a.plot([], [], "--", color="0.3", label="+ amplitude")
     a.plot([], [], ":", color="0.3", label="+ gain / excitation")
     a.plot([], [], "-", color=ecol[0.0], label="$\\epsilon$ = 0"); a.plot([], [], "-", color=ecol[0.02], label="$\\epsilon$ = 2 %")
-    a.set_yscale("log"); a.set_ylim(0.004, 40); a.set_xlabel("cover thickness $t$ (mm)"); a.set_title("(b) nuisance parameters", fontsize=8)
-    a.legend(fontsize=5.6, ncol=2, loc="lower right", columnspacing=0.8, handlelength=1.4)
+    a.set_yscale("log"); a.set_ylim(0.004, 3000); a.set_xlabel("cover thickness $t$ (mm)"); a.set_title("(b) nuisance parameters", fontsize=8)
+    a.legend(fontsize=7, ncol=2, loc="upper center", columnspacing=0.8, handlelength=1.2, borderaxespad=0.1)
     a = ax[2]
     ee = np.array(EPS) * 100
     fl = out["floor_at_0.6mm"]
@@ -420,9 +420,9 @@ def make_figures(out, sur, fi_mid, fis, sel_sets, sel_out, ae, EPS, q):
     jk = sorted(jf)[-1]
     vj = np.array([jf[jk]["by_eps"][f"{e:g}"]["crlb_sd"][0] * 1e3 for e in EPS])
     a.plot(np.maximum(ee, 0.1), vj, "-", marker="D", ms=3.5, color=C.OI["blue"], label="$t$ in joint (3 par.)")
-    a.axhspan(25, 200, color="0.88", lw=0, zorder=0); a.text(0.12, 60, "retrieval errors\n25-200 µm\n(E6, W4)", fontsize=5.8, va="center")
+    a.axhspan(25, 200, color="0.88", lw=0, zorder=0); a.text(0.12, 60, "retrieval errors\n25-200 µm\n(E6, W4)", fontsize=7, va="center")
     a.set_xscale("log"); a.set_yscale("log"); a.set_xlabel("$\\epsilon$ (%; 0 drawn at 0.1)")
-    a.set_ylabel("CRLB SD at $t$ = 0.6 mm (µm)"); a.set_title("(c) precision floor", fontsize=8); a.set_ylim(0.03, 300); a.legend(fontsize=5.6, loc="lower right")
+    a.set_ylabel("CRLB SD at $t$ = 0.6 mm (µm)"); a.set_title("(c) precision floor", fontsize=8); a.set_ylim(0.01, 300); a.legend(fontsize=7, loc="lower right", borderaxespad=0.1)
     fig.tight_layout(w_pad=0.8)
     C.savefig(fig, "E5_precision")
 
@@ -450,35 +450,36 @@ def make_figures(out, sur, fi_mid, fis, sel_sets, sel_out, ae, EPS, q):
         a.scatter([ch.em_nm[i] for i in d.selected], [exs.index(ch.ex_nm[i]) for i in d.selected], marker=mk, s=20, facecolor="none",
                   edgecolor=col, linewidths=1.0, label=lab)
     a.set_yticks(range(len(exs))); a.set_yticklabels([f"{e:g}" for e in exs]); a.set_xlabel("emission band (nm)"); a.set_ylabel("excitation (nm)")
-    a.legend(fontsize=5.8, loc="upper center", bbox_to_anchor=(0.5, -0.5), ncol=2, frameon=False)
-    cb = fig.colorbar(im, ax=a, orientation="horizontal", pad=0.2, fraction=0.05); cb.set_label("information on $t$ (mm$^{-2}$)", fontsize=6.5); cb.ax.tick_params(labelsize=6)
+    a.legend(fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.5), ncol=2, frameon=False)
+    cb = fig.colorbar(im, ax=a, orientation="horizontal", pad=0.2, fraction=0.05); cb.set_label("information on $t$ (mm$^{-2}$)", fontsize=7); cb.ax.tick_params(labelsize=7)
     a.set_title("(a) $t$ = 0.6 mm; $k$ = 8 picks", fontsize=8)
     for j, (e, ttl) in enumerate(((0.0, "(b) photon-limited"), (0.02, "(c) model error $\\epsilon$ = 2 %"))):
         a = fig.add_subplot(gs[1 + j])
         s = sel_out["thick+amp"][f"{e:g}"]
         x = out["selection_extended"]["thick+amp"][f"{e:g}"]
         kk = np.arange(1, len(s["optimal_sd_um_vs_k"]) + 1)
-        a.fill_between(kk, s["random_q25_um"], s["random_q75_um"], color="0.8", lw=0, label="random IQR ($k \\leq$ 30)")
+        a.fill_between(kk, s["random_q25_um"], s["random_q75_um"], color="0.8", lw=0, label="random IQR")
         a.plot(x["k_grid"], x["random_median_um"], color="0.45", ls="--", label="random median")
         a.plot(x["k_grid"], x["uniform_um"], color=C.OI["sky"], ls=":", label="uniform")
         kg = np.array(x["k_grid"])
-        a.plot(kk, s["optimal_sd_um_vs_k"], color=C.OI["blue"], marker="o", ms=2, label="information-optimal")
+        a.plot(kk, s["optimal_sd_um_vs_k"], color=C.OI["blue"], marker="o", ms=2, label="optimal")
         m = kg > kk[-1]
         a.plot(kg[m], np.array(x["greedy_sd_um"])[m], color=C.OI["blue"], lw=1.1)
-        a.axhline(s["sd_all_um"], color=C.OI["verm"], lw=0.9, label="all 248 channels")
+        a.axhline(s["sd_all_um"], color=C.OI["verm"], lw=0.9, label="all 248 ch.")
         a.axhline(1.1 * s["sd_all_um"], color=C.OI["verm"], lw=0.6, ls=":")
         kopt = x["k_within_10pct"]["greedy"]
         if kopt:
             yk = np.interp(kopt, kg, x["greedy_sd_um"])
-            a.plot([kopt], [yk], "*", color=C.OI["orange"], ms=8, zorder=5, label=f"within 10 %: $k$ = {kopt}")
+            a.plot([kopt], [yk], "*", color=C.OI["orange"], ms=8, zorder=5, label="within 10 % of all")
         aekey = [v for v in ae.values() if isinstance(v, dict) and f"eps={e:g}" in v]
         if aekey:
             mm = np.mean([v[f"eps={e:g}"]["unsupervised_sd_um"] for v in aekey])
-            a.plot([8], [mm], "D", color=C.OI["purple"], ms=4, label="unsupervised AE ($k$ = 8)")
+            a.plot([8], [mm], "D", color=C.OI["purple"], ms=4, label="label-free AE")
         a.set_xscale("log"); a.set_yscale("log"); a.set_xlabel("channels $k$"); a.set_title(ttl, fontsize=8)
         if j == 0:
             a.set_ylabel("CRLB SD of $t$ (µm), amplitude free")
-        a.legend(fontsize=5.0, loc="upper right")
+        hh, ll = a.get_legend_handles_labels()
+    fig.legend(hh, ll, loc="lower right", ncol=4, fontsize=7, bbox_to_anchor=(1.0, -0.145), columnspacing=0.9, handlelength=1.4)
     C.savefig(fig, "E5_design")
 
 

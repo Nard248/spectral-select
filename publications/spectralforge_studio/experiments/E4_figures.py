@@ -101,18 +101,19 @@ def _dmax_panel(ax, R, kind, key="dmax_mm", flag="dmax_flag", ci="dmax_ci95_mm")
 
 def fig_max_depth(R, figdir):
     res = R["results"]
-    fig, axs = plt.subplots(2, 2, figsize=(W2, 5.0), gridspec_kw=dict(wspace=0.32, hspace=0.45))
-    a = axs[0, 0]
+    fig, axs = plt.subplots(1, 4, figsize=(W2, 2.4), gridspec_kw=dict(wspace=0.5))
+    a = axs[0]
     _dmax_panel(a, R, "vessel")
     a.set_ylabel("depth at CNR = 3 (mm)")
-    a.set_title("(a) vessel, per-pixel CNR", fontsize=8.5)
-    a.legend(loc="upper left", fontsize=6.5, handlelength=0.8, labelspacing=0.2, ncol=2, columnspacing=0.8)
-    a.text(0.97, 0.04, "$\\triangledown$: CNR<3 at 0.05 mm", transform=a.transAxes, ha="right", fontsize=6.5)
-    a = axs[0, 1]
+    a.set_title("(a) vessel, per pixel", fontsize=8)
+    a.legend(loc="upper left", fontsize=7, handlelength=0.8, labelspacing=0.2, ncol=2, columnspacing=0.6, borderaxespad=0.2)
+    a.text(0.97, 0.04, "$\\triangledown$: CNR<3 at 0.05 mm", transform=a.transAxes, ha="right", fontsize=7)
+    a = axs[1]
     _dmax_panel(a, R, "vessel", "dmax_roi_mm", "dmax_roi_flag", "dmax_roi_ci95_mm")
-    a.set_title("(b) vessel, ROI-averaged CNR", fontsize=8.5)
+    a.set_title("(b) vessel, ROI mean", fontsize=8)
+    a.set_yticklabels([]); a.tick_params(axis="y", which="both", labelleft=False)
     # nodule: peak CNR vs radius
-    a = axs[1, 0]
+    a = axs[2]
     rks = sorted(res["nodule"], key=lambda s: float(s[1:]))
     rs = [float(k[1:]) for k in rks]
     for e_i, ek in enumerate(sorted(res["nodule"][rks[0]], key=float)):
@@ -129,12 +130,12 @@ def fig_max_depth(R, figdir):
     a.set_xticklabels([f"{r:g}" for r in rs])
     a.minorticks_off()
     a.set_xlabel("nodule radius (mm)")
-    a.set_ylabel("max over depth of CNR")
+    a.set_ylabel("peak CNR")
     a.set_ylim(0.01, 8)
-    a.set_title("(c) nodule: no depth reaches CNR = 3", fontsize=8.5)
-    a.text(0.03, 0.04, "o peak per-pixel CNR\nx Monte Carlo floor of the 3-seed mean", transform=a.transAxes, fontsize=6.5)
+    a.set_title("(c) nodule", fontsize=8)
+    a.text(0.04, 0.96, "o peak CNR\nx MC floor", transform=a.transAxes, fontsize=7, va="top")
     # decay length fits
-    a = axs[1, 1]
+    a = axs[3]
     allv = []
     for rk, d_ in res["vessel"].items():
         for ek, x in d_.items():
@@ -153,12 +154,12 @@ def fig_max_depth(R, figdir):
     a.set_yscale("log")
     a.set_xlim(lim)
     a.set_ylim(lim)
-    a.set_xlabel("diffusion-theory length of the cover (mm)")
-    a.set_ylabel("fitted decay length of $|\\Delta|$ (mm)")
-    a.plot([], [], "ko", ms=3.8, label="vs $1/\\mu_{\\rm eff}(\\lambda_{em})$")
-    a.plot([], [], "ks", ms=3.5, mfc="none", label="vs $1/(\\mu_{\\rm eff}^{ex}+\\mu_{\\rm eff}^{em})$")
-    a.legend(loc="upper left", fontsize=6.5, handlelength=0.8)
-    a.set_title("(d) vessel contrast decay (colour = excitation)", fontsize=8.5)
+    a.set_xlabel("diffusion length (mm)")
+    a.set_ylabel("decay length (mm)")
+    a.plot([], [], "ko", ms=3.8, label="$1/\\mu_{\\rm eff}^{em}$")
+    a.plot([], [], "ks", ms=3.5, mfc="none", label="$1/(\\mu_{\\rm eff}^{ex}+\\mu_{\\rm eff}^{em})$")
+    a.legend(loc="upper left", fontsize=7, handlelength=0.8, borderaxespad=0.2)
+    a.set_title("(d) vessel decay length", fontsize=8)
     save(fig, figdir, "E4_max_depth")
 
 
