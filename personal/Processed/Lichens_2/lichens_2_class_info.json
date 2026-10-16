@@ -1,0 +1,47 @@
+{
+  "0": {
+    "name": "Class 1 (Red)",
+    "color": [
+      255,
+      0,
+      0
+    ],
+    "pixel_count": 3568
+  },
+  "1": {
+    "name": "Class 2 (Green)",
+    "color": [
+      0,
+      255,
+      0
+    ],
+    "pixel_count": 9267
+  },
+  "2": {
+    "name": "Class 3 (Blue)",
+    "color": [
+      0,
+      0,
+      255
+    ],
+    "pixel_count": 4782
+  },
+  "3": {
+    "name": "Class 4 (Yellow)",
+    "color": [
+      255,
+      255,
+      0
+    ],
+    "pixel_count": 4537
+  },
+  "4": {
+    "name": "Class 5 (Magenta)",
+    "color": [
+      255,
+      0,
+      255
+    ],
+    "pixel_count": 426
+  }
+}
