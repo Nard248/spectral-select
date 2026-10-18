@@ -2,8 +2,8 @@
 
 Wrapper searches count UNCACHED evaluations in a tracker that is local to the call (so a shared,
 already-warm objective cache never gives free budget) and stop at budget B. If the budget runs out before
-any complete n-set is scored, the best partial set is filled with the highest-variance valid pairs
-(``extra['filled']`` records how many) and its J is computed outside the budget.
+any complete n-set is scored, the best partial set is completed with the label-free css_greedy rule
+(``extra['filled']`` records how many pairs) and its J is computed outside the budget.
 """
 from __future__ import annotations
 
@@ -39,6 +39,18 @@ def _result(method: str, task: Task, n: int, S: Sequence[int], t0: float, seed: 
     return SelectionResult(method=method, task=task.name, n=n, selected=sorted(S), objective_name=obj_name,
                            inner_J=inner_J, n_evals=n_evals, runtime_s=time.perf_counter() - t0, seed=seed,
                            trace=list(trace or []), extra=dict(extra or {}))
+
+
+def _css_extend(task: Task, base: Sequence[int], n: int) -> list[int]:
+    """Extend ``base`` to n pairs with the label-free css_greedy rule (JRecon gain; no objective evals)."""
+    J = JRecon(task)
+    allowed = task.valid.copy()
+    S = [int(i) for i in base]
+    while len(S) < n:
+        g = np.where(allowed, J.stats(S)["gain_add"], -np.inf)
+        g[S] = -np.inf
+        S.append(int(np.argmax(g)))
+    return S
 
 
 class _Stop(Exception):
@@ -84,8 +96,7 @@ class _Tracker:
             S, J = list(self.best_S), self.best_v
         else:  # budget exhausted before a complete set: complete the best partial set
             base = list(self.partial[max(self.partial)][1]) if self.partial else []
-            order = [int(i) for i in np.argsort(-task.raw_logstd) if task.valid[i] and int(i) not in base]
-            S = base + order[: self.n - len(base)]
+            S = _css_extend(task, base, self.n)
             extra["filled"] = self.n - len(base)
             J = float(self.obj(S))  # outside the budget
         tr = self.trace + ([(self.count, self.best_v)] if self.best_S is not None and

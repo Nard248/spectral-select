@@ -187,3 +187,11 @@ def test_evaluate_and_metrics(task):
     assert 0 <= m["jrecon"] <= 1 and m["n_distinct_excitations"] >= 1
     s = stability([[1, 2, 3], [1, 2, 3]], 20)
     assert s["jaccard"] == 1 and s["kuncheva"] == pytest.approx(1.0)
+
+
+def test_budget_exhausted_fill_uses_css_greedy(task):
+    obj = JSup(task)
+    r = B.sfs(task, 8, obj=obj, budget=5, seed=0)       # budget too small to finish the forward pass
+    assert r.extra["filled"] >= 1 and len(set(r.selected)) == 8
+    # the fill must follow the label-free css rule from the partial set (not the variance rule)
+    assert r.n_evals <= 5
