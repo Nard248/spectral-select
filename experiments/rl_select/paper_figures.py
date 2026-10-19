@@ -319,11 +319,11 @@ def anytime():
 
 
 def fig_training():
-    fig, axs = plt.subplots(1, 2, figsize=(W1, 3.0))
+    fig, axs = plt.subplots(1, 2, figsize=(W1, 2.6))
     ax = axs[0]
     runs = training_curves()
-    spec = [("rl_add_nowl", "add-only", "#009E73", "-"), ("rl_addremove_nowl", "add/remove", "#D55E00", "-"),
-            ("rl_add", "add-only (+$\\lambda$)", "#009E73", "--"), ("rl_addremove", "add/remove (+$\\lambda$)", "#D55E00", "--")]
+    spec = [("rl_add_nowl", "add", "#009E73", "-"), ("rl_addremove_nowl", "add/rem", "#D55E00", "-"),
+            ("rl_add", "add (+$\\lambda$)", "#009E73", "--"), ("rl_addremove", "add/rem (+$\\lambda$)", "#D55E00", "--")]
     for var, lab, c, ls in spec:
         rs = runs.get(var, [])
         if not rs:
@@ -337,7 +337,7 @@ def fig_training():
         ax.fill_between(x, m - s, m + s, color=c, alpha=0.15, lw=0)
     ax.set_xlabel("PPO update")
     ax.set_ylabel("mean final $J_{\\mathrm{sup}}$")
-    ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.27), ncol=1, fontsize=6, handlelength=1.1, columnspacing=0.5, handletextpad=0.3)
+    ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.30), ncol=2, fontsize=5.5, handlelength=1.1, columnspacing=0.5, handletextpad=0.3)
     ax.text(0.03, 0.97, "(a)", transform=ax.transAxes, va="top", fontweight="bold")
     ax = axs[1]
     n, grid, curves = anytime()
@@ -351,9 +351,9 @@ def fig_training():
         ax.plot(grid[ok], mu[ok], color=st["c"], ls=st["ls"], label=st["lab"].replace(" (supervised)", "").replace("SFS+swap","SFS+sw."))
     ax.set_xscale("log")
     ax.set_xlabel("objective evaluations")
-    ax.set_ylabel("best-so-far $J_{\\mathrm{sup}}$ / best")
+    ax.set_ylabel("best-so-far / best $J_{\\mathrm{sup}}$")
     ax.set_ylim(top=1.005)
-    ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.27), ncol=1, fontsize=6, handlelength=1.1, columnspacing=0.5, handletextpad=0.3)
+    ax.legend(frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.30), ncol=2, fontsize=5.5, handlelength=1.1, columnspacing=0.5, handletextpad=0.3)
     ax.text(0.03, 0.97, f"(b) $n={n}$", transform=ax.transAxes, va="top", fontweight="bold")
     fig.tight_layout(w_pad=0.8)
     fig.savefig(FIG / "fig_training.pdf")
@@ -374,7 +374,7 @@ def fig_eem():
               ("sfs_swap", "S2", "", "SFS+swap (supervised)"),
               ("sa", "S1", "", "SA (supervised)")]
     panels = [p for p in panels if sel(p[1], p[0], p[2], "lichens1", 8)]
-    fig, axs = plt.subplots(2, 2, figsize=(W2, 3.0), sharex=True, sharey=True)
+    fig, axs = plt.subplots(2, 2, figsize=(W2, 2.55), sharex=True, sharey=True)
     base = np.full((len(uex), len(uem)), np.nan)
     base[ie, im] = 0.0
     cmap = plt.get_cmap("viridis").copy()
