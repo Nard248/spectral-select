@@ -1,0 +1,104 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1.9cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{newtxtext,newtxmath}
+\usepackage{microtype}
+\usepackage{amsmath}
+\usepackage{booktabs,tabularx,array}
+\usepackage[compact]{titlesec}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+
+\titleformat{\section}{\large\bfseries}{\thesection.}{0.5em}{}
+\titlespacing*{\section}{0pt}{8pt}{3pt}
+\setlist{nosep,leftmargin=1.4em}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\pagestyle{plain}
+
+\begin{document}
+
+\begin{center}
+{\Large\bfseries Learning Which Wavelengths to Measure:\\[2pt]
+A Reinforcement Learning Problem Statement}\\[6pt]
+Narek Meloyan \quad\textperiodcentered\quad 16 October 2026
+\end{center}
+
+\section{Motivation}
+We want to learn, without labels, which few excitation--emission wavelength pairs a fluorescence imager actually needs to measure. Our lab images biological samples (lichens, collagen) by stepping a tunable lamp through several excitation wavelengths and recording a stack of emission bands for each. One acquisition yields about 250 band images. This is slow, damages the sample with light, and needs an expensive tunable source. If a handful of well-chosen pairs carries most of the information, the same task can run on a cheap device with a few LEDs and fixed filters. Our datasets are annotated, but labels are expensive (an expert paints them by hand) and will not exist for new samples, so the selection itself must not use them. We have a working label-free method (Section~3) and ask whether reinforcement learning (RL) is the right framework for the next step.
+
+\section{Data}
+Each pixel carries an excitation--emission matrix (EEM), so a scene is a 4D array: height $\times$ width $\times$ excitation $\times$ emission. The instrument measures one excitation at a time: a tunable light source sets the excitation, a liquid-crystal tunable filter steps the emission from 420 to 720\,nm in 10\,nm steps (31 bands), and a camera records each band. Removing bands near the excitation line (Rayleigh scatter) leaves a candidate set $B$ of 150--200 pairs.
+
+\smallskip
+\begin{tabularx}{\linewidth}{@{}l l l c L@{}}
+\toprule
+Dataset & Image (px) & Excitations (nm) & Pairs $|B|$ & Labels (scoring only) \\
+\midrule
+Lichens (main testbed, \href{https://doi.org/10.5281/zenodo.18640119}{public}) & 1040 $\times$ 925 & 8: 310--430 & 192 & 4 classes, 191k pixels \\
+Collagen digestion (2 series) & 256 $\times$ 348 & 6: 310--400 & 149 & 3 classes, 40k pixels \\
+Drop Data (blind validation) & 175 $\times$ 348 & 310--415, 2--3 exposures & -- & drop masks only \\
+\bottomrule
+\end{tabularx}
+
+\section{Problem statement and the gap in our current solution}
+\textbf{Selection without labels.} Choose $K$ pairs from the scene $X$ alone, preserving as much of its information as possible; the expert labels are withheld and used only afterwards, to score the choice by per-pixel classification accuracy:
+\begin{equation*}
+S^{*} = \arg\max_{S \subset B,\; |S| = K} \; U(S; X), \qquad U \text{ label-free (see Section 5)}.
+\end{equation*}
+
+\textbf{Current solution.} Our method (TPAMI and Scientific Reports submissions, both in revision) approximates this in three decoupled stages. (i) A 3D convolutional autoencoder with one branch per excitation is trained on the scene without labels and compresses it into a 20-dimensional latent code. (ii) Perturbing each latent dimension and measuring each band's response in the decoder gives every band $b$ a fixed importance score $s_b$. (iii) A greedy rule (maximal marginal relevance) adds one band at a time:
+\begin{equation*}
+b_{t+1} = \arg\max_{b \notin S_t} \Big[\, \tfrac{s_b}{\max s} \;-\; \lambda \max_{j \in S_t} \lvert \cos(x_b, x_j) \rvert \Big],
+\end{equation*}
+where $x_b$ is the image of band $b$. It beats random subsets, but modestly (Section~4), each new sample costs about 2 hours, and every sample gets the same bands, order and exposures. Whether the static problem is solved is therefore open.
+
+\textbf{The gap: sequential dependencies.} Selection is a sequence of decisions in which the value of the next band depends on the bands already chosen. The current solution models this dependency only through a fixed image-similarity penalty. The score $s_b$ is computed once and never updated, so it ignores what $b$ adds \emph{given} $S_t$: two dissimilar bands can carry the same information, and a weak band can complete a strong pair. The greedy step also has no lookahead, so an early choice is never judged by the options it leaves. The natural model is a Markov decision process with state $S_t$, action $b_{t+1}$ and reward $U(S_{t+1}) - U(S_t)$, whose return is $U(S_K)$: a policy then conditions on its own past choices and learns to plan ahead. This is our main reason for turning to RL.
+
+\textbf{Sequential acquisition.} The instrument also measures sequentially. After $t$ measurements it holds a partial EEM per pixel and chooses the next excitation (and emission band or exposure), or stops. We seek a policy $\pi$ that describes the sample well with the fewest, cheapest and least damaging measurements:
+\begin{equation*}
+\max_{\pi} \; \mathbb{E}_{\pi}\Big[\, Q(\hat{z}_T) - \textstyle\sum_{t=1}^{T} c(a_t) \Big],
+\end{equation*}
+where $Q$ scores the final estimate (e.g.\ reconstruction of the full EEM) and $c(a)$ is the cost of a measurement (time, light dose, a saturation penalty).
+
+\section{Challenges}
+\begin{enumerate}
+\item \textbf{Huge search space.} There are $\approx 5\times10^{19}$ ways to choose 13 of 192 pairs; exhaustive search stops at $K=3$ (1.16 million triplets).
+\item \textbf{The reward is a proxy.} Any label-free utility can be optimised in ways that do not help the real task.
+\item \textbf{Random subsets are strong.} Neighbouring bands are highly correlated: on Lichens our 13-pair selection reaches 90.2\% per-pixel accuracy versus $\approx$86\% for random 13-pair subsets, and on some datasets nothing beats random.
+\item \textbf{Few scenes.} We have a handful of acquisitions, not thousands; a policy must generalise across crops, samples and from simulation to real data.
+\item \textbf{Physical nuisances.} Exposure and lamp power differ strongly between excitations, the sensor saturates, and photobleaching alters the sample; a naive model learns lamp brightness, not chemistry.
+\item \textbf{Unequal costs.} Changing the excitation (a lamp setting or an extra LED) is expensive; changing the emission filter is cheap; the action space is naturally hierarchical.
+\end{enumerate}
+
+\section{Reinforcement learning hypotheses}
+RL should pay off where decisions are sequential or one policy is reused across samples; on a single fixed image, an equal-budget genetic algorithm is the fair baseline.
+
+\smallskip
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.9cm} L L L L@{}}
+\toprule
+Hypothesis & State & Action & Reward & Why RL \\
+\midrule
+\textbf{H1.} Set-selection policy & chosen bands + band features & add one band & utility $U$ of final set & uses past choices; reusable \\
+\textbf{H2.} Active acquisition & partial EEM so far & next measurement, or stop & final quality minus costs & adaptive, per-sample acquisition \\
+\textbf{H3.} Hierarchical budget & budget left per excitation & fund an excitation, pick filters & as H1 & matches device design (LEDs + filters) \\
+\textbf{H4.} Formula search & partial expression over shortlist & add a band or operator & utility of the index & interpretable ratio indices \\
+\bottomrule
+\end{tabularx}
+
+\smallskip
+\textbf{Reward.} The most promising label-free reward is \emph{latent predictability}: how well the autoencoder's latent code of the full EEM can be regressed from the selected bands. It is cheap (closed-form ridge regression) and replaces our three decoupled stages with one objective.
+\textbf{Training ground.} H2 policies can be trained in SpectraForge, our physics-based simulator, and tested offline on real cubes, where the agent reveals the recorded bands in its own order. A small PPO prototype (four laser powers, light-dose penalty) runs in simulation, with gains so far within noise.
+
+\section{Questions where direction would help}
+\begin{enumerate}
+\item \textbf{Formulation.} Is static selection (H1) better treated as RL, a combinatorial bandit, or black-box optimisation? Is the sequential version (H2) the stronger RL problem?
+\item \textbf{Reward design.} How do we keep an agent from exploiting a proxy reward, and should reward be per step or terminal?
+\item \textbf{Little data.} With few real scenes: offline RL on fixed cubes, sim-to-real transfer, or meta-learning?
+\item \textbf{Algorithms.} For a growing set-valued state and many discrete actions: PPO with a set encoder, tree search, or masked Q-learning?
+\item \textbf{Evaluation.} Beyond random subsets, an equal-budget genetic algorithm and the exact small-$K$ optimum, what would convince you?
+\end{enumerate}
+
+\end{document}
