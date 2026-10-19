@@ -1,0 +1,209 @@
+{
+ "sweep": "night",
+ "n_records": 432,
+ "n_files": 54,
+ "n_errors": 4,
+ "n_tiny": 0,
+ "n_torn": 0,
+ "n_dups": 0,
+ "errors": [
+  "lichens1/spatial_attn r0 f0",
+  "lichens1/spatial_attn r0 f1",
+  "lichens1/spatial_attn r0 f2",
+  "lichens1/spatial_attn r0 f3"
+ ],
+ "coverage": {
+  "spectral/collagen_pepsin": {
+   "cnn1d": 15,
+   "ex_tokens_v2": 15,
+   "hgb": 15,
+   "hybrid_conv_attn": 15,
+   "knn": 15,
+   "lr": 15,
+   "meas_tokens": 15,
+   "mlp": 15,
+   "rbfsvm": 15,
+   "rf": 15,
+   "smartattention_v0": 15,
+   "spectralformer": 15
+  },
+  "spectral/lichens1": {
+   "cnn1d": 4,
+   "ex_tokens_v2": 4,
+   "hgb": 4,
+   "hybrid_conv_attn": 4,
+   "knn": 4,
+   "lr": 4,
+   "meas_tokens": 4,
+   "mlp": 4,
+   "rbfsvm": 4,
+   "rf": 4,
+   "smartattention_v0": 4,
+   "spectralformer": 4
+  },
+  "spectral/lichens2": {
+   "cnn1d": 10,
+   "ex_tokens_v2": 10,
+   "hgb": 10,
+   "hybrid_conv_attn": 10,
+   "knn": 10,
+   "lr": 10,
+   "meas_tokens": 10,
+   "mlp": 10,
+   "rbfsvm": 10,
+   "rf": 10,
+   "smartattention_v0": 10,
+   "spectralformer": 10
+  },
+  "spatial/collagen_pepsin": {
+   "cnn2d": 6,
+   "patchmean_lr": 6,
+   "patchmean_rf": 6,
+   "spatial_attn": 6,
+   "spectralformer_patch": 6,
+   "ssftt": 6
+  },
+  "spatial/lichens1": {
+   "cnn2d": 4,
+   "patchmean_lr": 4,
+   "patchmean_rf": 4,
+   "spatial_attn": 4,
+   "spectralformer_patch": 4,
+   "ssftt": 4
+  },
+  "spatial/lichens2": {
+   "cnn2d": 4,
+   "patchmean_lr": 4,
+   "patchmean_rf": 4,
+   "spatial_attn": 4,
+   "spectralformer_patch": 4,
+   "ssftt": 4
+  }
+ },
+ "headline": {
+  "spectral/collagen_pepsin": {
+   "best_ours": "ex_tokens_v2",
+   "best_base": "lr",
+   "n": 15,
+   "mean_diff": 0.007941059004243408,
+   "ci95": [
+    -0.01450816931524084,
+    0.03127352446702291
+   ],
+   "wilcoxon_p": 0.45428466796875,
+   "nb_p": 0.8233134769587721,
+   "wins": 9,
+   "ties": 0,
+   "losses": 6
+  },
+  "spectral/lichens1": {
+   "best_ours": "ex_tokens_v2",
+   "best_base": "spectralformer",
+   "n": 4,
+   "mean_diff": -0.006434052725587891,
+   "ci95": [
+    -0.012610176913588178,
+    -0.0009879711513221534
+   ],
+   "wilcoxon_p": 0.25,
+   "nb_p": 0.30550632643010156,
+   "wins": 1,
+   "ties": 0,
+   "losses": 3
+  },
+  "spectral/lichens2": {
+   "best_ours": "ex_tokens_v2",
+   "best_base": "rbfsvm",
+   "n": 10,
+   "mean_diff": -0.0010173839547233943,
+   "ci95": [
+    -0.010077621668762181,
+    0.007590336841814911
+   ],
+   "wilcoxon_p": 1.0,
+   "nb_p": 0.9501040971660906,
+   "wins": 6,
+   "ties": 0,
+   "losses": 4
+  },
+  "spatial/collagen_pepsin": {
+   "best_ours": "spatial_attn",
+   "best_base": "patchmean_rf",
+   "n": 6,
+   "mean_diff": 0.014089272295166452,
+   "ci95": [
+    -0.060895637370406076,
+    0.07709275196705384
+   ],
+   "wilcoxon_p": 0.6875,
+   "nb_p": 0.8620559993323572,
+   "wins": 4,
+   "ties": 0,
+   "losses": 2
+  },
+  "spatial/lichens1": {
+   "best_ours": "spatial_attn",
+   "best_base": "cnn2d",
+   "n": 4,
+   "mean_diff": -0.00574792992512857,
+   "ci95": [
+    -0.010250910054818374,
+    -0.0012449497954387656
+   ],
+   "wilcoxon_p": 0.125,
+   "nb_p": 0.25437605616476366,
+   "wins": 0,
+   "ties": 0,
+   "losses": 4
+  },
+  "spatial/lichens2": {
+   "best_ours": "spatial_attn",
+   "best_base": "cnn2d",
+   "n": 4,
+   "mean_diff": -0.015431697885240042,
+   "ci95": [
+    -0.03555900541851573,
+    -0.0007382709222009676
+   ],
+   "wilcoxon_p": 0.125,
+   "nb_p": 0.5771629139491575,
+   "wins": 0,
+   "ties": 0,
+   "losses": 4
+  }
+ },
+ "ranks": {
+  "spectral": {
+   "avg": {
+    "cnn1d": 9.077777777777778,
+    "ex_tokens_v2": 3.8555555555555556,
+    "hgb": 6.205555555555556,
+    "hybrid_conv_attn": 8.7,
+    "knn": 9.094444444444443,
+    "lr": 5.361111111111112,
+    "meas_tokens": 7.044444444444444,
+    "mlp": 6.01111111111111,
+    "rbfsvm": 3.966666666666667,
+    "rf": 7.349999999999999,
+    "smartattention_v0": 6.76111111111111,
+    "spectralformer": 4.572222222222223
+   },
+   "cd_datasets": 9.620743057035298,
+   "cd_blocks": 3.094355767770369,
+   "n_datasets": 3
+  },
+  "spatial": {
+   "avg": {
+    "cnn2d": 2.4166666666666665,
+    "patchmean_lr": 4.055555555555555,
+    "patchmean_rf": 4.055555555555555,
+    "spatial_attn": 3.5555555555555554,
+    "spectralformer_patch": 4.416666666666667,
+    "ssftt": 2.5
+   },
+   "cd_datasets": 4.352996931229576,
+   "cd_blocks": 2.0150460265902885,
+   "n_datasets": 3
+  }
+ }
+}

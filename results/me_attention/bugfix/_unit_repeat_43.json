@@ -1,0 +1,337 @@
+{
+ "kind": "repeat",
+ "seed": 43,
+ "edge_mode": "zero",
+ "composition": [
+  {
+   "test_specimens": [
+    1,
+    5,
+    8
+   ],
+   "test_classes": [
+    0,
+    1,
+    2
+   ]
+  },
+  {
+   "test_specimens": [
+    2,
+    4,
+    7
+   ],
+   "test_classes": [
+    0,
+    1,
+    2
+   ]
+  },
+  {
+   "test_specimens": [
+    0,
+    3,
+    6
+   ],
+   "test_classes": [
+    0,
+    1,
+    2
+   ]
+  }
+ ],
+ "attn": {
+  "folds": [
+   {
+    "balanced_acc": 0.7256127671444695,
+    "macro_f1": 0.7296499686399859,
+    "pixel_acc": 0.7221691199898044,
+    "specimen_avg_acc": 0.7256127671444695,
+    "per_class_recall": [
+     0.6260480715483511,
+     0.9195402298850575,
+     0.63125
+    ],
+    "n": 15693,
+    "n_specimens": 3,
+    "labels": [
+     0,
+     1,
+     2
+    ],
+    "specimen_vote_acc": 1.0,
+    "fold": 1,
+    "test_specimens": [
+     1,
+     5,
+     8
+    ],
+    "test_classes": [
+     0,
+     1,
+     2
+    ],
+    "reported_macro_f1": 0.7296499686399859,
+    "reported_pixel_acc": 0.7221691199898044
+   },
+   {
+    "balanced_acc": 0.8706292305795283,
+    "macro_f1": 0.863189492528428,
+    "pixel_acc": 0.8596222901981646,
+    "specimen_avg_acc": 0.8706292305795283,
+    "per_class_recall": [
+     0.9997733454215775,
+     0.6125,
+     0.9996143463170073
+    ],
+    "n": 15038,
+    "n_specimens": 3,
+    "labels": [
+     0,
+     1,
+     2
+    ],
+    "specimen_vote_acc": 1.0,
+    "fold": 2,
+    "test_specimens": [
+     2,
+     4,
+     7
+    ],
+    "test_classes": [
+     0,
+     1,
+     2
+    ],
+    "reported_macro_f1": 0.863189492528428,
+    "reported_pixel_acc": 0.8596222901981646
+   },
+   {
+    "balanced_acc": 0.8718423142941859,
+    "macro_f1": 0.8688799154889996,
+    "pixel_acc": 0.8692515214254345,
+    "specimen_avg_acc": 0.8718423142941859,
+    "per_class_recall": [
+     1.0,
+     0.8790055248618784,
+     0.7365214180206795
+    ],
+    "n": 15939,
+    "n_specimens": 3,
+    "labels": [
+     0,
+     1,
+     2
+    ],
+    "specimen_vote_acc": 1.0,
+    "fold": 3,
+    "test_specimens": [
+     0,
+     3,
+     6
+    ],
+    "test_classes": [
+     0,
+     1,
+     2
+    ],
+    "reported_macro_f1": 0.8688799154889998,
+    "reported_pixel_acc": 0.8692515214254345
+   }
+  ],
+  "pooled": {
+   "balanced_acc": 0.8177266700788238,
+   "macro_f1": 0.8209823298312293,
+   "pixel_acc": 0.8166916648810799,
+   "specimen_avg_acc": 0.8226947706727279,
+   "per_class_recall": [
+    0.8649811726734804,
+    0.8007665242523248,
+    0.7874323133106662
+   ],
+   "confusion": [
+    [
+     12864,
+     2006,
+     2
+    ],
+    [
+     706,
+     12745,
+     2465
+    ],
+    [
+     106,
+     3270,
+     12506
+    ]
+   ],
+   "n": 46670,
+   "n_specimens": 9,
+   "labels": [
+    0,
+    1,
+    2
+   ],
+   "specimen_vote_acc": 1.0
+  },
+  "fold_mean": {
+   "balanced_acc": 0.822694770672728,
+   "macro_f1": 0.8205731255524711,
+   "pixel_acc": 0.8170143105378012,
+   "specimen_vote_acc": 1.0
+  },
+  "reported": {
+   "pixel_accuracy": 0.8166916648810799,
+   "macro_f1": 0.8209823298312293,
+   "specimen": "9/9"
+  }
+ },
+ "lr": {
+  "folds": [
+   {
+    "balanced_acc": 0.7322375702642687,
+    "macro_f1": 0.7320642276753544,
+    "pixel_acc": 0.7291786146689607,
+    "specimen_avg_acc": 0.7322375702642687,
+    "per_class_recall": [
+     0.7391466368548537,
+     0.9399524375743162,
+     0.5176136363636363
+    ],
+    "n": 15693,
+    "n_specimens": 3,
+    "labels": [
+     0,
+     1,
+     2
+    ],
+    "specimen_vote_acc": 1.0,
+    "fold": 1,
+    "test_specimens": [
+     1,
+     5,
+     8
+    ],
+    "test_classes": [
+     0,
+     1,
+     2
+    ],
+    "reported_macro_f1": 0.7320642276753545,
+    "reported_pixel_acc": 0.7291786146689607
+   },
+   {
+    "balanced_acc": 0.8848200873731179,
+    "macro_f1": 0.8802040203271089,
+    "pixel_acc": 0.8779757946535444,
+    "specimen_avg_acc": 0.8848200873731179,
+    "per_class_recall": [
+     0.956482320942883,
+     0.6979779411764706,
+     1.0
+    ],
+    "n": 15038,
+    "n_specimens": 3,
+    "labels": [
+     0,
+     1,
+     2
+    ],
+    "specimen_vote_acc": 1.0,
+    "fold": 2,
+    "test_specimens": [
+     2,
+     4,
+     7
+    ],
+    "test_classes": [
+     0,
+     1,
+     2
+    ],
+    "reported_macro_f1": 0.8802040203271089,
+    "reported_pixel_acc": 0.8779757946535444
+   },
+   {
+    "balanced_acc": 0.7718013289410092,
+    "macro_f1": 0.7601756009325934,
+    "pixel_acc": 0.7671748541313759,
+    "specimen_avg_acc": 0.7718013289410092,
+    "per_class_recall": [
+     1.0,
+     0.7694290976058932,
+     0.5459748892171344
+    ],
+    "n": 15939,
+    "n_specimens": 3,
+    "labels": [
+     0,
+     1,
+     2
+    ],
+    "specimen_vote_acc": 1.0,
+    "fold": 3,
+    "test_specimens": [
+     0,
+     3,
+     6
+    ],
+    "test_classes": [
+     0,
+     1,
+     2
+    ],
+    "reported_macro_f1": 0.7601756009325934,
+    "reported_pixel_acc": 0.7671748541313759
+   }
+  ],
+  "pooled": {
+   "balanced_acc": 0.7922745739125189,
+   "macro_f1": 0.7920015866308181,
+   "pixel_acc": 0.7901007070923506,
+   "specimen_avg_acc": 0.7962863288594652,
+   "per_class_recall": [
+    0.8929532006455083,
+    0.7990701181201307,
+    0.6848004029719179
+   ],
+   "confusion": [
+    [
+     13280,
+     1592,
+     0
+    ],
+    [
+     1574,
+     12718,
+     1624
+    ],
+    [
+     690,
+     4316,
+     10876
+    ]
+   ],
+   "n": 46670,
+   "n_specimens": 9,
+   "labels": [
+    0,
+    1,
+    2
+   ],
+   "specimen_vote_acc": 1.0
+  },
+  "fold_mean": {
+   "balanced_acc": 0.7962863288594653,
+   "macro_f1": 0.7908146163116855,
+   "pixel_acc": 0.7914430878179605,
+   "specimen_vote_acc": 1.0
+  },
+  "reported": {
+   "pixel_accuracy": 0.7901007070923506,
+   "macro_f1": 0.792001586630818,
+   "specimen": "9/9"
+  }
+ }
+}

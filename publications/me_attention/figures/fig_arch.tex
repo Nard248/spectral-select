@@ -1,0 +1,60 @@
+\documentclass[tikz,border=3pt]{standalone}
+\usetikzlibrary{positioning,arrows.meta,fit,calc,backgrounds}
+\begin{document}
+\begin{tikzpicture}[
+  font=\sffamily\footnotesize,
+  box/.style={draw,rounded corners=2pt,minimum height=0.8cm,align=center,fill=white,inner sep=3pt},
+  main/.style={box,fill=blue!8},
+  enc/.style={box,fill=orange!14},
+  tok/.style={draw,minimum size=0.28cm,inner sep=0pt,fill=gray!25},
+  arr/.style={-{Stealth[length=4pt]},thick},
+  lab/.style={font=\sffamily\scriptsize,align=center}]
+
+\node[box,fill=gray!8,text width=2.3cm] (pix) {Pixel: $E\times M$ cube (valid cells only)};
+\node[box,fill=gray!8,right=0.8cm of pix,text width=2.9cm] (set)
+  {Measurement set\\ $\{(\lambda^{\mathrm{ex}}_i,\lambda^{\mathrm{em}}_i,x_i)\}_{i=1}^{F}$};
+\draw[arr] (pix)--(set);
+
+\node[enc,right=0.9cm of set,yshift=0.75cm,text width=2.4cm] (val) {Value embedding $x_i\mapsto \mathbf{v}_i$};
+\node[enc,right=0.9cm of set,yshift=-0.85cm,text width=2.9cm] (wav)
+  {Fourier wavelength encoding of $(\lambda^{\mathrm{ex}},\lambda^{\mathrm{em}},\lambda^{\mathrm{em}}\!-\!\lambda^{\mathrm{ex}})$};
+\draw[arr] (set.east)--++(0.35,0)|-(val.west);
+\draw[arr] (set.east)--++(0.35,0)|-(wav.west);
+\node[circle,draw,fill=white,inner sep=1pt] (plus) at ($(wav.east)+(0.6,0.8)$) {$+$};
+\draw[arr] (val.east)-|(plus.north);
+\draw[arr] (wav.east)-|(plus.south);
+
+\node[right=0.7cm of plus] (toks) {\begin{tikzpicture}
+  \node[tok,fill=red!35] at (0,0) {};
+  \foreach \i in {1,...,4}{\node[tok] at (\i*0.32,0) {};}
+  \node at (1.7,0) {$\cdots$};
+ \end{tikzpicture}};
+\node[lab,above=0.1cm of toks] {CLS + $F$ tokens};
+\draw[arr] (plus)--(toks);
+
+\node[main,below=2.1cm of set,xshift=0.2cm,text width=3.7cm,minimum height=1.7cm] (encd)
+  {Transformer encoder $\times L$\\[2pt] self-attention with relative wavelength bias $b_h(|\Delta\lambda^{\mathrm{ex}}|,|\Delta\lambda^{\mathrm{em}}|,|\Delta s|)$};
+\draw[arr] (toks.south)--++(0,-1.5)-|(encd.north);
+\node[main,right=0.6cm of encd,text width=1.7cm] (pool) {Pooling (CLS / mean / attn.)};
+\node[main,right=0.5cm of pool,text width=1.5cm] (cls) {Linear classifier};
+\node[right=0.45cm of cls] (out) {$\hat y$};
+\draw[arr] (encd)--(pool); \draw[arr] (pool)--(cls); \draw[arr] (cls)--(out);
+
+\node[lab,below=0.25cm of encd,text width=3.8cm] (gate) {optional per-token gate $g_i\in(0,1)$ with $L_1$ penalty; attention rollout gives per-measurement importance};
+\draw[dashed,-{Stealth[length=3pt]}] (gate.north)--(encd.south);
+
+\begin{scope}[yshift=-7.8cm]
+\node[box,fill=gray!8,text width=2.4cm] (patch) {$P\times P$ patch (zeros outside specimen)};
+\node[enc,right=0.8cm of patch,text width=2.8cm] (shared) {Shared spectral encoder (per pixel), one token each};
+\node[main,right=0.8cm of shared,text width=3.2cm] (sp) {Spatial attention, 2-D position embedding, masked outside specimen};
+\node[main,right=0.8cm of sp,text width=2.0cm] (ct) {Centre / CLS readout};
+\node[box,right=0.7cm of ct,text width=1.5cm] (cl2) {Linear classifier};
+\draw[arr] (patch)--(shared); \draw[arr] (shared)--(sp); \draw[arr] (sp)--(ct); \draw[arr] (ct)--(cl2);
+\end{scope}
+\begin{scope}[on background layer]
+\node[draw,dashed,rounded corners=4pt,fill=yellow!6,inner sep=8pt,
+  fit=(patch)(shared)(sp)(ct)(cl2)] (inset) {};
+\end{scope}
+\node[anchor=north west,font=\sffamily\scriptsize\bfseries] at (inset.north west) {Spatial track};
+\end{tikzpicture}
+\end{document}
