@@ -1,10 +1,5 @@
 import numpy as np
 
-from sklearn.model_selection import (
-    StratifiedGroupKFold
-)
-
-
 def _validate_dataset(
     y,
     groups
@@ -68,20 +63,74 @@ def make_specimen_splits(
     )
 
 
-    cv = StratifiedGroupKFold(
-        n_splits=n_folds,
-        shuffle=True,
-        random_state=seed
+    # Class-covering whole-specimen folds: shuffle the specimens of each
+    # class (seeded) and deal them round-robin into n_folds folds, so
+    # every test fold contains >= 1 specimen of every class.
+    # (StratifiedGroupKFold does not guarantee this with few groups.)
+    rng = np.random.default_rng(
+        seed
     )
 
+    classes = np.unique(
+        y
+    )
 
-    splits = list(
-        cv.split(
-            X,
-            y,
-            groups=groups
+    fold_specimens = [
+        []
+        for _ in range(n_folds)
+    ]
+
+    for c in classes:
+
+        class_specimens = np.unique(
+            groups[
+                y == c
+            ]
         )
-    )
+
+        rng.shuffle(
+            class_specimens
+        )
+
+        for i, sid in enumerate(
+            class_specimens
+        ):
+            fold_specimens[
+                i % n_folds
+            ].append(
+                int(sid)
+            )
+
+    splits = []
+
+    for specimens in fold_specimens:
+
+        test_mask = np.isin(
+            groups,
+            specimens
+        )
+
+        splits.append(
+            (
+                np.flatnonzero(
+                    ~test_mask
+                ),
+                np.flatnonzero(
+                    test_mask
+                )
+            )
+        )
+
+
+    for tr, te in splits:
+
+        assert set(
+            np.unique(y[te])
+        ) == set(
+            classes
+        ), (
+            "A test fold is missing a class"
+        )
 
 
     # Safety

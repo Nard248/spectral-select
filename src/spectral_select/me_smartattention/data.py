@@ -229,21 +229,45 @@ def load_dataset(
 
         emission = None
 
+        # Real per-excitation wavelength vector (nm). The pickles use
+        # the key "wavelengths"; also accept any 1-D "emission*"/"wavelength*".
         for key, value in entry.items():
+
+            if key == "cube":
+                continue
 
             arr = np.asarray(
                 value
             )
 
+            key_l = key.lower()
+
             if (
-                "emission"
-                in key.lower()
+                (
+                    "wavelength" in key_l
+                    or "emission" in key_l
+                )
                 and arr.ndim == 1
+                and arr.dtype.kind in "fiu"
             ):
                 emission = arr.astype(
                     float
                 )
                 break
+
+        if emission is None:
+            raise ValueError(
+                f"Excitation {excitation}: no 1-D wavelength vector "
+                f"(key containing 'wavelength' or 'emission') found "
+                f"among keys {list(entry.keys())}. Refusing to fall "
+                f"back to index alignment."
+            )
+
+        if len(emission) != cube.shape[-1]:
+            raise ValueError(
+                f"Excitation {excitation}: {len(emission)} wavelengths "
+                f"but cube has {cube.shape[-1]} bands."
+            )
 
         entries.append(
             (
@@ -257,44 +281,27 @@ def load_dataset(
     # GLOBAL EMISSION AXIS
     # ========================================================
 
-    if all(
-        emission is not None
-        for _, emission in entries
-    ):
-
-        emissions = np.array(
-            sorted({
-                round(
-                    float(w),
-                    6
-                )
-                for _, emission in entries
-                for w in emission
-            }),
-            dtype=float
-        )
-
-        emission_lookup = {
+    emissions = np.array(
+        sorted({
             round(
                 float(w),
                 6
-            ): i
-            for i, w in enumerate(
-                emissions
             )
-        }
+            for _, emission in entries
+            for w in emission
+        }),
+        dtype=float
+    )
 
-    else:
-
-        emissions = np.arange(
-            max(
-                cube.shape[-1]
-                for cube, _ in entries
-            ),
-            dtype=float
+    emission_lookup = {
+        round(
+            float(w),
+            6
+        ): i
+        for i, w in enumerate(
+            emissions
         )
-
-        emission_lookup = None
+    }
 
 
     # ========================================================
@@ -346,24 +353,15 @@ def load_dataset(
             copy=False
         )
 
-        if emission is not None:
-
-            positions = np.array([
-                emission_lookup[
-                    round(
-                        float(w),
-                        6
-                    )
-                ]
-                for w in emission
-            ])
-
-        else:
-
-            positions = np.arange(
-                M - X.shape[1],
-                M
-            )
+        positions = np.array([
+            emission_lookup[
+                round(
+                    float(w),
+                    6
+                )
+            ]
+            for w in emission
+        ])
 
 
         X_eem[

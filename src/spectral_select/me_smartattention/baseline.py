@@ -205,7 +205,9 @@ def run_logistic_regression(
         macro_f1 = f1_score(
             y_test,
             pred,
-            average="macro"
+            average="macro",
+            labels=np.arange(len(np.unique(y))),
+            zero_division=0
         )
 
 
@@ -280,7 +282,9 @@ def run_logistic_regression(
             all_test_idx
         ],
         all_predictions,
-        average="macro"
+        average="macro",
+        labels=np.arange(len(np.unique(y))),
+        zero_division=0
     )
 
 

@@ -1,0 +1,48 @@
+\documentclass[tikz,border=3pt]{standalone}
+\usetikzlibrary{positioning,arrows.meta,fit,calc,backgrounds}
+\begin{document}
+\begin{tikzpicture}[
+  font=\sffamily\footnotesize,
+  box/.style={draw,rounded corners=2pt,minimum height=0.8cm,align=center,fill=white,inner sep=3pt},
+  main/.style={box,fill=blue!8},
+  enc/.style={box,fill=orange!14},
+  arr/.style={-{Stealth[length=4pt]},thick},
+  lab/.style={font=\sffamily\scriptsize,align=center}]
+
+% EEM sketch
+\begin{scope}[local bounding box=eem]
+ \foreach \r in {0,...,4}{
+   \pgfmathsetmacro{\a}{0.15*\r}
+   \foreach \c in {0,...,6}{
+     \pgfmathsetmacro{\on}{ifthenelse(\c<\r-1||\c>\r+4,0,1)}
+     \ifnum\on=1 \fill[blue!35] (\c*0.2,-\r*0.2) rectangle ++(0.18,-0.18);
+     \else \draw[gray!50] (\c*0.2,-\r*0.2) rectangle ++(0.18,-0.18); \fi
+   }
+ }
+\end{scope}
+\node[lab,below=0.05cm of eem,text width=2.4cm] {pixel: $E$ rows (excitations) $\times$ $M$ union emission grid; empty cells = missing};
+
+\node[enc,right=1.0cm of eem,text width=3.1cm] (chunk)
+  {Row $e$: spectrum $+$ mask, split into $S$ contiguous chunks};
+\draw[arr] (eem.east)--(chunk.west);
+\node[enc,right=0.8cm of chunk,text width=2.6cm] (emb) {Linear (or 1-D conv) embedding of each chunk};
+\draw[arr] (chunk)--(emb);
+\node[circle,draw,fill=white,inner sep=1pt,right=0.7cm of emb] (plus) {$+$};
+\draw[arr] (emb)--(plus);
+\node[enc,above=0.9cm of plus,text width=3.1cm] (wav)
+  {Fourier encoding of $(\lambda^{\mathrm{ex}}_e,\ \bar\lambda^{\mathrm{em}}_{s})$ and chunk embedding};
+\draw[arr] (wav)--(plus);
+\node[main,right=0.8cm of plus,text width=3.2cm] (tf)
+  {CLS $+$ $E\!\cdot\!S$ tokens\\ Transformer $\times L$\\ (empty tokens masked, random token drop)};
+\draw[arr] (plus)--(tf);
+\node[main,right=0.6cm of tf,text width=1.5cm] (pool) {Pool (CLS)};
+\node[box,right=0.5cm of pool,text width=1.4cm] (cls) {Linear classifier};
+\node[right=0.4cm of cls] (out) {$\hat y$};
+\draw[arr] (tf)--(pool); \draw[arr] (pool)--(cls); \draw[arr] (cls)--(out);
+
+% hybrid note
+\node[lab,below=1.1cm of emb,xshift=1.0cm,text width=7.5cm,draw,dashed,rounded corners=2pt,inner sep=3pt]
+  (hyb) {Hybrid variant: a shared 1-D convolutional stem over each row (inputs: value, mask, emission wavelength) is average-pooled into $K$ chunks, which replace the embedding step; tokens, encoder and readout are unchanged.};
+\draw[dashed,-{Stealth[length=3pt]}] (hyb.north)--($(emb.south)+(0,-0.02)$);
+\end{tikzpicture}
+\end{document}

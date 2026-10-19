@@ -1,0 +1,3 @@
+[s3b:1] hybrid|exdrop0.25                                  bacc=82.5 t=175s
+[s3b:1] hybrid[full]|supcon0.3                             bacc=85.4 t=404s
+[s3b:1] hybrid[full]|center-pixel                          bacc=82.7 t=184s

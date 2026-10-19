@@ -18,6 +18,7 @@ from sklearn.metrics import (
 )
 
 from .smart_attention import MESmartAttention
+from .baseline import specimen_vote_accuracy
 
 
 # ============================================================
@@ -221,67 +222,6 @@ def make_train_loader(
 
 
 # ============================================================
-# SPECIMEN MAJORITY VOTE
-# ============================================================
-
-def specimen_vote_accuracy(
-    test_idx,
-    predictions,
-    y,
-    groups
-):
-
-    test_groups = groups[
-        test_idx
-    ]
-
-    assert np.all(
-        test_groups >= 0
-    )
-
-    specimens = np.unique(
-        test_groups
-    )
-
-    n_classes = len(
-        np.unique(y)
-    )
-
-    correct = 0
-
-
-    for sid in specimens:
-
-        m = (
-            test_groups == sid
-        )
-
-        true_class = int(
-            y[
-                test_idx[m]
-            ][0]
-        )
-
-        predicted_class = int(
-            np.bincount(
-                predictions[m],
-                minlength=n_classes
-            ).argmax()
-        )
-
-        correct += (
-            true_class
-            == predicted_class
-        )
-
-
-    return (
-        correct,
-        len(specimens)
-    )
-
-
-# ============================================================
 # MAIN TRAINING FUNCTION
 # ============================================================
 
@@ -302,7 +242,7 @@ def run_smart_attention(
     dropout=0.10,
     embedding_dropout=0.10,
 
-    edge_mode="circular",
+    edge_mode="zero",
 
     # ---------------- TRAINING ----------------
 
@@ -376,11 +316,15 @@ def run_smart_attention(
 
     if device is None:
 
-        device = torch.device(
-            "cuda"
-            if torch.cuda.is_available()
-            else "cpu"
-        )
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        elif (
+            hasattr(torch.backends, "mps")
+            and torch.backends.mps.is_available()
+        ):
+            device = torch.device("mps")
+        else:
+            device = torch.device("cpu")
 
 
     print(
@@ -826,7 +770,9 @@ def run_smart_attention(
         macro_f1 = f1_score(
             y_test,
             pred,
-            average="macro"
+            average="macro",
+            labels=np.arange(n_classes),
+            zero_division=0
         )
 
 
@@ -920,7 +866,9 @@ def run_smart_attention(
             all_test_idx
         ],
         all_predictions,
-        average="macro"
+        average="macro",
+        labels=np.arange(n_classes),
+        zero_division=0
     )
 
 

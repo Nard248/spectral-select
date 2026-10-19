@@ -1,0 +1,3 @@
+[s3b:2] hybrid|center-pixel                                bacc=73.8 t=197s
+[s3b:2] hybrid[full]|base                                  bacc=86.0 t=315s
+[s3b:2] hybrid[full]|adv1.0                                bacc=85.1 t=231s

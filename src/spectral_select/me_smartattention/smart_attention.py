@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 
-from einops import rearrange, repeat
 
 
 class Residual(nn.Module):
@@ -102,11 +101,19 @@ class Attention(nn.Module):
             )
         )
 
+        b, n, _ = q.shape
+
         q, k, v = map(
-            lambda t: rearrange(
-                t,
-                "b n (h d) -> b h n d",
-                h=self.heads
+            lambda t: t.reshape(
+                b,
+                n,
+                self.heads,
+                -1
+            ).permute(
+                0,
+                2,
+                1,
+                3
             ),
             (q, k, v)
         )
@@ -130,9 +137,15 @@ class Attention(nn.Module):
             v
         )
 
-        out = rearrange(
-            out,
-            "b h n d -> b n (h d)"
+        out = out.permute(
+            0,
+            2,
+            1,
+            3
+        ).reshape(
+            b,
+            n,
+            -1
         )
 
         return self.to_out(
@@ -285,7 +298,7 @@ class MESmartAttention(nn.Module):
         dropout=0.10,
         embedding_dropout=0.10,
 
-        edge_mode="circular"
+        edge_mode="zero"
     ):
         super().__init__()
 
@@ -538,10 +551,10 @@ class MESmartAttention(nn.Module):
         x = self.token_embedding(x)
 
         # CLS token
-        cls = repeat(
-            self.cls_token,
-            "1 1 d -> b 1 d",
-            b=x.shape[0]
+        cls = self.cls_token.expand(
+            x.shape[0],
+            -1,
+            -1
         )
 
         x = torch.cat(
