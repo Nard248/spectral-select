@@ -156,7 +156,7 @@ def ppo_update(policy, opt, ro: Rollout, cfg: PPOConfig, ent_coef: float, gen: t
 def train(policy: SelectPolicy, venv: VecSelectEnv, cfg: PPOConfig, seed: int, n_updates: int | None = None,
           max_seconds: float | None = None, out_dir: str | Path | None = None,
           progress_fn: Callable[[], float] | None = None, stop_fn: Callable[[], bool] | None = None,
-          log_every_ckpt: int = 0, verbose: bool = False) -> dict:
+          log_every_ckpt: int = 0, verbose: bool = False, snapshot_at: tuple = ()) -> dict:
     """Train ``policy`` on episodes sampled from ``venv``'s pool. Stops at n_updates / max_seconds /
     stop_fn() / BudgetExhausted (raised by trackers). Writes train_log.csv + policy checkpoint."""
     if n_updates is None and max_seconds is None and stop_fn is None:
@@ -212,6 +212,8 @@ def train(policy: SelectPolicy, venv: VecSelectEnv, cfg: PPOConfig, seed: int, n
         if verbose and u % 10 == 0:
             print({k: round(v, 4) if isinstance(v, float) else v for k, v in row.items()}, flush=True)
         u += 1
+        if out and u in snapshot_at:
+            policy.save(out / f"ckpt_u{u}", extra=dict(ppo=asdict(cfg), seed=seed, updates=u, snapshot=True))
         if out and log_every_ckpt and u % log_every_ckpt == 0:
             policy.save(out, extra=dict(ppo=asdict(cfg), seed=seed, updates=u))
     if writer:

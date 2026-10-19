@@ -104,7 +104,10 @@ class TaskFeatures:
 
     def __init__(self, task: Task, objective: Objective | None = None, sup: str = "none",
                  oracle_dir: str | Path | None = None, cache_size: int = 2000, q: int = 20,
-                 ridge: float = 1e-6):
+                 ridge: float = 1e-6, feat: str = "full"):
+        if feat not in ("full", "nowl"):
+            raise ValueError(f"feat must be 'full' or 'nowl', got {feat!r}")
+        self.feat = feat
         if sup not in SUP_LEVELS:
             raise ValueError(f"sup must be one of {SUP_LEVELS}, got {sup!r}")
         if sup == "oracle" and objective is None:
@@ -123,6 +126,8 @@ class TaskFeatures:
         ex, em = task.ex_nm.astype(float), task.em_nm.astype(float)
         self.static = np.stack([z(ex), z(em), z(em - ex), z(task.raw_logmean.astype(float)),
                                 _rank01(task.raw_logstd.astype(float))], 1)
+        if feat == "nowl":      # wavelength-agnostic: zero ex, em, stokes columns (d unchanged)
+            self.static[:, :3] = 0.0
         self.ex = ex
         self.em = em
         _, self.ex_id = np.unique(ex, return_inverse=True)

@@ -302,3 +302,15 @@ def test_reinforce_and_addremove_train_run(pool):
     pol = train_policy(pool, mode="addremove", init="css_greedy", reward="terminal", seed=0, n_updates=3,
                        n_envs=16, ns=(3, 5))
     assert pol.train_info["updates"] == 3
+
+
+def test_nowl_zeroes_wavelength_columns(tasks):
+    t = tasks[0]
+    tf = TaskFeatures(t, feat="nowl")
+    assert np.all(tf.state([0, 1]).feats[:, :3] == 0)
+    assert np.any(TaskFeatures(t).state([0, 1]).feats[:, :3] != 0)
+    assert tf.d == TaskFeatures(t).d
+    pol = train_policy([(t, ToyObj(t))], mode="add", ns=(4,), n_updates=2, feat="nowl", n_envs=8)
+    assert pol.meta["feat"] == "nowl"
+    r = deploy_label_free(pol, t, 4, mode="add")
+    assert len(r.selected) == 4

@@ -32,26 +32,27 @@ def _sup_level(sup_features) -> str:
     raise ValueError(f"bad sup_features {sup_features!r}")
 
 
-def build_tf(task: Task, obj: Objective | None, sup_features=False, oracle_dir=None) -> TaskFeatures:
-    return TaskFeatures(task, obj, sup=_sup_level(sup_features), oracle_dir=oracle_dir)
+def build_tf(task: Task, obj: Objective | None, sup_features=False, oracle_dir=None, feat: str = "full") -> TaskFeatures:
+    return TaskFeatures(task, obj, sup=_sup_level(sup_features), oracle_dir=oracle_dir, feat=feat)
 
 
 def train_policy(task_pool: Sequence[tuple], mode: str = "addremove", init: str = "empty",
                  reward: str = "shaped", sup_features=False, algo: str = "ppo", seed: int = 0,
                  n_updates: int | None = 100, out_dir=None, max_seconds: float | None = None,
                  n_envs: int = 64, ns=(3, 5, 8, 13), dropout: float = 0.2, T: int | None = None,
-                 oracle_dir=None, verbose: bool = False, ppo_kwargs: dict | None = None) -> SelectPolicy:
+                 oracle_dir=None, verbose: bool = False, ppo_kwargs: dict | None = None,
+                 snapshot_at: tuple = (), feat: str = "full") -> SelectPolicy:
     """Train a policy on [(Task, objective), ...]. Objectives give the training reward."""
-    tfs = [build_tf(t, o, sup_features, oracle_dir) for t, o in task_pool]
+    tfs = [build_tf(t, o, sup_features, oracle_dir, feat) for t, o in task_pool]
     pool = [(tf, o) for tf, (_, o) in zip(tfs, task_pool)]
     ecfg = EnvConfig(mode=mode, init=init, reward=reward, dropout=dropout, ns=tuple(ns), T=T)
     venv = VecSelectEnv(pool, ecfg, seed)
-    meta = dict(sup=_sup_level(sup_features), mode=mode, init=init, reward=reward, algo=algo, T=T)
+    meta = dict(sup=_sup_level(sup_features), mode=mode, init=init, reward=reward, algo=algo, T=T, feat=feat)
     torch.manual_seed(seed)
     policy = SelectPolicy(tfs[0].d, N_GLOBAL, meta=meta)
     pcfg = PPOConfig(algo=algo, n_envs=n_envs, **(ppo_kwargs or {}))
     info = train(policy, venv, pcfg, seed, n_updates=n_updates, max_seconds=max_seconds, out_dir=out_dir,
-                 verbose=verbose)
+                 verbose=verbose, snapshot_at=snapshot_at)
     policy.train_info = info
     return policy
 
@@ -59,7 +60,8 @@ def train_policy(task_pool: Sequence[tuple], mode: str = "addremove", init: str 
 # ---------------------------------------------------------------------------------------------------
 def rl_per_instance(task: Task, n: int, obj: Objective, mode: str = "add", budget: int = 2000, seed: int = 0,
                     sup_features=True, n_envs: int = 16, max_updates: int = 100000, oracle_dir=None,
-                    stagnation: int = 50, reward: str = "shaped") -> SelectionResult:
+                    stagnation: int = 50, reward: str = "shaped", algo: str = "ppo",
+                    keep_policy: bool = False) -> SelectionResult:
     """Q1: train a fresh policy on this single task until ``budget`` uncached objective evals are spent.
 
     sup_features: False | True (Fisher rank) | "oracle" (Fisher + exact n=2 priors; its F(F-1)/2 evals are
@@ -74,7 +76,7 @@ def rl_per_instance(task: Task, n: int, obj: Objective, mode: str = "add", budge
     venv = VecSelectEnv([(tf, obj)], ecfg, seed)
     torch.manual_seed(seed)
     policy = SelectPolicy(tf.d, N_GLOBAL, meta=dict(sup=tf.sup, mode=mode))
-    cfg = PPOConfig(n_envs=n_envs, minibatch=128)
+    cfg = PPOConfig(n_envs=n_envs, minibatch=128, algo=algo)
     # route every episode through the tracker (budget + best-so-far)
     orig_reset = venv.reset
 
@@ -95,12 +97,15 @@ def rl_per_instance(task: Task, n: int, obj: Objective, mode: str = "add", budge
                  progress_fn=lambda: tracker.used / budget)
     if tracker.best_set is None:
         raise RuntimeError("budget too small to complete a single n-set")
-    return SelectionResult(
+    res = SelectionResult(
         method=f"rl_{mode}", task=task.name, n=n, selected=tracker.best_set, objective_name=obj.name,
         inner_J=tracker.best_J, n_evals=min(tracker.used, budget), runtime_s=time.time() - t0, seed=seed,
         trace=list(tracker.trace),
         extra=dict(updates=info["updates"], stopped=info["stopped"], sup=tf.sup, oracle_cost=tf.oracle_cost,
-                   reward=reward))
+                   reward=reward, algo=algo))
+    if keep_policy:
+        res.policy = policy          # not serialised; used by the MC-look-ahead-at-test ablation
+    return res
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -127,7 +132,7 @@ def deploy_label_free(policy: SelectPolicy, task: Task, n: int, mode: str = "add
     t0 = time.time()
     if policy.meta.get("sup", "none") != "none":
         raise ValueError("label-free deployment needs a policy trained without supervised features")
-    tf = TaskFeatures(task, None, sup="none")
+    tf = TaskFeatures(task, None, sup="none", feat=policy.meta.get("feat", "full"))
     _check_policy(policy, tf)
     ecfg = EnvConfig(mode=mode, init=init, reward="terminal", dropout=0.0, T=T, ns=(n,))
     greedy = n_samples == 1
@@ -151,7 +156,7 @@ def deploy_few_shot(policy: SelectPolicy, task: Task, n: int, obj: Objective, bu
     if it improves J else stop); without, best-so-far over stochastic add/remove rollouts."""
     t0 = time.time()
     sup = policy.meta.get("sup", "none")
-    tf = build_tf(task, obj, sup, oracle_dir)
+    tf = build_tf(task, obj, sup, oracle_dir, policy.meta.get("feat", "full"))
     _check_policy(policy, tf)
     if tf.oracle_cost > budget:
         raise ValueError(f"oracle priors cost {tf.oracle_cost} evals > budget {budget}")
@@ -186,7 +191,8 @@ def deploy_few_shot(policy: SelectPolicy, task: Task, n: int, obj: Objective, bu
         method=f"rl_fs_{mode}" + ("_mc" if mc_lookahead else ""), task=task.name, n=n,
         selected=tracker.best_set, objective_name=obj.name, inner_J=tracker.best_J,
         n_evals=min(tracker.used, budget), runtime_s=time.time() - t0, seed=seed, trace=list(tracker.trace),
-        extra=dict(stopped=stopped, m=m, K=K, sup=tf.sup, oracle_cost=tf.oracle_cost, **extra))
+        extra=dict(stopped=stopped, m=m, K=K, sup=tf.sup, oracle_cost=tf.oracle_cost,
+                   trace_sets=[list(x) for x in tracker.trace_sets], **extra))
 
 
 def _probs(policy, ep: Episode, Fmax: int) -> np.ndarray:
@@ -206,31 +212,45 @@ def _mc_lookahead(policy, tf, obj, tracker, n, T, init, m, K, rng) -> dict:
         return dict(cycles=0, accepted=0)
     J = ep.J_cur
     cycles = accepted = 0
+    tried: set = set()            # (removal, add) pairs already evaluated without improvement from the current set
+    pos = 0                       # position in the removal ranking
+    visited_since_improve = 0     # removal candidates visited since the last accept
     while not ep.done:
         cycles += 1
         p = _probs(policy, ep, tf.F)[:-1]
-        k = min(m, int((p > 0).sum()))
-        tops = np.argsort(-p)[:k]
+        cand = np.flatnonzero(p > 0)
+        order = cand[np.argsort(-p[cand], kind="stable")]       # all removable candidates, best first
+        if len(order) == 0:
+            break
         best = (-np.inf, None, None)
-        for a in tops:
+        for _ in range(min(m, len(order))):
+            a = int(order[pos % len(order)])
+            pos += 1
+            visited_since_improve += 1
             e2 = ep.clone()
             e2.eval_all = False
-            e2.step(int(a))                       # remove (no eval)
+            e2.step(a)                                # remove (no eval)
             pa = _probs(policy, e2, tf.F)[:-1]
             pa = pa / pa.sum()
             for b in np.unique(rng.choice(len(pa), size=K, p=pa)):
+                b = int(b)
+                if (a, b) in tried:
+                    continue
+                tried.add((a, b))
                 e3 = e2.clone()
                 e3.eval_all = True
                 e3.J_cur = J
-                r, _ = e3.step(int(b))             # evaluates J(S - a + b) through the tracker
-                jb = e3.J_cur
-                if jb > best[0]:
-                    best = (jb, int(a), int(b))
+                e3.step(b)                            # evaluates J(S - a + b) through the tracker
+                if e3.J_cur > best[0]:
+                    best = (e3.J_cur, a, b)
         if best[0] > J + 1e-12:
             ep.step(best[1])
             ep.step(best[2])
             J = best[0]
             accepted += 1
-        else:
+            tried.clear()
+            pos = 0
+            visited_since_improve = 0
+        elif visited_since_improve >= 2 * len(order):  # every removal tried, twice over, without improvement
             break
     return dict(cycles=cycles, accepted=accepted)

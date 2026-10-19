@@ -29,6 +29,7 @@ class Tracker:
         self.best_J = -np.inf
         self.best_set: list[int] | None = None
         self.trace: list[tuple[int, float]] = []
+        self.trace_sets: list[list[int]] = []     # best set at each trace entry (for budget-prefix reads)
 
     @property
     def used(self) -> int:
@@ -41,6 +42,7 @@ class Tracker:
         if len(S) == self.n and j > self.best_J:
             self.best_J, self.best_set = j, sorted(int(s) for s in S)
             self.trace.append((self.used, j))
+            self.trace_sets.append(list(self.best_set))
         return j
 
 
