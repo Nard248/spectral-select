@@ -1,0 +1,323 @@
+{
+  "schema_version": "1.0",
+  "name": "Cube with a central fluorophore",
+  "description": "10 mm tissue-like cube, fluorescein sphere at the centre, 3D layered Monte Carlo.",
+  "fluorophores": [],
+  "materials": [
+    {
+      "id": "black_anodized",
+      "name": "Black anodized aluminium",
+      "dyes": [],
+      "refractive_index": 1.5,
+      "scattering": {
+        "model": "power_law",
+        "mus_prime_500_per_mm": 2.0,
+        "power_b": 0.5,
+        "f_rayleigh": 0.0,
+        "g": 0.6
+      },
+      "background_absorption": {
+        "preset": "carbon_black",
+        "scale": 40.0,
+        "custom": []
+      },
+      "tissue": null,
+      "surface_roughness": 0.55,
+      "aqueous": false,
+      "raman_strength": 1.0,
+      "quenching_ksv_per_uM": 0.0,
+      "fret": [],
+      "display_color": "#1a1b1f"
+    },
+    {
+      "id": "host",
+      "name": "Host (intralipid_1pct)",
+      "dyes": [],
+      "refractive_index": 1.34,
+      "scattering": {
+        "model": "power_law",
+        "mus_prime_500_per_mm": 1.5965338663718533,
+        "power_b": 0.9909657796524933,
+        "f_rayleigh": 0.0,
+        "g": 0.81
+      },
+      "background_absorption": {
+        "preset": "none",
+        "scale": 1.0,
+        "custom": []
+      },
+      "tissue": {
+        "blood_volume_fraction": 0.0,
+        "oxygen_saturation": 0.75,
+        "hemoglobin_g_per_L": 150.0,
+        "water_fraction": 0.99,
+        "lipid_fraction": 0.0,
+        "melanosome_fraction": 0.0,
+        "bilirubin_uM": 0.0,
+        "beta_carotene_uM": 0.0
+      },
+      "surface_roughness": 0.05,
+      "aqueous": true,
+      "raman_strength": 1.0,
+      "quenching_ksv_per_uM": 0.0,
+      "fret": [],
+      "display_color": "#f3f1ea"
+    },
+    {
+      "id": "inc_mat",
+      "name": "Host + fluorescein 10 uM",
+      "dyes": [
+        {
+          "fluorophore": "fluorescein",
+          "concentration_uM": 10.0
+        }
+      ],
+      "refractive_index": 1.34,
+      "scattering": {
+        "model": "power_law",
+        "mus_prime_500_per_mm": 1.5965338663718533,
+        "power_b": 0.9909657796524933,
+        "f_rayleigh": 0.0,
+        "g": 0.81
+      },
+      "background_absorption": {
+        "preset": "none",
+        "scale": 1.0,
+        "custom": []
+      },
+      "tissue": {
+        "blood_volume_fraction": 0.0,
+        "oxygen_saturation": 0.75,
+        "hemoglobin_g_per_L": 150.0,
+        "water_fraction": 0.99,
+        "lipid_fraction": 0.0,
+        "melanosome_fraction": 0.0,
+        "bilirubin_uM": 0.0,
+        "beta_carotene_uM": 0.0
+      },
+      "surface_roughness": 0.05,
+      "aqueous": true,
+      "raman_strength": 1.0,
+      "quenching_ksv_per_uM": 0.0,
+      "fret": [],
+      "display_color": "#f3f1ea"
+    }
+  ],
+  "objects": [
+    {
+      "id": "cube",
+      "name": "Cube",
+      "shape": {
+        "kind": "layered_block",
+        "footprint_mm": [
+          10.0,
+          10.0
+        ],
+        "layers": [
+          {
+            "name": "tissue",
+            "material_id": "host",
+            "thickness": {
+              "kind": "uniform",
+              "thickness_mm": 10.0,
+              "end_thickness_mm": 10.0,
+              "axis": "x"
+            }
+          }
+        ],
+        "inclusions": [
+          {
+            "name": "inc",
+            "material_id": "inc_mat",
+            "kind": "sphere",
+            "center_mm": [
+              0.0,
+              5.0,
+              0.0
+            ],
+            "radius_mm": 1.5,
+            "semi_axes_mm": [
+              1.0,
+              0.5,
+              1.0
+            ],
+            "size_mm": [
+              2.0,
+              1.0,
+              2.0
+            ],
+            "axis": "z",
+            "length_mm": 1000.0
+          }
+        ]
+      },
+      "transform": {
+        "position_mm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation_deg": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "material_id": "host",
+      "vessel_material_id": null,
+      "visible": true
+    }
+  ],
+  "background": {
+    "kind": "plane",
+    "material_id": "black_anodized",
+    "thickness_mm": 5.0,
+    "extent_mm": 600.0,
+    "room_light": {
+      "enabled": false,
+      "spectrum": "fluorescent_tube",
+      "illuminance_lux": 5.0
+    }
+  },
+  "sources": [
+    {
+      "id": "src_tls",
+      "name": "Tunable light source (Xe + monochromator)",
+      "kind": "tunable_lamp",
+      "position_mm": [
+        -200.0,
+        240.0,
+        60.0
+      ],
+      "target_mm": [
+        0.0,
+        5.0,
+        0.0
+      ],
+      "roll_deg": 0.0,
+      "beam": {
+        "profile": "gaussian",
+        "aperture_diameter_mm": 10.0,
+        "divergence_half_angle_deg": 7.0
+      },
+      "line_fwhm_nm": 10.0,
+      "lamp_curve": "xenon",
+      "excitation_filter_od": 6.0,
+      "power_drift_pct": 0.8,
+      "sequence": [
+        {
+          "wavelength_nm": 470.0,
+          "power_mW": 4.7,
+          "exposure_ms": 100.0,
+          "enabled": true
+        },
+        {
+          "wavelength_nm": 490.0,
+          "power_mW": 4.7,
+          "exposure_ms": 100.0,
+          "enabled": true
+        }
+      ]
+    }
+  ],
+  "cameras": [
+    {
+      "id": "cam_nuance",
+      "name": "Nuance-class HSI camera",
+      "position_mm": [
+        0.0,
+        150.0,
+        0.0
+      ],
+      "target_mm": [
+        0.0,
+        10.0,
+        0.0
+      ],
+      "roll_deg": 0.0,
+      "lens": {
+        "focal_length_mm": 35.0,
+        "f_number": 4.0,
+        "focus_distance_mm": 140.0,
+        "transmission": 0.9,
+        "axial_chromatic_mm_per_100nm": 0.05
+      },
+      "sensor": {
+        "width_px": 348,
+        "height_px": 256,
+        "pixel_pitch_um": 6.45,
+        "binning": 4,
+        "qe_curve": "ccd_bv",
+        "full_well_e": 60000.0,
+        "read_noise_e": 8.0,
+        "dark_current_e_per_s": 0.5,
+        "gain_e_per_adu": 1.5,
+        "offset_adu": 100.0,
+        "bit_depth": 16,
+        "prnu_pct": 1.0,
+        "dsnu_e": 2.0,
+        "hot_pixel_fraction": 0.0001
+      },
+      "filter": {
+        "kind": "lctf",
+        "band_start_nm": 420.0,
+        "band_step_nm": 10.0,
+        "n_bands": 31,
+        "band_start_policy": "excitation_offset",
+        "start_offset_nm": 20.0,
+        "fwhm_nm": 20.0,
+        "peak_transmission_curve": "lctf_vis",
+        "interference_n_eff": 2.0,
+        "emission_longpass_nm": 415.0,
+        "longpass_od": 5.0
+      }
+    }
+  ],
+  "active_source_id": "src_tls",
+  "active_camera_id": "cam_nuance",
+  "acquisition": {
+    "mode": "sample",
+    "seed": 0,
+    "mc_photons": 200000,
+    "preview_scale": 0.25,
+    "physics": {
+      "fluorescence": true,
+      "absorption": true,
+      "scattering": true,
+      "elastic_leak": true,
+      "raman": true,
+      "fresnel": true,
+      "specular_glints": true,
+      "shadows": true,
+      "subsurface_spread": true,
+      "indirect_bounce": false,
+      "secondary_emission": true,
+      "quenching": true,
+      "fret": true,
+      "photobleaching": true,
+      "power_drift": true,
+      "defocus": true,
+      "diffraction": true,
+      "chromatic_aberration": true,
+      "vignetting": true,
+      "filter_angle_shift": true,
+      "shot_noise": true,
+      "read_noise": true,
+      "dark_current": true,
+      "fixed_pattern_noise": true,
+      "saturation": true,
+      "quantization": true
+    },
+    "volume_mc": {
+      "excitation_photons": 400000,
+      "emission_photons": 400000,
+      "preview_fraction": 1.0,
+      "lateral_cell_mm": 0.5,
+      "sublayers": 8,
+      "exit_cell_mm": 0.25,
+      "emission_node_step_nm": 40.0,
+      "acceptance_half_angle_deg": 12.0,
+      "inclusion_voxel_mm": 0.1
+    }
+  }
+}
