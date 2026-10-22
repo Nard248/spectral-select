@@ -31,8 +31,8 @@ FIG.mkdir(parents=True, exist_ok=True)
 TAB.mkdir(parents=True, exist_ok=True)
 
 DS = ("lichens1", "lichens2", "collagen_acetic", "collagen_pepsin")
-DSN = {"lichens1": "Lichens-1", "lichens2": "Lichens-2", "collagen_acetic": "Collagen (acetic)",
-       "collagen_pepsin": "Collagen (pepsin)"}
+DSN = {"lichens1": "Lichens 1", "lichens2": "Lichens 2", "collagen_acetic": "Collagen-AA",
+       "collagen_pepsin": "Collagen-P"}
 CROSS = {"lichens1": "C2L", "lichens2": "C2L", "collagen_acetic": "L2C", "collagen_pepsin": "L2C"}
 NS = (3, 5, 8, 13)
 W1, W2 = 3.5, 7.16
@@ -364,7 +364,12 @@ def fig_training():
 # ----------------------------------------------------------------------------- Fig D
 def fig_eem():
     z = np.load(RES / "cache" / "lichens1.npz", allow_pickle=True)
-    ex, em = z["ex_nm"], z["em_nm"]
+    ex, em = z["ex_nm"], z["em_nm"].astype(float).copy()
+    # plot on the emission wavelengths recorded in the .im3 headers (dataset audit 2026-10-22); the cached labels of
+    # the 385-430 nm cubes are shifted. Feature identity (and thus every selection) is unchanged.
+    from me_attention.data import RECORDED_WL_OFFSET
+    for e_nm, off in RECORDED_WL_OFFSET["lichens1"].items():
+        em[ex == e_nm] += off
     uex, uem = np.unique(ex), np.unique(em)
     ie = np.searchsorted(uex, ex)
     im = np.searchsorted(uem, em)
@@ -582,7 +587,7 @@ def tab_transfer(t1):
                     cells.append("--")
                     continue
                 s = f"{v:.3f}"
-                if abs(v - top) < 1e-12:
+                if round(v, 3) == round(top, 3):
                     s = r"\textbf{" + s + "}"
                 if c == "other":
                     s += r"\,{\scriptsize(" + NAME_SHORT[bo] + ")}"
@@ -625,7 +630,7 @@ def tab_fewshot():
                 u = s3_units(c, ds, 8, B)
                 v.append(np.mean(list(u.values())) if u else np.nan)
             top = np.nanmax(v) if not all(np.isnan(v)) else np.nan
-            cells = ["--" if np.isnan(x) else (r"\textbf{%.3f}" % x if abs(x - top) < 1e-12 else "%.3f" % x) for x in v]
+            cells = ["--" if np.isnan(x) else (r"\textbf{%.3f}" % x if round(x, 3) == round(top, 3) else "%.3f" % x) for x in v]
             out.append((DSN[ds] if j == 0 else "") + f" & {B} & " + " & ".join(cells) + r" \\")
             rows_csv.append([ds, B] + v)
         if ds != DS[-1]:

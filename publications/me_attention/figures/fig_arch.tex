@@ -33,20 +33,20 @@
 \draw[arr] (plus)--(toks);
 
 \node[main,below=2.1cm of set,xshift=0.2cm,text width=3.7cm,minimum height=1.7cm] (encd)
-  {Transformer encoder $\times L$\\[2pt] self-attention with relative wavelength bias $b_h(|\Delta\lambda^{\mathrm{ex}}|,|\Delta\lambda^{\mathrm{em}}|,|\Delta s|)$};
+  {Transformer encoder $\times L$\\[2pt] self-attention; optional relative wavelength bias $b_h(|\Delta\lambda^{\mathrm{ex}}|,|\Delta\lambda^{\mathrm{em}}|,|\Delta s|)$};
 \draw[arr] (toks.south)--++(0,-1.5)-|(encd.north);
 \node[main,right=0.6cm of encd,text width=1.7cm] (pool) {Pooling (CLS / mean / attn.)};
 \node[main,right=0.5cm of pool,text width=1.5cm] (cls) {Linear classifier};
 \node[right=0.45cm of cls] (out) {$\hat y$};
 \draw[arr] (encd)--(pool); \draw[arr] (pool)--(cls); \draw[arr] (cls)--(out);
 
-\node[lab,below=0.25cm of encd,text width=3.8cm] (gate) {optional per-token gate $g_i\in(0,1)$ with $L_1$ penalty; attention rollout gives per-measurement importance};
+\node[lab,below=0.25cm of encd,text width=3.8cm] (gate) {exploratory token gates (not in final sweep); final importance uses attention rollout / last layer};
 \draw[dashed,-{Stealth[length=3pt]}] (gate.north)--(encd.south);
 
 \begin{scope}[yshift=-7.8cm]
-\node[box,fill=gray!8,text width=2.4cm] (patch) {$P\times P$ patch (zeros outside specimen)};
+\node[box,fill=gray!8,text width=2.4cm] (patch) {$P\times P$ patch (annotation-mask boundary)};
 \node[enc,right=0.8cm of patch,text width=2.8cm] (shared) {Shared spectral encoder (per pixel), one token each};
-\node[main,right=0.8cm of shared,text width=3.2cm] (sp) {Spatial attention, 2-D position embedding, masked outside specimen};
+\node[main,right=0.8cm of shared,text width=3.2cm] (sp) {Spatial attention, 2-D position embedding, masked outside annotated component};
 \node[main,right=0.8cm of sp,text width=2.0cm] (ct) {Centre / CLS readout};
 \node[box,right=0.7cm of ct,text width=1.5cm] (cl2) {Linear classifier};
 \draw[arr] (patch)--(shared); \draw[arr] (shared)--(sp); \draw[arr] (sp)--(ct); \draw[arr] (ct)--(cl2);

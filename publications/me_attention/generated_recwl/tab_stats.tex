@@ -1,0 +1,64 @@
+% * = best 'ours' variant by mean balanced accuracy (selected on test units: optimistic).
+% Rows vs the strongest baseline list every 'ours' variant; Holm across the 'ours' variants.
+% Remaining rows: best ours vs every other baseline; Holm across baselines.
+% p_NB: Nadeau-Bengio corrected resampled t-test with mean n_test/n_train.
+\small
+\begin{tabular}{llllcclccc}
+\toprule
+Track & Dataset & Ours & vs. & n & $\bar d$ [95\% CI] & W/T/L & $p_{\mathrm{W}}$ & $p_{\mathrm{NB}}$ & $p_{\mathrm{W}}^{\mathrm{Holm}}$ \\
+\midrule
+spectral & Collagen Pepsin & SmartAttn v0 & LR & 15 & $-9.2$ [$-13.8$, $-4.8$] & 2/0/13 & 0.002 & 0.209 & 0.008 \\
+spectral & Collagen Pepsin & ME-Attn (meas.) & LR & 15 & $-6.9$ [$-12.4$, $-1.4$] & 4/0/11 & 0.041 & 0.425 & 0.083 \\
+spectral & Collagen Pepsin & ex tokens v2* & LR & 15 & $-0.3$ [$-4.7$, $+3.0$] & 8/0/7 & 0.720 & 0.956 & 0.720 \\
+spectral & Collagen Pepsin & hybrid conv attn & LR & 15 & $-12.2$ [$-19.1$, $-5.6$] & 4/0/11 & 0.010 & 0.262 & 0.031 \\
+spectral & Collagen Pepsin & ex tokens v2* & RBF-SVM & 15 & $+2.7$ [$-1.5$, $+6.4$] & 11/0/4 & 0.135 & 0.668 & 0.271 \\
+spectral & Collagen Pepsin & ex tokens v2* & RF & 15 & $+6.3$ [$+2.3$, $+10.5$] & 12/0/3 & 0.015 & 0.338 & 0.090 \\
+spectral & Collagen Pepsin & ex tokens v2* & HGB & 15 & $+5.3$ [$+1.0$, $+9.5$] & 11/0/4 & 0.048 & 0.436 & 0.192 \\
+spectral & Collagen Pepsin & ex tokens v2* & kNN & 15 & $+8.7$ [$+4.5$, $+12.5$] & 14/0/1 & 0.004 & 0.183 & 0.030 \\
+spectral & Collagen Pepsin & ex tokens v2* & MLP & 15 & $+6.8$ [$-0.7$, $+14.0$] & 11/0/4 & 0.048 & 0.560 & 0.192 \\
+spectral & Collagen Pepsin & ex tokens v2* & 1D-CNN & 15 & $+10.8$ [$+5.8$, $+15.9$] & 13/0/2 & 0.002 & 0.185 & 0.012 \\
+spectral & Collagen Pepsin & ex tokens v2* & SpectralFormer & 15 & $+6.1$ [$+0.5$, $+11.5$] & 11/0/4 & 0.030 & 0.483 & 0.151 \\
+\midrule
+spectral & Lichens 1 & SmartAttn v0* & SpectralFormer & 4 & $-0.2$ [$-0.4$, $-0.0$] & 1/0/3 & 0.250 & 0.222 & 0.750 \\
+spectral & Lichens 1 & ME-Attn (meas.) & SpectralFormer & 4 & $-1.4$ [$-2.7$, $-0.2$] & 1/0/3 & 0.250 & 0.287 & 0.750 \\
+spectral & Lichens 1 & ex tokens v2 & SpectralFormer & 4 & $-1.0$ [$-1.5$, $-0.3$] & 1/0/3 & 0.250 & 0.193 & 0.750 \\
+spectral & Lichens 1 & hybrid conv attn & SpectralFormer & 4 & $-1.3$ [$-2.0$, $-0.6$] & 0/0/4 & 0.125 & 0.152 & 0.500 \\
+spectral & Lichens 1 & SmartAttn v0* & LR & 4 & $+0.1$ [$-0.3$, $+0.5$] & 2/0/2 & 0.875 & 0.869 & 1.000 \\
+spectral & Lichens 1 & SmartAttn v0* & RBF-SVM & 4 & $-0.1$ [$-0.4$, $+0.2$] & 2/0/2 & 0.875 & 0.801 & 1.000 \\
+spectral & Lichens 1 & SmartAttn v0* & RF & 4 & $+0.6$ [$+0.1$, $+1.1$] & 4/0/0 & 0.125 & 0.276 & 1.000 \\
+spectral & Lichens 1 & SmartAttn v0* & HGB & 4 & $+1.7$ [$-0.1$, $+5.1$] & 3/0/1 & 0.375 & 0.549 & 1.000 \\
+spectral & Lichens 1 & SmartAttn v0* & kNN & 4 & $+7.4$ [$+3.8$, $+13.0$] & 4/0/0 & 0.125 & 0.186 & 1.000 \\
+spectral & Lichens 1 & SmartAttn v0* & MLP & 4 & $+0.4$ [$-0.0$, $+0.8$] & 3/0/1 & 0.250 & 0.360 & 1.000 \\
+spectral & Lichens 1 & SmartAttn v0* & 1D-CNN & 4 & $+1.2$ [$+0.5$, $+2.0$] & 4/0/0 & 0.125 & 0.177 & 1.000 \\
+\midrule
+spectral & Lichens 2 & SmartAttn v0 & RBF-SVM & 10 & $-2.1$ [$-3.9$, $-0.5$] & 1/0/9 & 0.027 & 0.515 & 0.082 \\
+spectral & Lichens 2 & ME-Attn (meas.) & RBF-SVM & 10 & $-5.6$ [$-11.7$, $-1.4$] & 1/0/9 & 0.020 & 0.577 & 0.078 \\
+spectral & Lichens 2 & ex tokens v2* & RBF-SVM & 10 & $-0.5$ [$-1.2$, $+0.3$] & 5/0/5 & 0.375 & 0.737 & 0.375 \\
+spectral & Lichens 2 & hybrid conv attn & RBF-SVM & 10 & $-1.9$ [$-3.6$, $-0.3$] & 3/0/7 & 0.084 & 0.555 & 0.168 \\
+spectral & Lichens 2 & ex tokens v2* & LR & 10 & $+2.8$ [$+1.2$, $+4.3$] & 8/0/2 & 0.020 & 0.348 & 0.117 \\
+spectral & Lichens 2 & ex tokens v2* & RF & 10 & $+2.9$ [$+1.2$, $+4.4$] & 9/0/1 & 0.014 & 0.341 & 0.096 \\
+spectral & Lichens 2 & ex tokens v2* & HGB & 10 & $+1.5$ [$+0.1$, $+2.8$] & 7/0/3 & 0.105 & 0.538 & 0.422 \\
+spectral & Lichens 2 & ex tokens v2* & kNN & 10 & $+2.6$ [$+0.5$, $+4.6$] & 8/0/2 & 0.049 & 0.506 & 0.244 \\
+spectral & Lichens 2 & ex tokens v2* & MLP & 10 & $+0.5$ [$-0.6$, $+1.6$] & 5/0/5 & 0.375 & 0.789 & 1.000 \\
+spectral & Lichens 2 & ex tokens v2* & 1D-CNN & 10 & $+4.6$ [$+3.2$, $+5.9$] & 10/0/0 & 0.002 & 0.103 & 0.016 \\
+spectral & Lichens 2 & ex tokens v2* & SpectralFormer & 10 & $+0.0$ [$-0.5$, $+0.7$] & 4/0/6 & 0.846 & 0.968 & 1.000 \\
+\midrule
+spatial & Collagen Pepsin & ME-Attn (spatial)* & Patch-mean RF & 6 & $+4.5$ [$-0.8$, $+9.6$] & 4/0/2 & 0.219 & 0.472 & 0.219 \\
+spatial & Collagen Pepsin & ME-Attn (spatial)* & Patch-mean LR & 6 & $+9.1$ [$+1.9$, $+16.7$] & 4/0/2 & 0.156 & 0.319 & 0.781 \\
+spatial & Collagen Pepsin & ME-Attn (spatial)* & 2D-CNN & 6 & $+8.1$ [$-1.4$, $+17.5$] & 4/0/2 & 0.312 & 0.485 & 0.875 \\
+spatial & Collagen Pepsin & ME-Attn (spatial)* & SpectralFormer-P & 6 & $+6.6$ [$-0.2$, $+15.4$] & 5/0/1 & 0.219 & 0.489 & 0.875 \\
+spatial & Collagen Pepsin & ME-Attn (spatial)* & SSFTT & 6 & $+5.9$ [$-1.8$, $+14.7$] & 3/0/3 & 0.562 & 0.552 & 0.875 \\
+\midrule
+spatial & Lichens 1 & ME-Attn (spatial)* & 2D-CNN & 4 & $-0.6$ [$-1.0$, $-0.1$] & 0/0/4 & 0.125 & 0.254 & 0.125 \\
+spatial & Lichens 1 & ME-Attn (spatial)* & Patch-mean LR & 4 & $-0.3$ [$-0.8$, $+0.2$] & 2/0/2 & 0.625 & 0.581 & 1.000 \\
+spatial & Lichens 1 & ME-Attn (spatial)* & Patch-mean RF & 4 & $-0.3$ [$-0.9$, $+0.4$] & 2/0/2 & 0.625 & 0.695 & 1.000 \\
+spatial & Lichens 1 & ME-Attn (spatial)* & SpectralFormer-P & 4 & $+0.3$ [$-0.4$, $+1.0$] & 3/0/1 & 0.625 & 0.667 & 1.000 \\
+spatial & Lichens 1 & ME-Attn (spatial)* & SSFTT & 4 & $-0.5$ [$-1.4$, $-0.0$] & 1/0/3 & 0.250 & 0.504 & 1.000 \\
+\midrule
+spatial & Lichens 2 & ME-Attn (spatial)* & 2D-CNN & 4 & $-0.8$ [$-2.2$, $+0.6$] & 2/0/2 & 0.625 & 0.703 & 0.625 \\
+spatial & Lichens 2 & ME-Attn (spatial)* & Patch-mean LR & 4 & $+2.3$ [$-0.8$, $+5.2$] & 3/0/1 & 0.250 & 0.585 & 1.000 \\
+spatial & Lichens 2 & ME-Attn (spatial)* & Patch-mean RF & 4 & $+2.5$ [$-0.7$, $+5.9$] & 3/0/1 & 0.250 & 0.579 & 1.000 \\
+spatial & Lichens 2 & ME-Attn (spatial)* & SpectralFormer-P & 4 & $+1.4$ [$-2.0$, $+4.8$] & 2/0/2 & 0.625 & 0.775 & 1.000 \\
+spatial & Lichens 2 & ME-Attn (spatial)* & SSFTT & 4 & $+0.3$ [$-1.9$, $+2.2$] & 3/0/1 & 0.625 & 0.922 & 1.000 \\
+\bottomrule
+\end{tabular}

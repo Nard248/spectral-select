@@ -1,0 +1,33 @@
+[importance] collagen_pepsin/meas_tokens: config from best record (inner 0.975, r0 f0); train=13043 val=14027 test=12900
+  top-10 [attention (rollout)]: (325,440), (340,440), (340,450), (340,460), (365,480), (325,430), (365,490), (340,430), (365,470), (325,450)
+    overlap with spectral-select: {'k': 30, 'n_selected_matched': 30, 'n_overlap': 2, 'n_features': 158, 'expected_overlap': 5.69620253164557, 'hypergeom_p': 0.9914109943804608, 'spearman_importance_vs_selection': -0.19492393045504816}
+  top-10 [attention (last)]: (340,470), (340,460), (365,480), (340,450), (365,500), (365,470), (310,440), (340,440), (340,480), (365,490)
+    overlap with spectral-select: {'k': 30, 'n_selected_matched': 30, 'n_overlap': 4, 'n_features': 158, 'expected_overlap': 5.69620253164557, 'hypergeom_p': 0.8746835912318076, 'spearman_importance_vs_selection': -0.1335206485345146}
+[importance] wrote publications/me_attention/generated_recwl/importance/collagen_pepsin_meas_tokens/collagen_pepsin_meas_tokens
+[importance] collagen_pepsin/ex_tokens_v2: config from best record (inner 0.996, r4 f0); train=14027 val=13043 test=12900
+  top-10 [attention (rollout)]: (385,440), (385,700), (385,430), (385,690), (385,680), (385,670), (385,710), (385,660), (385,650), (385,640)
+    overlap with spectral-select: {'k': 30, 'n_selected_matched': 30, 'n_overlap': 8, 'n_features': 158, 'expected_overlap': 5.69620253164557, 'hypergeom_p': 0.1740440989181334, 'spearman_importance_vs_selection': 0.07701854737441889}
+  top-10 [attention (last)]: (385,440), (385,420), (385,430), (385,450), (385,460), (385,470), (385,480), (385,490), (385,500), (385,510)
+    overlap with spectral-select: {'k': 30, 'n_selected_matched': 30, 'n_overlap': 7, 'n_features': 158, 'expected_overlap': 5.69620253164557, 'hypergeom_p': 0.32903162516139767, 'spearman_importance_vs_selection': -0.039358175511977594}
+[importance] wrote publications/me_attention/generated_recwl/importance/collagen_pepsin_ex_tokens_v2/collagen_pepsin_ex_tokens_v2
+[importance] lichens1/meas_tokens: config from best record (inner 0.985, r0 f0); train=85839 val=50297 test=54910
+  top-10 [attention (rollout)]: (430,540), (430,530), (430,520), (415,510), (430,510), (415,520), (365,470), (365,480), (310,420), (365,450)
+    overlap with spectral-select: {'k': 13, 'n_selected_matched': 13, 'n_overlap': 1, 'n_features': 192, 'expected_overlap': 0.8802083333333334, 'hypergeom_p': 0.6102799105743467, 'spearman_importance_vs_selection': -0.036382692456396026}
+  top-10 [attention (last)]: (430,540), (430,530), (310,440), (310,450), (430,520), (365,480), (430,550), (310,430), (365,450), (340,500)
+    overlap with spectral-select: {'k': 13, 'n_selected_matched': 13, 'n_overlap': 3, 'n_features': 192, 'expected_overlap': 0.8802083333333334, 'hypergeom_p': 0.04686934502314571, 'spearman_importance_vs_selection': 0.06277560785593042}
+[importance] wrote publications/me_attention/generated_recwl/importance/lichens1_meas_tokens/lichens1_meas_tokens
+[importance] lichens1/ex_tokens_v2: config from best record (inner 0.987, r0 f2); train=90863 val=45273 test=54910
+  top-10 [attention (rollout)]: (430,720), (430,510), (430,520), (430,530), (430,540), (430,550), (430,560), (430,570), (430,580), (430,590)
+    overlap with spectral-select: {'k': 13, 'n_selected_matched': 13, 'n_overlap': 0, 'n_features': 192, 'expected_overlap': 0.8802083333333334, 'hypergeom_p': 1.0, 'spearman_importance_vs_selection': -0.04189495426254758}
+  top-10 [attention (last)]: (415,680), (415,500), (415,720), (415,510), (415,520), (415,530), (415,540), (415,550), (415,560), (415,570)
+    overlap with spectral-select: {'k': 13, 'n_selected_matched': 13, 'n_overlap': 0, 'n_features': 192, 'expected_overlap': 0.8802083333333334, 'hypergeom_p': 1.0, 'spearman_importance_vs_selection': -0.0784395359067038}
+[importance] wrote publications/me_attention/generated_recwl/importance/lichens1_ex_tokens_v2/lichens1_ex_tokens_v2
+[importance] lichens2/meas_tokens: config from best record (inner 0.956, r0 f0); train=5508 val=3785 test=13269
+  top-10 [attention (rollout)]: (400,470), (400,480), (400,510), (415,660), (400,500), (400,490), (400,520), (415,490), (430,510), (430,520)
+  top-10 [attention (last)]: (430,500), (430,440), (430,510), (430,450), (310,450), (430,660), (430,490), (415,660), (415,440), (430,670)
+[importance] wrote publications/me_attention/generated_recwl/importance/lichens2_meas_tokens/lichens2_meas_tokens
+[importance] lichens2/ex_tokens_v2: config from best record (inner 0.989, r2 f1); train=6046 val=3247 test=13269
+  top-10 [attention (rollout)]: (415,720), (415,700), (415,690), (415,680), (415,670), (415,660), (415,650), (415,640), (415,630), (415,620)
+  top-10 [attention (last)]: (415,720), (415,700), (415,690), (415,680), (415,670), (415,660), (415,650), (415,640), (415,630), (415,620)
+[importance] wrote publications/me_attention/generated_recwl/importance/lichens2_ex_tokens_v2/lichens2_ex_tokens_v2
+IMPORTANCE_DONE

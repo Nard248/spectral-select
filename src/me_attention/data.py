@@ -6,6 +6,7 @@ Wavelength alignment is by real nm values (never by index): every cube must come
 from __future__ import annotations
 
 import json
+import os
 import pickle
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,23 @@ DATASETS: dict[str, dict[str, Any]] = {
     "lichens1": dict(kind="png", dir="Lichens Dataset 1", pkl="spectra_masked.pkl"),
     "lichens2": dict(kind="npy", dir="Lichens_2", pkl="data_cutoff_40nm_exposure_max_power_min.pkl"),
 }
+
+# Emission-axis correction (dataset audit 2026-10-22, docs/datasets/audit_2026-10-22). The processed pickles were made by a
+# loader that did not read the emission axis from the .im3 files: it assumed the first band is 420 nm for excitations
+# <= 400 nm and ex + 20 nm above. The .im3 headers (Data/Raw/*, Zenodo 18640119 HSI.zip) record different axes for the
+# cubes below. Adding these offsets (nm) to the stored labels gives the recorded wavelengths; band values, the set of
+# retained bands and their order are unchanged. Opt-in via ME_ATTENTION_RECORDED_WL=1 (default keeps the labels used in
+# the 2026-10-19 sweep, for reproducibility).
+RECORDED_WL_OFFSET: dict[str, dict[float, float]] = {
+    "lichens1": {385.0: 20.0, 400.0: 40.0, 415.0: 35.0, 430.0: 40.0},  # recorded 440/460/470/490-720 nm
+    "lichens2": {415.0: -15.0, 430.0: -30.0},  # recorded 420-720 nm
+    "collagen_pepsin": {400.0: 30.0},  # recorded 450-720 nm
+    "collagen_acetic": {400.0: 30.0},  # recorded 450-720 nm
+}
+
+
+def use_recorded_wavelengths() -> bool:
+    return os.environ.get("ME_ATTENTION_RECORDED_WL", "0") == "1"
 
 
 # ----------------------------------------------------------------------------- masks
@@ -114,7 +132,7 @@ def build_features(cubes: list[tuple[float, np.ndarray, np.ndarray]], foreground
 
 # ----------------------------------------------------------------------------- cache
 def _cache_path(key: str) -> Path:
-    return CACHE_DIR / f"{key}.npz"
+    return CACHE_DIR / (f"{key}_recwl.npz" if use_recorded_wavelengths() else f"{key}.npz")
 
 
 def _save_cache(key: str, d: MEData) -> None:
@@ -165,7 +183,10 @@ def load(key: str, use_cache: bool = True, data_root: Path | None = None,
     cubes = []
     for ex in raw["excitation_wavelengths"]:
         entry = raw["data"][str(float(ex))]
-        cubes.append((float(ex), np.asarray(entry["cube"]), _wavelength_vector(entry, ex)))
+        wl = _wavelength_vector(entry, ex)
+        if use_recorded_wavelengths():
+            wl = wl + RECORDED_WL_OFFSET.get(key, {}).get(float(ex), 0.0)
+        cubes.append((float(ex), np.asarray(entry["cube"]), wl))
     if "mask" in raw:
         sm = np.asarray(raw["mask"]).astype(bool)
         if sm.shape != fg.shape:
@@ -179,7 +200,7 @@ def load(key: str, use_cache: bool = True, data_root: Path | None = None,
     groups = spec_map[rows, cols].astype(np.int64)
     assert (spec_classes[groups] == y).all()
     info = dict(
-        source=str(Path(cfg["dir"]) / cfg["pkl"]), dropped_px=int(dropped_px), dropped_components=int(dropped_n),
+        source=str(Path(cfg["dir"]) / cfg["pkl"]), recorded_wavelengths=use_recorded_wavelengths(), dropped_px=int(dropped_px), dropped_components=int(dropped_n),
         min_specimen_pixels=min_specimen_pixels, n_nonfinite=int((~np.isfinite(X)).sum()),
         specimens_per_class=np.bincount(spec_classes, minlength=n_classes).tolist())
     data = MEData(

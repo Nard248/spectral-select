@@ -45,6 +45,11 @@ def load_selection(dataset: str):
     import pandas as pd
     df = pd.read_csv(path).sort_values(cols, ascending=asc).reset_index(drop=True)
     sc = df[cols[0]].astype(float)
+    from me_attention.data import RECORDED_WL_OFFSET, use_recorded_wavelengths
+    if use_recorded_wavelengths():
+        # the selection files were computed on the processed files' emission labels; shift them like the features
+        off = RECORDED_WL_OFFSET.get(dataset, {})
+        df = df.assign(emission_nm=df.emission_nm.astype(float) + df.excitation_nm.astype(float).map(lambda e: off.get(e, 0.0)))
     return df.assign(score=sc)[["excitation_nm", "emission_nm", "score"]], k
 
 
@@ -214,7 +219,8 @@ def main(argv=None):
         print(f"  top-10 [{name}]: " + ", ".join(f"({t['ex_nm']:.0f},{t['em_nm']:.0f})" for t in ent["top10"]))
         if "overlap" in ent:
             print(f"    overlap with spectral-select: {ent['overlap']}")
-    plot_heat(data, vecs, sel_idx, out / "importance_heatmap", f"{a.dataset} / {a.model} ({src})")
+    plot_heat(data, vecs, sel_idx, out / "importance_heatmap",
+              f"{a.dataset} / {a.model}: hyperparameters from {src}; retrained and evaluated on r{a.repeat} f{a.fold}")
     (out / "importance.json").write_text(json.dumps(result, indent=1))
     print(f"[importance] wrote {out}")
 

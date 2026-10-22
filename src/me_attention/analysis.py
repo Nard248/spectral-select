@@ -330,8 +330,8 @@ def main_table(df, stats, track, metric="balanced_acc") -> Tbl:
         for d in dss:
             h = stats[track][d]["headline"]
             cells.append("--" if not h else f"{sgn(h['mean_diff'] * 100)} [{sgn(h['ci95'][0] * 100)}, {sgn(h['ci95'][1] * 100)}]")
-        T.add("Best ours $-$ best baseline [95\\% CI]", *cells)
-        T.add("Strongest baseline", *[tex_escape(label(stats[track][d]["best_base"] or "--")) for d in dss])
+        T.add("Highest-mean ours $-$ highest-mean baseline [95\\% CI]", *cells)
+        T.add("Highest-mean baseline", *[tex_escape(label(stats[track][d]["best_base"] or "--")) for d in dss])
     ns = []
     for d in dss:
         c = [v[2] for v in cell[d].values() if v[2] > 0]

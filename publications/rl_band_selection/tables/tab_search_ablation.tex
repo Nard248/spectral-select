@@ -6,16 +6,17 @@
 \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-6}
 Method & $J_{\mathrm{sup}}$ & kNN BA & $J_{\mathrm{sup}}$ & kNN BA & gap to exact \\
 \midrule
-RL add-only & 0.864 & 0.826 & 0.883 & 0.841 & -- \\
-RL add/remove & 0.861 & 0.813 & 0.887 & 0.844 & -- \\
+RL add-only & 0.864 & 0.826 & 0.883 & 0.841 & n/r \\
+RL add/remove & 0.861 & 0.813 & 0.887 & 0.844 & n/r \\
 SFS+swap & 0.871 & 0.835 & 0.916 & 0.853 & 0.009 \\
-Beam+swap & 0.872 & 0.836 & 0.845 & 0.819 & 0.008 \\
+Beam+swap & 0.872 & 0.836 & 0.845$^{\dagger}$ & 0.819$^{\dagger}$ & 0.008 \\
 SA & 0.884 & 0.838 & 0.920 & 0.856 & 0.000 \\
 GA & 0.885 & 0.835 & 0.924 & 0.860 & 0.000 \\
 Random search & 0.854 & 0.817 & 0.885 & 0.839 & 0.020 \\
-\multicolumn{6}{l}{\scriptsize Exact optimum at $n=3$: mean $J_{\mathrm{sup}}=0.869$ (budget 5000 per method; mean over datasets).} \\
+\multicolumn{6}{l}{\scriptsize Exact optimum at $n=3$: mean $J_{\mathrm{sup}}=0.869$ (budget 5000 per method; mean over datasets). n/r: RL not run at $n=3$.} \\
+\multicolumn{6}{l}{\scriptsize $^{\dagger}$ Budget exhausted before a complete 13-set in 12/12 tasks (completed with CSS; 5.7 of 13 pairs on average).} \\
 \midrule
-\multicolumn{6}{l}{\emph{Ablation: collagen (acetic), $n=8$, $B=20000$, 3 outer folds}} \\
+\multicolumn{6}{l}{\emph{Ablation: Collagen-AA, $n=8$, $B=20000$, 3 outer folds, 1 seed}} \\
  & \multicolumn{2}{c}{$J_{\mathrm{sup}}$} & \multicolumn{2}{c}{kNN BA} & \\
 RL add-only & \multicolumn{2}{c}{0.869} & \multicolumn{2}{c}{0.764} & \\
 \quad + oracle prior & \multicolumn{2}{c}{0.867} & \multicolumn{2}{c}{0.759} & \\
@@ -23,9 +24,9 @@ RL add/remove & \multicolumn{2}{c}{0.870} & \multicolumn{2}{c}{0.762} & \\
 \quad + oracle prior & \multicolumn{2}{c}{0.866} & \multicolumn{2}{c}{0.753} & \\
 \quad terminal reward & \multicolumn{2}{c}{0.870} & \multicolumn{2}{c}{0.765} & \\
 \quad REINFORCE & \multicolumn{2}{c}{0.839} & \multicolumn{2}{c}{0.736} & \\
-\quad + MC look-ahead & \multicolumn{2}{c}{0.866} & \multicolumn{2}{c}{0.779} & \\
 SA & \multicolumn{2}{c}{0.881} & \multicolumn{2}{c}{0.767} & \\
 SFS+swap & \multicolumn{2}{c}{0.822} & \multicolumn{2}{c}{0.735} & \\
+RL add/rem. + MC look-ahead$^{\ddagger}$ & \multicolumn{2}{c}{0.866} & \multicolumn{2}{c}{0.779} & \\
 \bottomrule
 \end{tabular}
 }
