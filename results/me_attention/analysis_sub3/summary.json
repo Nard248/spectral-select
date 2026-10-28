@@ -1,0 +1,66 @@
+{
+ "sweep": "sub3",
+ "n_records": 325,
+ "n_files": 13,
+ "n_errors": 0,
+ "n_tiny": 0,
+ "n_torn": 0,
+ "n_dups": 0,
+ "errors": [],
+ "coverage": {
+  "spectral/lichens2_sub3": {
+   "cnn1d": 25,
+   "ex_tokens_lin": 25,
+   "ex_tokens_v2": 25,
+   "hgb": 25,
+   "hybrid_conv_attn": 25,
+   "knn": 25,
+   "lr": 25,
+   "meas_tokens": 25,
+   "mlp": 25,
+   "rbfsvm": 25,
+   "rf": 25,
+   "smartattention_v0": 25,
+   "spectralformer": 25
+  }
+ },
+ "headline": {
+  "spectral/lichens2_sub3": {
+   "best_ours": "ex_tokens_lin",
+   "best_base": "rbfsvm",
+   "n": 25,
+   "mean_diff": -0.006471726311101493,
+   "ci95": [
+    -0.01379966395919003,
+    -0.0002963602323044811
+   ],
+   "wilcoxon_p": 0.14091521501541138,
+   "nb_p": 0.5098647995460612,
+   "wins": 8,
+   "ties": 0,
+   "losses": 17
+  }
+ },
+ "ranks": {
+  "spectral": {
+   "avg": {
+    "cnn1d": 9.68,
+    "ex_tokens_lin": 4.68,
+    "ex_tokens_v2": 5.24,
+    "hgb": 6.48,
+    "hybrid_conv_attn": 9.68,
+    "knn": 7.96,
+    "lr": 7.84,
+    "meas_tokens": 8.4,
+    "mlp": 6.12,
+    "rbfsvm": 3.12,
+    "rf": 8.72,
+    "smartattention_v0": 8.32,
+    "spectralformer": 4.76
+   },
+   "cd_datasets": 18.24514150759696,
+   "cd_blocks": 3.6490283015193925,
+   "n_datasets": 1
+  }
+ }
+}

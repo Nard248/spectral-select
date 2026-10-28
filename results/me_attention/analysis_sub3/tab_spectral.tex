@@ -1,0 +1,26 @@
+\small
+\begin{tabular}{lc}
+\toprule
+Model & Lichens 2 (3-class subset) \\
+\midrule
+LR & 93.4 $\pm$ 5.4 \\
+RBF-SVM & \textbf{96.6 $\pm$ 2.3} \\
+RF & 94.8 $\pm$ 2.6 \\
+HGB & 95.8 $\pm$ 2.1 \\
+kNN & 95.3 $\pm$ 2.4 \\
+MLP & 95.6 $\pm$ 2.9 \\
+1D-CNN & 93.5 $\pm$ 3.7 \\
+SpectralFormer & 95.9 $\pm$ 2.9 \\
+\midrule
+SmartAttn v0 & 94.9 $\pm$ 3.1 \\
+ME-Attn (meas.) & 94.5 $\pm$ 3.5 \\
+ex tokens v2 & 95.7 $\pm$ 3.6 \\
+ex tokens + linear & \underline{96.0 $\pm$ 3.0} \\
+hybrid conv attn & 94.5 $\pm$ 2.9 \\
+\midrule
+Highest-mean ours $-$ highest-mean baseline [95\% CI] & $-0.6$ [$-1.4$, $-0.0$] \\
+Highest-mean baseline & RBF-SVM \\
+\midrule
+Units $n$ & 25 \\
+\bottomrule
+\end{tabular}

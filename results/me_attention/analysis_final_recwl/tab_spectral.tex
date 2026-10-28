@@ -1,0 +1,26 @@
+\small
+\begin{tabular}{lccc}
+\toprule
+Model & Collagen Pepsin & Lichens 1 & Lichens 2 \\
+\midrule
+LR & \textbf{90.3 $\pm$ 9.2} & 99.2 $\pm$ 0.3 & 83.3 $\pm$ 7.8 \\
+RBF-SVM & 87.3 $\pm$ 8.1 & \underline{99.3 $\pm$ 0.4} & \textbf{86.6 $\pm$ 7.0} \\
+RF & 83.7 $\pm$ 9.0 & 98.6 $\pm$ 0.8 & 83.2 $\pm$ 7.4 \\
+HGB & 84.7 $\pm$ 6.9 & 97.5 $\pm$ 3.5 & 84.6 $\pm$ 7.5 \\
+kNN & 81.3 $\pm$ 8.9 & 91.8 $\pm$ 5.7 & 83.5 $\pm$ 7.0 \\
+MLP & 83.2 $\pm$ 13.0 & 98.8 $\pm$ 0.6 & 85.6 $\pm$ 5.6 \\
+1D-CNN & 79.2 $\pm$ 9.3 & 98.0 $\pm$ 1.1 & 81.6 $\pm$ 5.8 \\
+SpectralFormer & 83.9 $\pm$ 10.3 & \textbf{99.5 $\pm$ 0.1} & 86.1 $\pm$ 6.3 \\
+\midrule
+SmartAttn v0 & 81.1 $\pm$ 12.8 & 99.2 $\pm$ 0.2 & 84.5 $\pm$ 5.9 \\
+ME-Attn (meas.) & 83.4 $\pm$ 8.7 & 98.0 $\pm$ 1.5 & 80.9 $\pm$ 8.2 \\
+ex tokens v2 & \underline{90.0 $\pm$ 10.9} & 98.4 $\pm$ 0.9 & \underline{86.1 $\pm$ 6.1} \\
+ex tokens + linear & 85.0 $\pm$ 9.5 & 98.8 $\pm$ 0.8 & 85.5 $\pm$ 6.8 \\
+hybrid conv attn & 78.1 $\pm$ 13.6 & 98.2 $\pm$ 0.9 & 84.7 $\pm$ 7.2 \\
+\midrule
+Highest-mean ours $-$ highest-mean baseline [95\% CI] & $-0.3$ [$-4.7$, $+3.0$] & $-0.2$ [$-0.4$, $-0.0$] & $-0.5$ [$-1.2$, $+0.3$] \\
+Highest-mean baseline & LR & SpectralFormer & RBF-SVM \\
+\midrule
+Units $n$ & 15 & 4 & 10 \\
+\bottomrule
+\end{tabular}

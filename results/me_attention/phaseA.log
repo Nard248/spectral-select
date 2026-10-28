@@ -1,0 +1,100 @@
+[20:09:35] sweep=sub3 jobs=33 skipped(done)=292 workers=8 gpu_workers=2
+[20:12:54] [1/33] lichens2_sub3/meas_tokens r3 f3 bacc=0.867 tune=172s final=24s | elapsed 3.3m ETA 106.6m
+[20:14:15] [2/33] lichens2_sub3/meas_tokens r3 f2 bacc=0.948 tune=205s final=72s | elapsed 4.7m ETA 72.5m
+[20:16:19] [3/33] lichens2_sub3/meas_tokens r3 f4 bacc=0.994 tune=165s final=39s | elapsed 6.7m ETA 67.4m
+[20:18:47] [4/33] lichens2_sub3/meas_tokens r4 f0 bacc=0.970 tune=190s final=81s | elapsed 9.2m ETA 66.7m
+[20:20:42] [5/33] lichens2_sub3/meas_tokens r4 f1 bacc=0.942 tune=191s final=71s | elapsed 11.1m ETA 62.3m
+[20:22:07] [6/33] lichens2_sub3/meas_tokens r4 f2 bacc=0.982 tune=171s final=28s | elapsed 12.5m ETA 56.4m
+[20:24:14] [7/33] lichens2_sub3/meas_tokens r4 f3 bacc=0.942 tune=167s final=45s | elapsed 14.7m ETA 54.5m
+[20:24:45] [8/33] lichens2_sub3/ex_tokens_lin r0 f0 bacc=0.983 tune=23s final=8s | elapsed 15.2m ETA 47.4m
+[20:25:04] [9/33] lichens2_sub3/ex_tokens_lin r0 f1 bacc=0.961 tune=16s final=2s | elapsed 15.5m ETA 41.3m
+[20:25:24] [10/33] lichens2_sub3/ex_tokens_lin r0 f2 bacc=0.896 tune=18s final=3s | elapsed 15.8m ETA 36.4m
+[20:25:53] [11/33] lichens2_sub3/ex_tokens_lin r0 f3 bacc=0.977 tune=21s final=8s | elapsed 16.3m ETA 32.6m
+[20:26:02] [12/33] lichens2_sub3/meas_tokens r4 f4 bacc=0.911 tune=177s final=58s | elapsed 16.4m ETA 28.8m
+[20:26:10] [13/33] lichens2_sub3/ex_tokens_lin r0 f4 bacc=0.971 tune=15s final=2s | elapsed 16.6m ETA 25.5m
+[20:26:23] [14/33] lichens2_sub3/ex_tokens_lin r1 f0 bacc=0.968 tune=17s final=4s | elapsed 16.8m ETA 22.8m
+[20:26:25] [15/33] lichens2_sub3/ex_tokens_lin r1 f1 bacc=0.974 tune=14s final=1s | elapsed 16.8m ETA 20.2m
+[20:26:41] [16/33] lichens2_sub3/ex_tokens_lin r1 f2 bacc=0.992 tune=15s final=2s | elapsed 17.1m ETA 18.2m
+[20:26:46] [17/33] lichens2_sub3/ex_tokens_lin r1 f3 bacc=0.998 tune=17s final=4s | elapsed 17.2m ETA 16.2m
+[20:27:02] [18/33] lichens2_sub3/ex_tokens_lin r1 f4 bacc=0.896 tune=16s final=5s | elapsed 17.5m ETA 14.5m
+[20:27:02] [19/33] lichens2_sub3/ex_tokens_lin r2 f0 bacc=0.905 tune=15s final=2s | elapsed 17.5m ETA 12.9m
+[20:27:24] [20/33] lichens2_sub3/ex_tokens_lin r2 f2 bacc=0.919 tune=17s final=4s | elapsed 17.8m ETA 11.6m
+[20:27:27] [21/33] lichens2_sub3/ex_tokens_lin r2 f1 bacc=0.967 tune=19s final=6s | elapsed 17.9m ETA 10.2m
+[20:27:44] [22/33] lichens2_sub3/ex_tokens_lin r2 f3 bacc=0.982 tune=16s final=4s | elapsed 18.2m ETA 9.1m
+[20:27:47] [23/33] lichens2_sub3/ex_tokens_lin r2 f4 bacc=0.976 tune=17s final=4s | elapsed 18.2m ETA 7.9m
+[20:28:05] [24/33] lichens2_sub3/ex_tokens_lin r3 f0 bacc=0.957 tune=17s final=4s | elapsed 18.5m ETA 6.9m
+[20:28:08] [25/33] lichens2_sub3/ex_tokens_lin r3 f1 bacc=0.968 tune=17s final=3s | elapsed 18.6m ETA 5.9m
+[20:28:19] [26/33] lichens2_sub3/ex_tokens_lin r3 f2 bacc=0.932 tune=13s final=1s | elapsed 18.7m ETA 5.0m
+[20:28:24] [27/33] lichens2_sub3/ex_tokens_lin r3 f3 bacc=0.936 tune=14s final=1s | elapsed 18.8m ETA 4.2m
+[20:28:38] [28/33] lichens2_sub3/ex_tokens_lin r3 f4 bacc=0.998 tune=16s final=4s | elapsed 19.1m ETA 3.4m
+[20:28:45] [29/33] lichens2_sub3/ex_tokens_lin r4 f0 bacc=0.979 tune=17s final=5s | elapsed 19.2m ETA 2.6m
+[20:28:56] [30/33] lichens2_sub3/ex_tokens_lin r4 f1 bacc=0.962 tune=16s final=2s | elapsed 19.4m ETA 1.9m
+[20:29:04] [31/33] lichens2_sub3/ex_tokens_lin r4 f2 bacc=0.987 tune=16s final=3s | elapsed 19.5m ETA 1.3m
+[20:29:18] [32/33] lichens2_sub3/ex_tokens_lin r4 f3 bacc=0.961 tune=16s final=5s | elapsed 19.7m ETA 0.6m
+[20:29:27] [33/33] lichens2_sub3/ex_tokens_lin r4 f4 bacc=0.946 tune=18s final=5s | elapsed 19.9m ETA 0.0m
+[20:29:28] done: ok=33 errors=0 wall=19.9m
+dataset            model                        bal.acc      macro-F1     spec.vote    n  err
+lichens2_sub3      cnn1d                   0.935+-0.037  0.933+-0.039  1.000+-0.000   25    0
+lichens2_sub3      ex_tokens_lin           0.960+-0.030  0.958+-0.033  1.000+-0.000   25    0
+lichens2_sub3      ex_tokens_v2            0.957+-0.036  0.955+-0.040  1.000+-0.000   25    0
+lichens2_sub3      hgb                     0.958+-0.021  0.958+-0.020  1.000+-0.000   25    0
+lichens2_sub3      hybrid_conv_attn        0.945+-0.029  0.943+-0.032  1.000+-0.000   25    0
+lichens2_sub3      knn                     0.953+-0.024  0.953+-0.024  1.000+-0.000   25    0
+lichens2_sub3      lr                      0.934+-0.054  0.930+-0.055  1.000+-0.000   25    0
+lichens2_sub3      meas_tokens             0.945+-0.035  0.942+-0.039  1.000+-0.000   25    0
+lichens2_sub3      mlp                     0.956+-0.029  0.955+-0.031  1.000+-0.000   25    0
+lichens2_sub3      rbfsvm                  0.966+-0.023  0.965+-0.024  1.000+-0.000   25    0
+lichens2_sub3      rf                      0.948+-0.026  0.950+-0.026  1.000+-0.000   25    0
+lichens2_sub3      smartattention_v0       0.949+-0.031  0.946+-0.031  1.000+-0.000   25    0
+lichens2_sub3      spectralformer          0.959+-0.029  0.958+-0.030  1.000+-0.000   25    0
+[20:29:31] sweep=recwl jobs=29 skipped(done)=0 workers=8 gpu_workers=2
+[20:29:46] [1/29] collagen_pepsin/ex_tokens_lin r0 f1 bacc=0.808 tune=11s final=1s | elapsed 0.2m ETA 6.9m
+[20:29:47] [2/29] collagen_pepsin/ex_tokens_lin r0 f0 bacc=0.911 tune=13s final=1s | elapsed 0.3m ETA 3.7m
+[20:29:57] [3/29] collagen_pepsin/ex_tokens_lin r0 f2 bacc=0.981 tune=10s final=1s | elapsed 0.4m ETA 3.8m
+[20:30:02] [4/29] collagen_pepsin/ex_tokens_lin r1 f0 bacc=0.720 tune=13s final=2s | elapsed 0.5m ETA 3.2m
+[20:30:13] [5/29] collagen_pepsin/ex_tokens_lin r1 f1 bacc=0.963 tune=13s final=2s | elapsed 0.7m ETA 3.4m
+[20:30:14] [6/29] collagen_pepsin/ex_tokens_lin r1 f2 bacc=0.856 tune=11s final=1s | elapsed 0.7m ETA 2.7m
+[20:30:25] [7/29] collagen_pepsin/ex_tokens_lin r2 f1 bacc=0.753 tune=10s final=1s | elapsed 0.9m ETA 2.8m
+[20:30:26] [8/29] collagen_pepsin/ex_tokens_lin r2 f0 bacc=0.929 tune=11s final=2s | elapsed 0.9m ETA 2.4m
+[20:30:40] [9/29] collagen_pepsin/ex_tokens_lin r2 f2 bacc=0.769 tune=13s final=2s | elapsed 1.2m ETA 2.6m
+[20:30:41] [10/29] collagen_pepsin/ex_tokens_lin r3 f0 bacc=0.974 tune=13s final=2s | elapsed 1.2m ETA 2.2m
+[20:30:51] [11/29] collagen_pepsin/ex_tokens_lin r3 f2 bacc=0.909 tune=9s final=1s | elapsed 1.3m ETA 2.2m
+[20:30:56] [12/29] collagen_pepsin/ex_tokens_lin r3 f1 bacc=0.686 tune=14s final=1s | elapsed 1.4m ETA 2.0m
+[20:31:00] [13/29] collagen_pepsin/ex_tokens_lin r4 f0 bacc=0.776 tune=9s final=1s | elapsed 1.5m ETA 1.8m
+[20:31:10] [14/29] collagen_pepsin/ex_tokens_lin r4 f2 bacc=0.872 tune=8s final=1s | elapsed 1.6m ETA 1.8m
+[20:31:10] [15/29] collagen_pepsin/ex_tokens_lin r4 f1 bacc=0.846 tune=12s final=2s | elapsed 1.7m ETA 1.5m
+[20:31:24] [16/29] lichens2/ex_tokens_lin r0 f0 bacc=0.837 tune=13s final=1s | elapsed 1.9m ETA 1.5m
+[20:31:29] [17/29] lichens2/ex_tokens_lin r0 f1 bacc=0.882 tune=17s final=2s | elapsed 2.0m ETA 1.4m
+[20:31:41] [18/29] lichens2/ex_tokens_lin r1 f0 bacc=0.893 tune=15s final=2s | elapsed 2.2m ETA 1.3m
+[20:31:52] [19/29] lichens2/ex_tokens_lin r1 f1 bacc=0.852 tune=19s final=4s | elapsed 2.4m ETA 1.2m
+[20:31:56] [20/29] lichens2/ex_tokens_lin r2 f0 bacc=0.785 tune=13s final=1s | elapsed 2.4m ETA 1.1m
+[20:32:12] [21/29] lichens2/ex_tokens_lin r2 f1 bacc=0.824 tune=17s final=3s | elapsed 2.7m ETA 1.0m
+[20:32:18] [22/29] lichens2/ex_tokens_lin r3 f0 bacc=0.748 tune=17s final=4s | elapsed 2.8m ETA 0.9m
+[20:32:31] [23/29] lichens2/ex_tokens_lin r3 f1 bacc=0.950 tune=16s final=2s | elapsed 3.0m ETA 0.8m
+[20:32:36] [24/29] lichens2/ex_tokens_lin r4 f0 bacc=0.814 tune=16s final=3s | elapsed 3.1m ETA 0.6m
+[20:32:58] [25/29] lichens2/ex_tokens_lin r4 f1 bacc=0.959 tune=20s final=6s | elapsed 3.4m ETA 0.6m
+[20:33:18] [26/29] lichens1/ex_tokens_lin r0 f0 bacc=0.995 tune=37s final=3s | elapsed 3.8m ETA 0.4m
+[20:33:38] [27/29] lichens1/ex_tokens_lin r0 f1 bacc=0.978 tune=37s final=3s | elapsed 4.1m ETA 0.3m
+[20:34:15] [28/29] lichens1/ex_tokens_lin r0 f2 bacc=0.994 tune=51s final=6s | elapsed 4.7m ETA 0.2m
+[20:34:21] [29/29] lichens1/ex_tokens_lin r0 f3 bacc=0.985 tune=39s final=3s | elapsed 4.8m ETA 0.0m
+[20:34:22] done: ok=29 errors=0 wall=4.8m
+dataset            model                        bal.acc      macro-F1     spec.vote    n  err
+collagen_pepsin    ex_tokens_lin           0.850+-0.095  0.836+-0.116  0.911+-0.153   15    0
+collagen_pepsin    ex_tokens_v2            0.900+-0.109  0.893+-0.120  0.911+-0.153   15    0
+collagen_pepsin    hybrid_conv_attn        0.781+-0.136  0.766+-0.145  0.800+-0.246   15    0
+collagen_pepsin    meas_tokens             0.834+-0.087  0.826+-0.090  0.933+-0.187   15    0
+collagen_pepsin    smartattention_v0       0.811+-0.128  0.792+-0.148  0.867+-0.169   15    0
+collagen_pepsin    spatial_attn            0.910+-0.143  0.896+-0.174  0.944+-0.136    6    0
+lichens1           ex_tokens_lin           0.988+-0.008  0.987+-0.010  1.000+-0.000    4    0
+lichens1           ex_tokens_v2            0.984+-0.009  0.984+-0.009  1.000+-0.000    4    0
+lichens1           hybrid_conv_attn        0.982+-0.009  0.983+-0.009  1.000+-0.000    4    0
+lichens1           meas_tokens             0.980+-0.015  0.980+-0.016  1.000+-0.000    4    0
+lichens1           smartattention_v0       0.992+-0.002  0.992+-0.003  1.000+-0.000    4    0
+lichens1           spatial_attn            0.991+-0.008  0.991+-0.008  1.000+-0.000    4    0
+lichens2           ex_tokens_lin           0.855+-0.068  0.850+-0.063  0.923+-0.061   10    0
+lichens2           ex_tokens_v2            0.861+-0.061  0.850+-0.056  0.938+-0.067   10    0
+lichens2           hybrid_conv_attn        0.847+-0.072  0.834+-0.065  0.936+-0.069   10    0
+lichens2           meas_tokens             0.809+-0.082  0.788+-0.099  0.907+-0.066   10    0
+lichens2           smartattention_v0       0.845+-0.059  0.834+-0.062  0.929+-0.066   10    0
+lichens2           spatial_attn            0.863+-0.028  0.832+-0.052  0.873+-0.075    4    0
+PHASE_A_DONE
