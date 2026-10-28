@@ -56,8 +56,14 @@ Windows it is usually a drive letter such as `G:\My Drive\...`; on macOS it is
 `~/Library/CloudStorage/GoogleDrive-*/My Drive/...`. Copy (don't symlink) the four `.npz` files into
 `results/me_attention/cache/`, and verify them there against `SHA256SUMS` (`shasum -a 256 -c`, or `certutil -hashfile
 <f> SHA256` on Windows). If Drive streams files on demand, make sure they are fully downloaded first. The loader uses
-these caches and does not need `Data/`. If the folder is missing or a checksum fails, stop and ask the user. Do not
-rebuild the caches from anything else.
+these caches and does not need `Data/`. If the folder is missing, stop and ask the user.
+
+Fallback, only if a cache checksum fails: the same Drive folder also holds the processed datasets
+(`processed/Collagen Pepsin`, `Collagen_Acetic_Acid`, `Lichens Dataset 1`, `Lichens_2`) and the raw acquisitions
+(`raw/`). Copy `processed/*` into `<repo>/Data/processed/`, delete the bad cache file, and let the loader rebuild it.
+Use `ME_ATTENTION_RECORDED_WL=1` for the `*_recwl` caches and no variable for `lichens2_sub3`. Compare the rebuilt
+cache's `X.shape`, `y` counts and specimen counts with the laptop values: `lichens2_sub3` is 13,530 px, 5/5/5
+specimens, 5385/3608/4537 px. Note the rebuild in the report.
 
 Sanity checks before training:
 
