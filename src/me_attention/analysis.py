@@ -29,20 +29,20 @@ import pandas as pd
 from .protocol import holm, stats_paired
 
 RESULTS_ROOT = Path("results/me_attention")
-DATASET_ORDER = ["collagen_pepsin", "lichens1", "lichens2", "collagen_acetic"]
+DATASET_ORDER = ["collagen_pepsin", "lichens1", "lichens2", "lichens2_sub3", "collagen_acetic"]
 DATASET_LABEL = {"collagen_pepsin": "Collagen Pepsin", "lichens1": "Lichens 1", "lichens2": "Lichens 2",
-                 "collagen_acetic": "Collagen Acetic (dev)"}
+                 "lichens2_sub3": "Lichens 2 (3-class subset)", "collagen_acetic": "Collagen Acetic (dev)"}
 DATASET_TAG = {"collagen_pepsin": "Pepsin", "lichens1": "LichensOne", "lichens2": "LichensTwo",
-               "collagen_acetic": "Acetic"}
+               "lichens2_sub3": "LichensTwoSub", "collagen_acetic": "Acetic"}
 TRACKS = ["spectral", "spatial"]
 MODEL_ORDER = ["lr", "linsvm", "rbfsvm", "rf", "et", "hgb", "knn", "mlp", "cnn1d", "spectralformer", "bandvit",
-               "smartattention_v0", "meas_tokens", "axial", "ex_tokens",
+               "smartattention_v0", "meas_tokens", "axial", "ex_tokens", "ex_tokens_v2", "ex_tokens_lin", "hybrid_conv_attn",
                "patchmean_lr", "patchmean_rbfsvm", "patchmean_rf", "cnn2d", "cnn3d", "hybridsn",
                "spectralformer_patch", "ssftt", "spatial_attn"]
 MODEL_LABEL = {"lr": "LR", "linsvm": "Linear SVM", "rbfsvm": "RBF-SVM", "rf": "RF", "et": "ET", "hgb": "HGB",
                "knn": "kNN", "mlp": "MLP", "cnn1d": "1D-CNN", "spectralformer": "SpectralFormer",
                "bandvit": "Band-ViT", "smartattention_v0": "SmartAttn v0", "meas_tokens": "ME-Attn (meas.)",
-               "axial": "ME-Attn (axial)", "ex_tokens": "ME-Attn (ex-tok.)", "spatial_attn": "ME-Attn (spatial)",
+               "axial": "ME-Attn (axial)", "ex_tokens": "ME-Attn (ex-tok.)", "ex_tokens_lin": "ex tokens + linear", "spatial_attn": "ME-Attn (spatial)",
                "patchmean_lr": "Patch-mean LR", "patchmean_rbfsvm": "Patch-mean SVM", "patchmean_rf": "Patch-mean RF",
                "cnn2d": "2D-CNN", "cnn3d": "3D-CNN", "hybridsn": "HybridSN", "spectralformer_patch": "SpectralFormer-P",
                "ssftt": "SSFTT"}

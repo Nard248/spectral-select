@@ -370,14 +370,36 @@ def _ex_tokens_factory(meta, cfg):
     return ex_tokens_factory(meta, cfg)
 
 
+class _LinearShortcut(nn.Module):
+    """logits = inner(x) + Linear(F, C)(x); shortcut zero-initialised so training starts identical to inner."""
+
+    def __init__(self, inner: nn.Module, n_features: int, n_classes: int):
+        super().__init__()
+        self.inner = inner
+        self.shortcut = nn.Linear(n_features, n_classes)
+        nn.init.zeros_(self.shortcut.weight)
+        nn.init.zeros_(self.shortcut.bias)
+
+    def forward(self, x):
+        return self.inner(x) + self.shortcut(x)
+
+
+def _ex_tokens_lin_factory(meta, cfg):
+    return _LinearShortcut(_ex_tokens_factory(meta, cfg), int(meta["n_features"]), int(meta["n_classes"]))
+
+
+_EX_TOKENS_V2_SPACE = dict(dim=[32, 64], depth=[2, 3], sub_tokens=[1, 2], dropout=[0.1, 0.3])
+_EX_TOKENS_V2_DEFAULT = dict(dim=64, depth=3, heads=4, mlp_ratio=2, dropout=0.1, drop_path=0.0, n_freq=8,
+                             ex_embed="linear", sub_tokens=1, pool="cls", token_drop=0.1)
+
 ATTENTION_V2_MODELS: dict[str, ModelSpec] = {s.name: s for s in [
     _spec_v2("hybrid_conv_attn", hybrid_factory,
              dict(dim=[32, 64], depth=[1, 2, 3], n_chunks=[4, 6, 8], dropout=[0.1, 0.3]),
              dict(_HYB_DEFAULT, dim=64, depth=2, n_chunks=6),
              "shared emission conv per excitation -> (excitation, chunk) tokens -> transformer (CLS)"),
     _spec_v2("ex_tokens_v2", _ex_tokens_factory,
-             dict(dim=[32, 64], depth=[2, 3], sub_tokens=[1, 2], dropout=[0.1, 0.3]),
-             dict(dim=64, depth=3, heads=4, mlp_ratio=2, dropout=0.1, drop_path=0.0, n_freq=8, ex_embed="linear",
-                  sub_tokens=1, pool="cls", token_drop=0.1),
+             _EX_TOKENS_V2_SPACE, _EX_TOKENS_V2_DEFAULT,
              "excitation tokens (dev: best existing attention variant) trained with the dev-selected preprocessing/aug"),
+    _spec_v2("ex_tokens_lin", _ex_tokens_lin_factory, _EX_TOKENS_V2_SPACE, _EX_TOKENS_V2_DEFAULT,
+             "ex_tokens_v2 plus a zero-initialised linear shortcut on the flat input added to the logits"),
 ]}

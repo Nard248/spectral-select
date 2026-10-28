@@ -28,6 +28,12 @@ DATASETS: dict[str, dict[str, Any]] = {
     "collagen_pepsin": dict(kind="png", dir="Collagen Pepsin", pkl="spectra_masked.pkl"),
     "lichens1": dict(kind="png", dir="Lichens Dataset 1", pkl="spectra_masked.pkl"),
     "lichens2": dict(kind="npy", dir="Lichens_2", pkl="data_cutoff_40nm_exposure_max_power_min.pkl"),
+    # Lichens 2 restricted to the cleanly annotated block (2026-10-28, user's selection): rows 2-4 x columns 1-5 of the
+    # 4x7 piece layout = the green, blue and yellow classes, five pieces each (components 9-13, 14 16-19, 21-25).
+    # Always uses the recorded emission axis and corrects the 400 nm exposure (metadata 12.5 ms, .im3 125 ms).
+    "lichens2_sub3": dict(kind="npy", dir="Lichens_2", pkl="data_cutoff_40nm_exposure_max_power_min.pkl",
+                          region=(70, None, 0, 261), keep_classes=(1, 2, 3), recorded_wl=True,
+                          cube_scale={400.0: 0.1}, wl_key="lichens2"),
 }
 
 # Emission-axis correction (dataset audit 2026-10-22, docs/datasets/audit_2026-10-22). The processed pickles were made by a
@@ -174,6 +180,14 @@ def load(key: str, use_cache: bool = True, data_root: Path | None = None,
     cfg = DATASETS[key]
     d = Path(data_root or DATA_ROOT) / cfg["dir"]
     class_map, names = (_class_map_png if cfg["kind"] == "png" else _class_map_npy)(d)
+    if "keep_classes" in cfg:
+        r0, r1, c0, c1 = cfg["region"]
+        inside = np.zeros(class_map.shape, bool)
+        inside[r0:r1, c0:c1] = True
+        new = np.full(class_map.shape, -1, dtype=class_map.dtype)
+        for i, c in enumerate(cfg["keep_classes"]):
+            new[(class_map == c) & inside] = i
+        class_map, names = new, [names[c] for c in cfg["keep_classes"]]
     n_classes = len(names)
     spec_map, spec_classes, dropped_px, dropped_n = specimens_from_class_map(class_map, n_classes, min_specimen_pixels)
     fg = spec_map >= 0
@@ -184,9 +198,12 @@ def load(key: str, use_cache: bool = True, data_root: Path | None = None,
     for ex in raw["excitation_wavelengths"]:
         entry = raw["data"][str(float(ex))]
         wl = _wavelength_vector(entry, ex)
-        if use_recorded_wavelengths():
-            wl = wl + RECORDED_WL_OFFSET.get(key, {}).get(float(ex), 0.0)
-        cubes.append((float(ex), np.asarray(entry["cube"]), wl))
+        if use_recorded_wavelengths() or cfg.get("recorded_wl"):
+            wl = wl + RECORDED_WL_OFFSET.get(cfg.get("wl_key", key), {}).get(float(ex), 0.0)
+        cube = np.asarray(entry["cube"])
+        if float(ex) in cfg.get("cube_scale", {}):
+            cube = cube * cfg["cube_scale"][float(ex)]
+        cubes.append((float(ex), cube, wl))
     if "mask" in raw:
         sm = np.asarray(raw["mask"]).astype(bool)
         if sm.shape != fg.shape:
@@ -200,7 +217,7 @@ def load(key: str, use_cache: bool = True, data_root: Path | None = None,
     groups = spec_map[rows, cols].astype(np.int64)
     assert (spec_classes[groups] == y).all()
     info = dict(
-        source=str(Path(cfg["dir"]) / cfg["pkl"]), recorded_wavelengths=use_recorded_wavelengths(), dropped_px=int(dropped_px), dropped_components=int(dropped_n),
+        source=str(Path(cfg["dir"]) / cfg["pkl"]), recorded_wavelengths=bool(use_recorded_wavelengths() or cfg.get("recorded_wl")), dropped_px=int(dropped_px), dropped_components=int(dropped_n),
         min_specimen_pixels=min_specimen_pixels, n_nonfinite=int((~np.isfinite(X)).sum()),
         specimens_per_class=np.bincount(spec_classes, minlength=n_classes).tolist())
     data = MEData(
