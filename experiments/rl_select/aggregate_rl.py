@@ -13,11 +13,13 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-RES = ROOT / "results" / "rl_select"
+from rl_select import paths
+
+ROOT = paths.ROOT
+RES = paths.results_root()
 OUT = RES / "summary"
 NS = (3, 5, 8, 13)
-DS = ("lichens1", "lichens2", "collagen_acetic", "collagen_pepsin")
+DS = paths.datasets()
 LF = ("variance", "uniform_grid", "spa", "css_greedy", "css_greedy_pc", "mmr_var")
 RLV = tuple(f"{b}{s}{k}" for s in ("", "_nowl") for b in ("rl_add", "rl_addremove", "rl_addremove_css") for k in ("", "_k16"))
 

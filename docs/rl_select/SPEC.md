@@ -33,8 +33,10 @@ no pair has |λem − 2λex| ≤ 40 nm), so `valid` = all True by default.
 | collagen_acetic | 46670 | 149 | 3 | 9 (3,3,3) | 3 |
 | collagen_pepsin | 39970 | 158 | 3 | 9 (3,3,3) | 3 |
 
-Lichens1 and Lichens2 image the same lichen specimens with different optics/processing (note this when
-interpreting Lichens1↔Lichens2 transfer; the strict test is cross-family Lichens↔Collagen).
+Lichens1 and Lichens2 are SEPARATE acquisitions (Lichens1 = Zenodo 18640119 palette, 2025-07-07; Lichens2 =
+2026-01-09, unpublished, class taxa not recorded; corrected 2026-10-28, see docs/datasets/audit_2026-10-22/). Same
+sample family and instrument, so Lichens1↔Lichens2 transfer is near-domain; the strict test is cross-family
+Lichens↔Collagen.
 
 **Preprocessing (per task, fit on training pixels only):** `L = log1p(clip(X, 0))`; `raw_logmean/std` =
 per-feature mean/std of L on training pixels; X = (L − mean)/std (std floored at 1e-6) for train and test.

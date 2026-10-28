@@ -15,7 +15,7 @@ import numpy as np
 @dataclass
 class Task:
     name: str                    # e.g. "lichens1/r0/f2"
-    dataset: str                 # cache key: lichens1 | lichens2 | collagen_acetic | collagen_pepsin
+    dataset: str                 # cache key: lichens1 | lichens2_sub3 | collagen_acetic | collagen_pepsin
     repeat: int
     fold: int
     # --- selection side (training specimens of the outer fold) ---

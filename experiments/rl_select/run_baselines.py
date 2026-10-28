@@ -16,6 +16,7 @@ for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS", 
 
 import argparse
 import json
+import sys
 import time
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -24,8 +25,11 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-RES = ROOT / "results" / "rl_select"
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from rl_select import paths  # noqa: E402
+
+ROOT = paths.ROOT
+RES = paths.results_root()   # env RL_SELECT_RESULTS
 NS = (3, 5, 8, 13)
 B1 = 5000
 B3 = (25, 50, 100, 200, 400)
@@ -148,7 +152,7 @@ def run_main(jobs: int, datasets, repeats) -> None:
             for f in range(n_outer_folds(ds)):
                 for n in NS:
                     units.append((ds, r, f, n, done, dict(CFG)))
-    units.sort(key=lambda u: (u[0] != "lichens1", u[1], u[2], u[3]))  # heavy dataset first
+    units.sort(key=lambda u: (u[0] != "lichens1", u[0], u[1], u[2], u[3]))  # heavy dataset first
     print(f"{len(units)} units, {len(done)} rows already done", flush=True)
     t0 = time.time(); nrows = 0
     with ProcessPoolExecutor(jobs) as ex:
@@ -186,15 +190,13 @@ def run_exact(jobs: int, datasets) -> None:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--phase", choices=("main", "exact"), default="main")
-    ap.add_argument("--jobs", type=int, default=6)
-    ap.add_argument("--datasets", nargs="*", default=["lichens1", "lichens2", "collagen_acetic", "collagen_pepsin"])
+    ap.add_argument("--jobs", type=int, default=paths.workers())
+    ap.add_argument("--datasets", nargs="*", default=list(paths.datasets()))
     ap.add_argument("--repeats", nargs="*", type=int, default=[0, 1, 2])
     ap.add_argument("--s3-seeds", type=int, default=3)
     ap.add_argument("--ga-seeds", type=int, default=3)
     ap.add_argument("--no-s2-rf", action="store_true")
     a = ap.parse_args()
     CFG.update(s3_seeds=a.s3_seeds, ga_seeds=a.ga_seeds, s2_rf=not a.no_s2_rf)
-    if a.jobs > 6:
-        raise SystemExit("machine constraint: at most 6 workers")
     (RES / "logs").mkdir(parents=True, exist_ok=True)
     run_main(a.jobs, a.datasets, a.repeats) if a.phase == "main" else run_exact(a.jobs, a.datasets)

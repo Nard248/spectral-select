@@ -5,14 +5,15 @@ from pathlib import Path
 
 import numpy as np
 
-RES = Path(__file__).resolve().parents[2] / "results" / "rl_select"
-DS = ("lichens1", "lichens2", "collagen_acetic", "collagen_pepsin")
+from rl_select import paths
+
+RES = paths.results_root()
+DS = paths.datasets()
 NS = (3, 5, 8, 13)
 V3 = ["rl_add_aug", "rl_addremove_aug", "rl_addremove_css_aug", "rl_addremove_mix_aug"]
 V2OF = {"rl_add_aug": "rl_add_nowl", "rl_addremove_aug": "rl_addremove_nowl",
         "rl_addremove_css_aug": "rl_addremove_css_nowl", "rl_addremove_mix_aug": "rl_addremove_nowl"}
-SCEN = {"lichens1": ["C2L", "lodo"], "lichens2": ["C2L", "lodo"], "collagen_acetic": ["L2C", "lodo"],
-        "collagen_pepsin": ["L2C", "lodo"]}
+SCEN = {d: [paths.cross_of(DS)[d], "lodo"] for d in DS}
 
 
 def rows(path):

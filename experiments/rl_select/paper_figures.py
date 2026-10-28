@@ -20,20 +20,21 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+from rl_select import paths
 from rl_select.stats import holm, stats_paired
 
-ROOT = Path(__file__).resolve().parents[2]
-RES = ROOT / "results" / "rl_select"
-PUB = ROOT / "publications" / "rl_band_selection"
+ROOT = paths.ROOT
+RES = paths.results_root()      # env RL_SELECT_RESULTS (v2: results/rl_select_v2)
+PUB = paths.paper_out()         # legacy root -> publications/rl_band_selection, else <root>/paper
 FIG = PUB / "figures"
 TAB = PUB / "tables"
 FIG.mkdir(parents=True, exist_ok=True)
 TAB.mkdir(parents=True, exist_ok=True)
 
-DS = ("lichens1", "lichens2", "collagen_acetic", "collagen_pepsin")
-DSN = {"lichens1": "Lichens 1", "lichens2": "Lichens 2", "collagen_acetic": "Collagen-AA",
+DS = paths.datasets()
+DSN = {"lichens1": "Lichens 1", "lichens2": "Lichens 2 (full)", "lichens2_sub3": "Lichens 2", "collagen_acetic": "Collagen-AA",
        "collagen_pepsin": "Collagen-P"}
-CROSS = {"lichens1": "C2L", "lichens2": "C2L", "collagen_acetic": "L2C", "collagen_pepsin": "L2C"}
+CROSS = paths.cross_of(DS)
 NS = (3, 5, 8, 13)
 W1, W2 = 3.5, 7.16
 
@@ -174,7 +175,7 @@ def s2_cell(name, ds, n):
 
 # ----------------------------------------------------------------------------- Fig A
 def fig_transfer():
-    fig, axs = plt.subplots(1, 4, figsize=(W2, 2.2), sharey=False)
+    fig, axs = plt.subplots(1, len(DS), figsize=(W2, 2.2), sharey=False)
     methods = ["random", "css_greedy", "uniform_grid", "rl_add_nowl_k16", "rl_addremove_nowl_k16"]
     if V3:
         methods.append("v3")
@@ -226,7 +227,7 @@ def s3_units(base, ds, n, B):
 
 
 def fig_fewshot():
-    fig, axs = plt.subplots(1, 4, figsize=(W2, 2.2))
+    fig, axs = plt.subplots(1, len(DS), figsize=(W2, 2.2))
     for ax, ds in zip(axs, DS):
         for k, mth in enumerate(FEW):
             st = STY[mth]
@@ -363,13 +364,15 @@ def fig_training():
 
 # ----------------------------------------------------------------------------- Fig D
 def fig_eem():
-    z = np.load(RES / "cache" / "lichens1.npz", allow_pickle=True)
+    z = np.load(paths.cache_dir() / "lichens1.npz", allow_pickle=True)
     ex, em = z["ex_nm"], z["em_nm"].astype(float).copy()
+    recorded = bool(json.loads(str(z["meta"])).get("info", {}).get("recorded_wavelengths", False))
     # plot on the emission wavelengths recorded in the .im3 headers (dataset audit 2026-10-22); the cached labels of
     # the 385-430 nm cubes are shifted. Feature identity (and thus every selection) is unchanged.
-    from me_attention.data import RECORDED_WL_OFFSET
-    for e_nm, off in RECORDED_WL_OFFSET["lichens1"].items():
-        em[ex == e_nm] += off
+    if not recorded:   # legacy cache: shift to the recorded axis; recwl caches already carry it
+        from me_attention.data import RECORDED_WL_OFFSET
+        for e_nm, off in RECORDED_WL_OFFSET["lichens1"].items():
+            em[ex == e_nm] += off
     uex, uem = np.unique(ex), np.unique(em)
     ie = np.searchsorted(uex, ex)
     im = np.searchsorted(uem, em)

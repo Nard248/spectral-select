@@ -14,10 +14,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[2]
-RES = ROOT / "results" / "rl_select"
+from rl_select import paths
+
+ROOT = paths.ROOT
+RES = paths.results_root()
 OUT = RES / "summary"
-NFEAT = {"lichens1": 192, "lichens2": 210, "collagen_acetic": 149, "collagen_pepsin": 158}
+NFEAT = {"lichens1": 192, "lichens2": 210, "lichens2_sub3": 210, "collagen_acetic": 149, "collagen_pepsin": 158}
 LABEL_FREE = ("random", "variance", "uniform_grid", "spa", "css_greedy", "css_greedy_pc", "mmr_var")
 METRICS = ["knn_ba", "knn_f1", "lda_ba", "svm_ba", "rf_ba", "inner_J", "n_distinct_exc", "R_corr", "jrecon",
            "n_evals", "runtime_s"]

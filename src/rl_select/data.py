@@ -6,17 +6,19 @@ from pathlib import Path
 
 import numpy as np
 
+from . import paths
 from .types import Task
 
-DATASETS = ("lichens1", "lichens2", "collagen_acetic", "collagen_pepsin")
-CACHE_DIR = Path(__file__).resolve().parents[2] / "results" / "rl_select" / "cache"
+DATASETS = paths.datasets()          # the study's dataset list (env RL_SELECT_DATASETS)
+KNOWN_DATASETS = paths.KNOWN_DATASETS  # also loadable (e.g. full ``lichens2`` for comparison)
+CACHE_DIR = paths.cache_dir()           # env RL_SELECT_CACHE, default results/rl_select/cache_recwl
 
 
 @lru_cache(maxsize=4)
 def load_dataset(key: str) -> dict:
     """Load a dataset cache as a plain dict of arrays (read-only by convention)."""
-    if key not in DATASETS:
-        raise ValueError(f"unknown dataset {key!r}; expected one of {DATASETS}")
+    if key not in KNOWN_DATASETS:
+        raise ValueError(f"unknown dataset {key!r}; expected one of {KNOWN_DATASETS}")
     path = CACHE_DIR / f"{key}.npz"
     if not path.exists():
         raise FileNotFoundError(path)

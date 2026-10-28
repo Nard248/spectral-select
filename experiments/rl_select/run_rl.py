@@ -29,11 +29,15 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
-RES = ROOT / "results" / "rl_select"
+from rl_select import paths  # noqa: E402
+
+ROOT = paths.ROOT
+RES = paths.results_root()          # env RL_SELECT_RESULTS (v2 rerun: results/rl_select_v2)
 POL = RES / "policies"
 NS = (3, 5, 8, 13)
-DATASETS = ("lichens1", "lichens2", "collagen_acetic", "collagen_pepsin")
+DATASETS = paths.datasets()         # env RL_SELECT_DATASETS; default lichens1, lichens2_sub3, collagen_*
+SEEDS = paths.seeds()               # env RL_SELECT_SEEDS; default 0,1,2
+WORKERS = paths.workers()           # env RL_SELECT_WORKERS
 B3 = (25, 50, 100, 200, 400)
 N_UPDATES = 250
 VARIANTS = {  # name -> (mode, init, feat); *_nowl = wavelength-agnostic features (ex/em/stokes zeroed)
@@ -44,10 +48,7 @@ VARIANTS = {  # name -> (mode, init, feat); *_nowl = wavelength-agnostic feature
     "rl_addremove_nowl": ("addremove", "empty", "nowl"),
     "rl_addremove_css_nowl": ("addremove", "css_greedy", "nowl"),
 }
-POOLS = {  # source name -> (training datasets, targets)
-    "C2L": (("collagen_acetic", "collagen_pepsin"), ("lichens1", "lichens2")),
-    "L2C": (("lichens1", "lichens2"), ("collagen_acetic", "collagen_pepsin")),
-}
+POOLS = dict(paths.cross_pools(DATASETS))  # C2L / L2C: source name -> (training datasets, targets)
 for _t in DATASETS:
     POOLS[f"lodo-{_t}"] = (tuple(d for d in DATASETS if d != _t), (_t,))
 
@@ -335,13 +336,8 @@ def run_job(kind, args):
 
 # ------------------------------------------------------------------------------------------- scheduler
 def width() -> int:
-    ps = subprocess.run(["pgrep", "-if", "^[^ ]*python.*run_baselines.py"], capture_output=True, text=True).stdout.split()
-    base = 5 if ps else 8
-    try:
-        res = int((RES / "logs" / "reserve").read_text().strip() or 0)
-    except (FileNotFoundError, ValueError):
-        res = 0
-    return max(1, base - res)
+    """Concurrent jobs. Fixed by RL_SELECT_WORKERS / --workers (the old pgrep/reserve laptop rule is gone)."""
+    return WORKERS
 
 
 def schedule(initial: list, followups=None, label="") -> None:
@@ -353,7 +349,7 @@ def schedule(initial: list, followups=None, label="") -> None:
     t0 = time.time()
     nrows = ndone = 0
     ntot = len(heap)
-    with ProcessPoolExecutor(8) as ex:
+    with ProcessPoolExecutor(WORKERS) as ex:
         while heap or running:
             lim = width()
             while heap and len(running) < lim:
@@ -380,22 +376,19 @@ def schedule(initial: list, followups=None, label="") -> None:
 
 # ------------------------------------------------------------------------------------------- phases
 def s2_order(seeds):
-    """(priority, source, variant, seed). nowl is the primary grid; full-feature kept as ablation."""
-    order = [(0, "C2L", "rl_add_nowl", 0), (0, "C2L", "rl_addremove_nowl", 0)]
-    for src in POOLS:
-        if src != "C2L":
-            for v in ("rl_add_nowl", "rl_addremove_nowl"):
-                order.append((1, src, v, 0))
-    for src in POOLS:
-        order.append((2, src, "rl_addremove_css_nowl", 0))
+    """(priority, source, variant, seed). Every variant x source x seed is trained (default 3 seeds).
+    nowl is the primary grid (cross-family first); full-feature variants are the ablation (last)."""
+    order = []
     for sd in seeds:
-        if sd:
-            for src in POOLS:
-                for v in ("rl_add_nowl", "rl_addremove_nowl"):
-                    order.append((3, src, v, sd))
-    for src in POOLS:            # full-feature ablation, seed 0 only (finished ones just deploy)
-        for v in ("rl_add", "rl_addremove"):
-            order.append((3.5, src, v, 0))
+        base = sd * 10                      # seed 0 completes everything before seed 1, etc.
+        for src in POOLS:
+            for v in ("rl_add_nowl", "rl_addremove_nowl"):
+                order.append((base + (0 if src in ("C2L", "L2C") else 1), src, v, sd))
+        for src in POOLS:
+            order.append((base + 2, src, "rl_addremove_css_nowl", sd))
+        for src in POOLS:
+            for v in ("rl_add", "rl_addremove", "rl_addremove_css"):
+                order.append((base + 3.5, src, v, sd))
     return order
 
 
@@ -434,9 +427,11 @@ def run_s1():
 
 
 def run_abl():
+    from rl_select.data import n_outer_folds
     done = load_done()
-    init = [(2, "oracle", (f,)) for f in range(3)]
-    for f in range(3):
+    nf = n_outer_folds("collagen_acetic")
+    init = [(2, "oracle", (f,)) for f in range(nf)]
+    for f in range(nf):
         for m in ABL:
             if not m.endswith("_oracle"):
                 init.append((2.2, "abl", (f, m, done)))
@@ -449,8 +444,9 @@ def run_abl():
 
 
 def run_s4():
+    from rl_select.data import n_outer_folds
     done = load_done()
-    init = [(5, "s4", (f, mu, m, done)) for f in range(4) for mu in MUS for m in ("rl_addremove", "sa")]
+    init = [(5, "s4", (f, mu, m, done)) for f in range(n_outer_folds("lichens1")) for mu in MUS for m in ("rl_addremove", "sa")]
     return init, None
 
 
@@ -533,9 +529,12 @@ def run_pilot():
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("phase", nargs="+", choices=("s2", "s1", "abl", "s4", "pilot", "all"))
-    ap.add_argument("--seeds", nargs="*", type=int, default=[0, 1])
+    ap.add_argument("--seeds", nargs="*", type=int, default=list(SEEDS), help="policy training seeds (default 0 1 2)")
+    ap.add_argument("--workers", type=int, default=None)
     ap.add_argument("--no-s3", action="store_true")
     a = ap.parse_args()
+    if a.workers:
+        WORKERS = a.workers
     (RES / "logs").mkdir(parents=True, exist_ok=True)
     if a.phase == ["pilot"]:
         run_pilot()

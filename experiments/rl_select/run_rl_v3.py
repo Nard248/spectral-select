@@ -1,7 +1,8 @@
 """RL iteration v3: task-augmented meta-training + the same label-free S2 deployment as run_rl.py.
 
   PYTHONPATH=src python experiments/rl_select/run_rl_v3.py run [--workers 4] [--updates 400]
-Policies -> results/rl_select/policies_v3/<src>_<variant>_s0 ; rows -> results/rl_select/S2/<dataset>_rl_v3.jsonl
+Policies -> <results root>/policies_v3/<src>_<variant>_s<seed> ; rows -> <results root>/S2/<dataset>_rl_v3.jsonl
+(results root: env RL_SELECT_RESULTS; seeds: --seeds / env RL_SELECT_SEEDS, default 0 1 2; workers: --workers)
 """
 from __future__ import annotations
 
@@ -109,15 +110,16 @@ def run_job(kind, args):
     return rows, time.time() - t0
 
 
-def main(workers, n_upd, seed=0):
+def main(workers, n_upd, seeds=(0,)):
     done = load_done()
     srcs = ["C2L", "L2C"] + [s for s in R.POOLS if s.startswith("lodo")]
     prio = {s: (0 if s in ("C2L", "L2C") else 1) for s in srcs}
     vorder = ["rl_addremove_aug", "rl_add_aug", "rl_addremove_css_aug", "rl_addremove_mix_aug"]
     heap, cnt = [], itertools.count()
-    for s in srcs:
-        for k, v in enumerate(vorder):
-            heapq.heappush(heap, (prio[s] * 10 + k, next(cnt), "train", (s, v, seed, n_upd)))
+    for seed in seeds:
+        for s in srcs:
+            for k, v in enumerate(vorder):
+                heapq.heappush(heap, (seed * 100 + prio[s] * 10 + k, next(cnt), "train", (s, v, seed, n_upd)))
     running, nrows, t0 = {}, 0, time.time()
     with ProcessPoolExecutor(workers) as ex:
         while heap or running:
@@ -146,8 +148,10 @@ def main(workers, n_upd, seed=0):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("phase", choices=("run",))
-    ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--workers", type=int, default=R.WORKERS)
     ap.add_argument("--updates", type=int, default=N_UPDATES)
+    ap.add_argument("--seeds", nargs="*", type=int, default=list(R.SEEDS))
     a = ap.parse_args()
     POL3.mkdir(parents=True, exist_ok=True)
-    main(min(a.workers, 4), a.updates)
+    (RES / "S2").mkdir(parents=True, exist_ok=True)
+    main(a.workers, a.updates, tuple(a.seeds))
