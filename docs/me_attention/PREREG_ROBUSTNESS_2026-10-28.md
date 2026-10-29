@@ -91,3 +91,34 @@ only, never from the model. Excitation block = all features of one excitation (`
 ## Deviations
 
 (append below: date, what changed, why)
+
+- **2026-10-28 (remote GPU session).** Two implementation deviations logged ahead of the run, in
+  `docs/me_attention/PHASEB_IMPL_SPEC.md` section 2 (T1's subset count when fewer than 10 exist; the
+  T1 imputation value's "maps to 0" property holds only for `norm="none"` configs, not every tuned
+  config; C(b) level validity checked per fold, not just per dataset). None change a condition,
+  level, hypothesis or the decision rule.
+- **2026-10-28 (remote GPU session), user-directed.** `collagen_pepsin` (secondary dataset) dropped
+  from the robustness run on the user's explicit instruction ("For the Collagen Datasets you can
+  drop it, the most important part is to run on the right datasets ... of the lichens"), to focus
+  compute on the lichens datasets. This removes 15 units x 13 models from the secondary/exploratory
+  results only -- the 20 confirmatory tests are unaffected, since both are defined on
+  `{lichens2_sub3, lichens2}`, not `collagen_pepsin`. `lichens1` (also secondary) is unaffected and
+  still runs. No condition, level, hypothesis or the decision rule changed. The Collagen
+  keep-or-drop recommendation in the Phase C report will therefore be the *clean*-sweep comparison
+  only (already complete, see `results/me_attention/analysis_final_recwl`), with no robustness
+  evidence for or against Collagen.
+- **2026-10-29 (remote GPU session), user-directed.** `lichens2` (full 5-class) also dropped from
+  the robustness run on the user's explicit instruction ("no need to do the lichens 2 full 5
+  class"), to concentrate compute on `lichens2_sub3` and `lichens1`. This is a bigger change than
+  the Collagen drop: `lichens2` was one of the two **primary** datasets, and the pre-registration's
+  "2 x 5 x 2 = 20" confirmatory design is defined on `{lichens2_sub3, lichens2} x {T1,T2,T3,L,C} x
+  {ex_tokens_v2, ex_tokens_lin}`. With `lichens2` dropped, only the 10 `lichens2_sub3` confirmatory
+  tests are actually run; the other 10 (`lichens2`) will show as "missing" in
+  `tab_confirmatory` -- not fabricated, not omitted, exactly as the pre-registration's own honesty
+  rule requires. The decision rule (Delta>0 and Holm-adjusted p<0.05) and the Holm family are
+  otherwise unchanged; Holm is still computed across whatever confirmatory p-values actually exist.
+  Partial `lichens2` records already written before this change
+  (`results/me_attention/robust/lichens2/`: hgb, knn, lr, rbfsvm, rf, each complete 10/10 units) are
+  left on disk but excluded from this run's `--datasets` going forward and will not be force-added
+  to git. H1-H5 that reference `lichens2` specifically cannot be evaluated; the Phase C report will
+  say so plainly rather than silently basing them on `lichens2_sub3` alone.

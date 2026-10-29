@@ -722,8 +722,8 @@ def class_names_for(datasets) -> dict:
 
 # =============================================================================================== driver
 def write_tbl(T: Tbl, out: Path, name: str):
-    (out / f"{name}.tex").write_text(T.latex())
-    (out / f"{name}.md").write_text(T.markdown())
+    (out / f"{name}.tex").write_text(T.latex(), encoding="utf-8")
+    (out / f"{name}.md").write_text(T.markdown(), encoding="utf-8")
 
 
 def run(sweep: str, out: Path, root: Path = RESULTS_ROOT, figures: bool = True, names: bool = True) -> dict:
@@ -733,7 +733,7 @@ def run(sweep: str, out: Path, root: Path = RESULTS_ROOT, figures: bool = True, 
     summary = dict(sweep=sweep, n_records=int(len(df)), **{k: v for k, v in info.items() if k != "errors"},
                    errors=info["errors"][:20])
     if df.empty:
-        (out / "summary.json").write_text(json.dumps(summary, indent=1))
+        (out / "summary.json").write_text(json.dumps(summary, indent=1), encoding="utf-8")
         print(f"[analysis] no records under {Path(root) / sweep}")
         return summary
     stats = compute_stats(df)
@@ -743,7 +743,7 @@ def run(sweep: str, out: Path, root: Path = RESULTS_ROOT, figures: bool = True, 
             write_tbl(main_table(df, stats, track), out, f"tab_{track}")
             write_tbl(extra_table(df, stats, track), out, f"tab_{track}_extra")
     write_tbl(stats_table(stats), out, "tab_stats")
-    (out / "numbers.tex").write_text(numbers_tex(df, info, stats, ranks))
+    (out / "numbers.tex").write_text(numbers_tex(df, info, stats, ranks), encoding="utf-8")
     if figures:
         figdir = out / "figures"
         cn = class_names_for(datasets_in(df)) if names else {}
@@ -762,7 +762,7 @@ def run(sweep: str, out: Path, root: Path = RESULTS_ROOT, figures: bool = True, 
         for t in stats for d, e in stats[t].items()}
     summary["ranks"] = {t: {"avg": r.get("avg"), "cd_datasets": r.get("cd_datasets"), "cd_blocks": r.get("cd_blocks"),
                             "n_datasets": r.get("n_datasets")} for t, r in ranks.items() if r}
-    (out / "summary.json").write_text(json.dumps(summary, indent=1, default=float))
+    (out / "summary.json").write_text(json.dumps(summary, indent=1, default=float), encoding="utf-8")
     print(f"[analysis] {len(df)} records, {info['n_errors']} error records skipped; wrote {out}")
     for k, v in coverage.items():
         print(f"  {k}: " + ", ".join(f"{m}={n}" for m, n in v.items()))

@@ -1,0 +1,31 @@
+% The 20 pre-registered confirmatory tests (frozen before any robustness result): {lichens2_sub3, lichens2} x {T1,T2,T3,L,C} x {ex_tokens_v2, ex_tokens_lin}.
+% Delta = candidate robustness score - comparator robustness score, paired by (repeat, fold).
+% One Holm family across all 20 Nadeau-Bengio p-values. Decision = advantage iff Delta>0 and Holm-adjusted p<0.05.
+% 'missing' = the pair has no common (repeat, fold) unit yet.
+\small
+\begin{tabular}{lllllccl}
+\toprule
+Dataset & Family & Candidate & vs. & n & $\bar d$ [95\% CI] & $p_{\mathrm{NB}}$ & $p_{\mathrm{NB}}^{\mathrm{Holm}}$ & Decision \\
+\midrule
+lichens2_sub3 & T1 & ex tokens v2 & RBF-SVM & 25 & -5.1 [-7.3, -3.1] & 0.097 & 0.876 & no advantage \\
+lichens2_sub3 & T1 & ex tokens + linear & RBF-SVM & 25 & -1.9 [-4.0, +0.3] & 0.546 & 1.000 & no advantage \\
+lichens2_sub3 & T2 & ex tokens v2 & RBF-SVM & 25 & +4.3 [+0.5, +8.0] & 0.426 & 1.000 & no advantage \\
+lichens2_sub3 & T2 & ex tokens + linear & RBF-SVM & 25 & +6.6 [+3.0, +10.4] & 0.216 & 1.000 & no advantage \\
+lichens2_sub3 & T3 & ex tokens v2 & RBF-SVM & 25 & +3.8 [+1.8, +5.8] & 0.189 & 1.000 & no advantage \\
+lichens2_sub3 & T3 & ex tokens + linear & RBF-SVM & 25 & +6.1 [+4.3, +7.9] & 0.027 & 0.266 & no advantage \\
+lichens2_sub3 & L & ex tokens v2 & RBF-SVM & 25 & -0.1 [-1.5, +1.4] & 0.953 & 1.000 & no advantage \\
+lichens2_sub3 & L & ex tokens + linear & RBF-SVM & 25 & +0.7 [-0.7, +2.3] & 0.745 & 1.000 & no advantage \\
+lichens2_sub3 & C & ex tokens v2 & RBF-SVM & 25 & -1.1 [-2.0, -0.1] & 0.452 & 1.000 & no advantage \\
+lichens2_sub3 & C & ex tokens + linear & RBF-SVM & 25 & -1.0 [-2.2, -0.1] & 0.507 & 1.000 & no advantage \\
+lichens2 & T1 & ex tokens v2 & RBF-SVM & 0 & -- & -- & -- & missing \\
+lichens2 & T1 & ex tokens + linear & RBF-SVM & 0 & -- & -- & -- & missing \\
+lichens2 & T2 & ex tokens v2 & RBF-SVM & 0 & -- & -- & -- & missing \\
+lichens2 & T2 & ex tokens + linear & RBF-SVM & 0 & -- & -- & -- & missing \\
+lichens2 & T3 & ex tokens v2 & RBF-SVM & 0 & -- & -- & -- & missing \\
+lichens2 & T3 & ex tokens + linear & RBF-SVM & 0 & -- & -- & -- & missing \\
+lichens2 & L & ex tokens v2 & RBF-SVM & 0 & -- & -- & -- & missing \\
+lichens2 & L & ex tokens + linear & RBF-SVM & 0 & -- & -- & -- & missing \\
+lichens2 & C & ex tokens v2 & RBF-SVM & 0 & -- & -- & -- & missing \\
+lichens2 & C & ex tokens + linear & RBF-SVM & 0 & -- & -- & -- & missing \\
+\bottomrule
+\end{tabular}

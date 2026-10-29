@@ -1,0 +1,37 @@
+% Robustness score = mean balanced accuracy over a family's non-clean levels (equal weight per level; T1 already averaged over its subsets; C pools sub-families a and b).
+% '--' = that (dataset, model, family) was never run -- not omitted.
+\small
+\begin{tabular}{llcccccc}
+\toprule
+Dataset & Model & Clean & T1 & T2 & T3 & L & C \\
+\midrule
+lichens2_sub3 & LR & 93.4 & 72.4 & 65.8 & 85.9 & 93.0 & 93.2 \\
+ & RBF-SVM & 96.6 & 78.1 & 66.8 & 83.4 & 94.8 & 94.7 \\
+ & RF & 95.2 & 78.4 & 73.6 & 89.6 & 95.0 & 92.4 \\
+ & HGB & 95.8 & 77.4 & 72.5 & 87.7 & 92.6 & 93.1 \\
+ & kNN & 95.3 & 82.3 & 73.2 & 92.5 & 86.2 & 93.1 \\
+ & MLP & 95.6 & 81.2 & 68.4 & 90.2 & 94.5 & 93.6 \\
+ & 1D-CNN & 93.5 & 77.8 & 70.9 & 69.4 & 91.5 & 88.5 \\
+ & SpectralFormer & 96.1 & 77.0 & 69.5 & 89.9 & 94.9 & 94.0 \\
+ & SmartAttn v0 & 94.8 & 71.9 & 64.0 & 87.6 & 93.2 & 91.9 \\
+ & ME-Attn (meas.) & 94.6 & 71.6 & 66.3 & 82.9 & 93.0 & 91.3 \\
+ & ex tokens v2 & 95.8 & 73.0 & 71.1 & 87.2 & 94.7 & 93.7 \\
+ & ex tokens + linear & 96.0 & 76.2 & 73.5 & 89.4 & 95.5 & 93.7 \\
+ & hybrid conv attn & 94.6 & 70.2 & 62.0 & 88.5 & 92.6 & 90.3 \\
+\midrule
+lichens2 & LR & 83.4 & 54.9 & 53.6 & 69.9 & 78.1 & 79.5 \\
+ & RBF-SVM & 86.6 & 56.7 & 49.7 & 61.8 & 83.1 & 82.0 \\
+ & RF & 84.4 & 59.6 & 59.3 & 69.5 & 83.9 & 80.1 \\
+ & HGB & 84.7 & 60.5 & 58.9 & 69.1 & 81.3 & 79.5 \\
+ & kNN & 83.5 & 60.4 & 57.0 & 77.2 & 77.4 & 79.0 \\
+\midrule
+lichens1 & LR & 99.2 & 79.8 & 79.8 & 86.7 & 99.1 & 98.0 \\
+ & RBF-SVM & 99.3 & 72.1 & 64.6 & 65.0 & 98.6 & 97.9 \\
+ & RF & 98.8 & 74.1 & 86.6 & 85.7 & 98.8 & 95.5 \\
+ & HGB & 97.2 & 73.1 & 76.9 & 73.3 & 96.9 & 96.3 \\
+ & kNN & 91.8 & 73.4 & 77.1 & 90.7 & 85.2 & 89.0 \\
+ & MLP & 98.8 & 84.9 & 89.7 & 90.3 & 98.2 & 97.5 \\
+ & 1D-CNN & 98.0 & 78.4 & 72.3 & 52.8 & 96.7 & 96.3 \\
+ & SpectralFormer & 99.5 & 78.5 & 87.9 & 79.4 & 99.1 & 97.8 \\
+\bottomrule
+\end{tabular}
