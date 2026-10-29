@@ -400,203 +400,203 @@
 | lichens2 | C | SmartAttn v0 | RBF-SVM | yes | 0 | – | – | – |
 | lichens2 | C | SmartAttn v0 | RF |  | 0 | – | – | – |
 | lichens2 | C | SmartAttn v0 | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens + linear | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens + linear | HGB |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens + linear | kNN |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens + linear | LR |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens + linear | MLP | yes | 0 | – | – | – |
-| lichens1 | T1 | ex tokens + linear | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens + linear | RF |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens + linear | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens v2 | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens v2 | HGB |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens v2 | kNN |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens v2 | LR |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens v2 | MLP | yes | 0 | – | – | – |
-| lichens1 | T1 | ex tokens v2 | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens v2 | RF |  | 0 | – | – | – |
-| lichens1 | T1 | ex tokens v2 | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T1 | hybrid conv attn | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T1 | hybrid conv attn | HGB |  | 0 | – | – | – |
-| lichens1 | T1 | hybrid conv attn | kNN |  | 0 | – | – | – |
-| lichens1 | T1 | hybrid conv attn | LR |  | 0 | – | – | – |
-| lichens1 | T1 | hybrid conv attn | MLP | yes | 0 | – | – | – |
-| lichens1 | T1 | hybrid conv attn | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T1 | hybrid conv attn | RF |  | 0 | – | – | – |
-| lichens1 | T1 | hybrid conv attn | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T1 | ME-Attn (meas.) | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T1 | ME-Attn (meas.) | HGB |  | 0 | – | – | – |
-| lichens1 | T1 | ME-Attn (meas.) | kNN |  | 0 | – | – | – |
-| lichens1 | T1 | ME-Attn (meas.) | LR |  | 0 | – | – | – |
-| lichens1 | T1 | ME-Attn (meas.) | MLP | yes | 0 | – | – | – |
-| lichens1 | T1 | ME-Attn (meas.) | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T1 | ME-Attn (meas.) | RF |  | 0 | – | – | – |
-| lichens1 | T1 | ME-Attn (meas.) | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T1 | SmartAttn v0 | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T1 | SmartAttn v0 | HGB |  | 0 | – | – | – |
-| lichens1 | T1 | SmartAttn v0 | kNN |  | 0 | – | – | – |
-| lichens1 | T1 | SmartAttn v0 | LR |  | 0 | – | – | – |
-| lichens1 | T1 | SmartAttn v0 | MLP | yes | 0 | – | – | – |
-| lichens1 | T1 | SmartAttn v0 | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T1 | SmartAttn v0 | RF |  | 0 | – | – | – |
-| lichens1 | T1 | SmartAttn v0 | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens + linear | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens + linear | HGB |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens + linear | kNN |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens + linear | LR |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens + linear | MLP | yes | 0 | – | – | – |
-| lichens1 | T2 | ex tokens + linear | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens + linear | RF |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens + linear | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens v2 | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens v2 | HGB |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens v2 | kNN |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens v2 | LR |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens v2 | MLP | yes | 0 | – | – | – |
-| lichens1 | T2 | ex tokens v2 | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens v2 | RF |  | 0 | – | – | – |
-| lichens1 | T2 | ex tokens v2 | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T2 | hybrid conv attn | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T2 | hybrid conv attn | HGB |  | 0 | – | – | – |
-| lichens1 | T2 | hybrid conv attn | kNN |  | 0 | – | – | – |
-| lichens1 | T2 | hybrid conv attn | LR |  | 0 | – | – | – |
-| lichens1 | T2 | hybrid conv attn | MLP | yes | 0 | – | – | – |
-| lichens1 | T2 | hybrid conv attn | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T2 | hybrid conv attn | RF |  | 0 | – | – | – |
-| lichens1 | T2 | hybrid conv attn | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T2 | ME-Attn (meas.) | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T2 | ME-Attn (meas.) | HGB |  | 0 | – | – | – |
-| lichens1 | T2 | ME-Attn (meas.) | kNN |  | 0 | – | – | – |
-| lichens1 | T2 | ME-Attn (meas.) | LR |  | 0 | – | – | – |
-| lichens1 | T2 | ME-Attn (meas.) | MLP | yes | 0 | – | – | – |
-| lichens1 | T2 | ME-Attn (meas.) | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T2 | ME-Attn (meas.) | RF |  | 0 | – | – | – |
-| lichens1 | T2 | ME-Attn (meas.) | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T2 | SmartAttn v0 | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T2 | SmartAttn v0 | HGB |  | 0 | – | – | – |
-| lichens1 | T2 | SmartAttn v0 | kNN |  | 0 | – | – | – |
-| lichens1 | T2 | SmartAttn v0 | LR |  | 0 | – | – | – |
-| lichens1 | T2 | SmartAttn v0 | MLP | yes | 0 | – | – | – |
-| lichens1 | T2 | SmartAttn v0 | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T2 | SmartAttn v0 | RF |  | 0 | – | – | – |
-| lichens1 | T2 | SmartAttn v0 | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens + linear | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens + linear | HGB |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens + linear | kNN | yes | 0 | – | – | – |
-| lichens1 | T3 | ex tokens + linear | LR |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens + linear | MLP |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens + linear | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens + linear | RF |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens + linear | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens v2 | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens v2 | HGB |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens v2 | kNN | yes | 0 | – | – | – |
-| lichens1 | T3 | ex tokens v2 | LR |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens v2 | MLP |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens v2 | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens v2 | RF |  | 0 | – | – | – |
-| lichens1 | T3 | ex tokens v2 | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T3 | hybrid conv attn | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T3 | hybrid conv attn | HGB |  | 0 | – | – | – |
-| lichens1 | T3 | hybrid conv attn | kNN | yes | 0 | – | – | – |
-| lichens1 | T3 | hybrid conv attn | LR |  | 0 | – | – | – |
-| lichens1 | T3 | hybrid conv attn | MLP |  | 0 | – | – | – |
-| lichens1 | T3 | hybrid conv attn | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T3 | hybrid conv attn | RF |  | 0 | – | – | – |
-| lichens1 | T3 | hybrid conv attn | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T3 | ME-Attn (meas.) | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T3 | ME-Attn (meas.) | HGB |  | 0 | – | – | – |
-| lichens1 | T3 | ME-Attn (meas.) | kNN | yes | 0 | – | – | – |
-| lichens1 | T3 | ME-Attn (meas.) | LR |  | 0 | – | – | – |
-| lichens1 | T3 | ME-Attn (meas.) | MLP |  | 0 | – | – | – |
-| lichens1 | T3 | ME-Attn (meas.) | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T3 | ME-Attn (meas.) | RF |  | 0 | – | – | – |
-| lichens1 | T3 | ME-Attn (meas.) | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | T3 | SmartAttn v0 | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | T3 | SmartAttn v0 | HGB |  | 0 | – | – | – |
-| lichens1 | T3 | SmartAttn v0 | kNN | yes | 0 | – | – | – |
-| lichens1 | T3 | SmartAttn v0 | LR |  | 0 | – | – | – |
-| lichens1 | T3 | SmartAttn v0 | MLP |  | 0 | – | – | – |
-| lichens1 | T3 | SmartAttn v0 | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | T3 | SmartAttn v0 | RF |  | 0 | – | – | – |
-| lichens1 | T3 | SmartAttn v0 | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | L | ex tokens + linear | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | L | ex tokens + linear | HGB |  | 0 | – | – | – |
-| lichens1 | L | ex tokens + linear | kNN |  | 0 | – | – | – |
-| lichens1 | L | ex tokens + linear | LR | yes | 0 | – | – | – |
-| lichens1 | L | ex tokens + linear | MLP |  | 0 | – | – | – |
-| lichens1 | L | ex tokens + linear | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | L | ex tokens + linear | RF |  | 0 | – | – | – |
-| lichens1 | L | ex tokens + linear | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | L | ex tokens v2 | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | L | ex tokens v2 | HGB |  | 0 | – | – | – |
-| lichens1 | L | ex tokens v2 | kNN |  | 0 | – | – | – |
-| lichens1 | L | ex tokens v2 | LR | yes | 0 | – | – | – |
-| lichens1 | L | ex tokens v2 | MLP |  | 0 | – | – | – |
-| lichens1 | L | ex tokens v2 | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | L | ex tokens v2 | RF |  | 0 | – | – | – |
-| lichens1 | L | ex tokens v2 | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | L | hybrid conv attn | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | L | hybrid conv attn | HGB |  | 0 | – | – | – |
-| lichens1 | L | hybrid conv attn | kNN |  | 0 | – | – | – |
-| lichens1 | L | hybrid conv attn | LR | yes | 0 | – | – | – |
-| lichens1 | L | hybrid conv attn | MLP |  | 0 | – | – | – |
-| lichens1 | L | hybrid conv attn | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | L | hybrid conv attn | RF |  | 0 | – | – | – |
-| lichens1 | L | hybrid conv attn | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | L | ME-Attn (meas.) | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | L | ME-Attn (meas.) | HGB |  | 0 | – | – | – |
-| lichens1 | L | ME-Attn (meas.) | kNN |  | 0 | – | – | – |
-| lichens1 | L | ME-Attn (meas.) | LR | yes | 0 | – | – | – |
-| lichens1 | L | ME-Attn (meas.) | MLP |  | 0 | – | – | – |
-| lichens1 | L | ME-Attn (meas.) | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | L | ME-Attn (meas.) | RF |  | 0 | – | – | – |
-| lichens1 | L | ME-Attn (meas.) | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | L | SmartAttn v0 | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | L | SmartAttn v0 | HGB |  | 0 | – | – | – |
-| lichens1 | L | SmartAttn v0 | kNN |  | 0 | – | – | – |
-| lichens1 | L | SmartAttn v0 | LR | yes | 0 | – | – | – |
-| lichens1 | L | SmartAttn v0 | MLP |  | 0 | – | – | – |
-| lichens1 | L | SmartAttn v0 | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | L | SmartAttn v0 | RF |  | 0 | – | – | – |
-| lichens1 | L | SmartAttn v0 | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | C | ex tokens + linear | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | C | ex tokens + linear | HGB |  | 0 | – | – | – |
-| lichens1 | C | ex tokens + linear | kNN |  | 0 | – | – | – |
-| lichens1 | C | ex tokens + linear | LR | yes | 0 | – | – | – |
-| lichens1 | C | ex tokens + linear | MLP |  | 0 | – | – | – |
-| lichens1 | C | ex tokens + linear | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | C | ex tokens + linear | RF |  | 0 | – | – | – |
-| lichens1 | C | ex tokens + linear | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | C | ex tokens v2 | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | C | ex tokens v2 | HGB |  | 0 | – | – | – |
-| lichens1 | C | ex tokens v2 | kNN |  | 0 | – | – | – |
-| lichens1 | C | ex tokens v2 | LR | yes | 0 | – | – | – |
-| lichens1 | C | ex tokens v2 | MLP |  | 0 | – | – | – |
-| lichens1 | C | ex tokens v2 | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | C | ex tokens v2 | RF |  | 0 | – | – | – |
-| lichens1 | C | ex tokens v2 | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | C | hybrid conv attn | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | C | hybrid conv attn | HGB |  | 0 | – | – | – |
-| lichens1 | C | hybrid conv attn | kNN |  | 0 | – | – | – |
-| lichens1 | C | hybrid conv attn | LR | yes | 0 | – | – | – |
-| lichens1 | C | hybrid conv attn | MLP |  | 0 | – | – | – |
-| lichens1 | C | hybrid conv attn | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | C | hybrid conv attn | RF |  | 0 | – | – | – |
-| lichens1 | C | hybrid conv attn | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | C | ME-Attn (meas.) | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | C | ME-Attn (meas.) | HGB |  | 0 | – | – | – |
-| lichens1 | C | ME-Attn (meas.) | kNN |  | 0 | – | – | – |
-| lichens1 | C | ME-Attn (meas.) | LR | yes | 0 | – | – | – |
-| lichens1 | C | ME-Attn (meas.) | MLP |  | 0 | – | – | – |
-| lichens1 | C | ME-Attn (meas.) | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | C | ME-Attn (meas.) | RF |  | 0 | – | – | – |
-| lichens1 | C | ME-Attn (meas.) | SpectralFormer |  | 0 | – | – | – |
-| lichens1 | C | SmartAttn v0 | 1D-CNN |  | 0 | – | – | – |
-| lichens1 | C | SmartAttn v0 | HGB |  | 0 | – | – | – |
-| lichens1 | C | SmartAttn v0 | kNN |  | 0 | – | – | – |
-| lichens1 | C | SmartAttn v0 | LR | yes | 0 | – | – | – |
-| lichens1 | C | SmartAttn v0 | MLP |  | 0 | – | – | – |
-| lichens1 | C | SmartAttn v0 | RBF-SVM |  | 0 | – | – | – |
-| lichens1 | C | SmartAttn v0 | RF |  | 0 | – | – | – |
-| lichens1 | C | SmartAttn v0 | SpectralFormer |  | 0 | – | – | – |
+| lichens1 | T1 | ex tokens + linear | 1D-CNN |  | 4 | +2.0 [-0.8, +6.3] | 0.601 | 1.000 |
+| lichens1 | T1 | ex tokens + linear | HGB |  | 4 | +7.2 [+3.1, +9.8] | 0.115 | 0.919 |
+| lichens1 | T1 | ex tokens + linear | kNN |  | 4 | +6.9 [-2.7, +12.9] | 0.415 | 1.000 |
+| lichens1 | T1 | ex tokens + linear | LR |  | 4 | +0.5 [-8.9, +10.0] | 0.955 | 1.000 |
+| lichens1 | T1 | ex tokens + linear | MLP | yes | 4 | -4.6 [-13.0, +3.5] | 0.611 | 1.000 |
+| lichens1 | T1 | ex tokens + linear | RBF-SVM |  | 4 | +8.2 [+0.6, +15.1] | 0.300 | 1.000 |
+| lichens1 | T1 | ex tokens + linear | RF |  | 4 | +6.0 [-1.9, +10.7] | 0.402 | 1.000 |
+| lichens1 | T1 | ex tokens + linear | SpectralFormer |  | 4 | +1.8 [-3.5, +4.9] | 0.688 | 1.000 |
+| lichens1 | T1 | ex tokens v2 | 1D-CNN |  | 4 | -3.2 [-6.9, +0.7] | 0.454 | 1.000 |
+| lichens1 | T1 | ex tokens v2 | HGB |  | 4 | +2.0 [-2.3, +6.3] | 0.622 | 1.000 |
+| lichens1 | T1 | ex tokens v2 | kNN |  | 4 | +1.7 [-12.6, +13.0] | 0.896 | 1.000 |
+| lichens1 | T1 | ex tokens v2 | LR |  | 4 | -4.6 [-10.4, +1.0] | 0.406 | 1.000 |
+| lichens1 | T1 | ex tokens v2 | MLP | yes | 4 | -9.7 [-20.6, -2.2] | 0.322 | 1.000 |
+| lichens1 | T1 | ex tokens v2 | RBF-SVM |  | 4 | +3.1 [-1.1, +7.5] | 0.517 | 1.000 |
+| lichens1 | T1 | ex tokens v2 | RF |  | 4 | +0.8 [-4.7, +6.6] | 0.889 | 1.000 |
+| lichens1 | T1 | ex tokens v2 | SpectralFormer |  | 4 | -3.4 [-8.1, +2.5] | 0.512 | 1.000 |
+| lichens1 | T1 | hybrid conv attn | 1D-CNN |  | 4 | -12.5 [-18.5, -6.5] | 0.106 | 0.550 |
+| lichens1 | T1 | hybrid conv attn | HGB |  | 4 | -7.3 [-9.7, -4.9] | 0.045 | 0.313 |
+| lichens1 | T1 | hybrid conv attn | kNN |  | 4 | -7.6 [-16.9, -0.1] | 0.376 | 0.672 |
+| lichens1 | T1 | hybrid conv attn | LR |  | 4 | -14.0 [-22.9, -5.0] | 0.175 | 0.550 |
+| lichens1 | T1 | hybrid conv attn | MLP | yes | 4 | -19.1 [-29.6, -9.5] | 0.115 | 0.550 |
+| lichens1 | T1 | hybrid conv attn | RBF-SVM |  | 4 | -6.3 [-10.9, +0.8] | 0.336 | 0.672 |
+| lichens1 | T1 | hybrid conv attn | RF |  | 4 | -8.5 [-12.7, -5.4] | 0.092 | 0.550 |
+| lichens1 | T1 | hybrid conv attn | SpectralFormer |  | 4 | -12.7 [-14.5, -10.3] | 0.007 | 0.058 |
+| lichens1 | T1 | ME-Attn (meas.) | 1D-CNN |  | 4 | -12.0 [-17.9, -6.0] | 0.110 | 0.768 |
+| lichens1 | T1 | ME-Attn (meas.) | HGB |  | 4 | -6.8 [-14.3, +0.4] | 0.374 | 1.000 |
+| lichens1 | T1 | ME-Attn (meas.) | kNN |  | 4 | -7.1 [-25.0, +4.3] | 0.654 | 1.000 |
+| lichens1 | T1 | ME-Attn (meas.) | LR |  | 4 | -13.4 [-19.9, -1.7] | 0.236 | 0.945 |
+| lichens1 | T1 | ME-Attn (meas.) | MLP | yes | 4 | -18.5 [-22.1, -15.1] | 0.012 | 0.093 |
+| lichens1 | T1 | ME-Attn (meas.) | RBF-SVM |  | 4 | -5.7 [-9.0, -1.9] | 0.189 | 0.945 |
+| lichens1 | T1 | ME-Attn (meas.) | RF |  | 4 | -8.0 [-15.3, -0.1] | 0.355 | 1.000 |
+| lichens1 | T1 | ME-Attn (meas.) | SpectralFormer |  | 4 | -12.2 [-19.8, -5.3] | 0.146 | 0.878 |
+| lichens1 | T1 | SmartAttn v0 | 1D-CNN |  | 4 | -5.2 [-14.2, +5.0] | 0.589 | 1.000 |
+| lichens1 | T1 | SmartAttn v0 | HGB |  | 4 | -0.0 [-5.8, +6.4] | 1.000 | 1.000 |
+| lichens1 | T1 | SmartAttn v0 | kNN |  | 4 | -0.3 [-14.5, +14.0] | 0.984 | 1.000 |
+| lichens1 | T1 | SmartAttn v0 | LR |  | 4 | -6.6 [-16.2, +0.8] | 0.440 | 1.000 |
+| lichens1 | T1 | SmartAttn v0 | MLP | yes | 4 | -11.7 [-21.2, -2.3] | 0.279 | 1.000 |
+| lichens1 | T1 | SmartAttn v0 | RBF-SVM |  | 4 | +1.0 [-3.4, +5.5] | 0.821 | 1.000 |
+| lichens1 | T1 | SmartAttn v0 | RF |  | 4 | -1.2 [-4.8, +2.5] | 0.740 | 1.000 |
+| lichens1 | T1 | SmartAttn v0 | SpectralFormer |  | 4 | -5.4 [-9.7, -0.2] | 0.318 | 1.000 |
+| lichens1 | T2 | ex tokens + linear | 1D-CNN |  | 4 | +21.0 [+10.0, +29.5] | 0.089 | 0.549 |
+| lichens1 | T2 | ex tokens + linear | HGB |  | 4 | +16.5 [+9.6, +23.3] | 0.078 | 0.549 |
+| lichens1 | T2 | ex tokens + linear | kNN |  | 4 | +16.2 [+6.4, +28.6] | 0.214 | 0.957 |
+| lichens1 | T2 | ex tokens + linear | LR |  | 4 | +13.5 [+4.0, +20.7] | 0.191 | 0.957 |
+| lichens1 | T2 | ex tokens + linear | MLP | yes | 4 | +3.7 [-4.2, +11.2] | 0.618 | 1.000 |
+| lichens1 | T2 | ex tokens + linear | RBF-SVM |  | 4 | +28.7 [+23.4, +32.9] | 0.007 | 0.056 |
+| lichens1 | T2 | ex tokens + linear | RF |  | 4 | +11.3 [+0.4, +23.1] | 0.360 | 1.000 |
+| lichens1 | T2 | ex tokens + linear | SpectralFormer |  | 4 | +5.4 [-0.3, +11.7] | 0.378 | 1.000 |
+| lichens1 | T2 | ex tokens v2 | 1D-CNN |  | 4 | +2.2 [-2.6, +8.2] | 0.684 | 1.000 |
+| lichens1 | T2 | ex tokens v2 | HGB |  | 4 | -2.3 [-11.8, +7.2] | 0.819 | 1.000 |
+| lichens1 | T2 | ex tokens v2 | kNN |  | 4 | -2.5 [-19.9, +14.7] | 0.891 | 1.000 |
+| lichens1 | T2 | ex tokens v2 | LR |  | 4 | -5.3 [-12.2, +1.7] | 0.472 | 1.000 |
+| lichens1 | T2 | ex tokens v2 | MLP | yes | 4 | -15.1 [-28.5, -1.6] | 0.300 | 1.000 |
+| lichens1 | T2 | ex tokens v2 | RBF-SVM |  | 4 | +10.0 [+1.7, +20.2] | 0.304 | 1.000 |
+| lichens1 | T2 | ex tokens v2 | RF |  | 4 | -7.4 [-19.9, +0.8] | 0.493 | 1.000 |
+| lichens1 | T2 | ex tokens v2 | SpectralFormer |  | 4 | -13.3 [-20.6, -6.0] | 0.142 | 1.000 |
+| lichens1 | T2 | hybrid conv attn | 1D-CNN |  | 4 | -1.4 [-11.0, +5.4] | 0.862 | 1.000 |
+| lichens1 | T2 | hybrid conv attn | HGB |  | 4 | -5.9 [-12.8, +1.0] | 0.445 | 1.000 |
+| lichens1 | T2 | hybrid conv attn | kNN |  | 4 | -6.2 [-17.3, +7.4] | 0.633 | 1.000 |
+| lichens1 | T2 | hybrid conv attn | LR |  | 4 | -8.9 [-17.3, -3.3] | 0.279 | 1.000 |
+| lichens1 | T2 | hybrid conv attn | MLP | yes | 4 | -18.7 [-27.3, -10.2] | 0.095 | 0.665 |
+| lichens1 | T2 | hybrid conv attn | RBF-SVM |  | 4 | +6.3 [+2.0, +11.1] | 0.215 | 1.000 |
+| lichens1 | T2 | hybrid conv attn | RF |  | 4 | -11.1 [-22.6, -0.4] | 0.366 | 1.000 |
+| lichens1 | T2 | hybrid conv attn | SpectralFormer |  | 4 | -17.0 [-23.3, -11.9] | 0.046 | 0.368 |
+| lichens1 | T2 | ME-Attn (meas.) | 1D-CNN |  | 4 | -3.7 [-18.8, +9.1] | 0.775 | 1.000 |
+| lichens1 | T2 | ME-Attn (meas.) | HGB |  | 4 | -8.2 [-18.2, +6.4] | 0.538 | 1.000 |
+| lichens1 | T2 | ME-Attn (meas.) | kNN |  | 4 | -8.4 [-25.7, +14.4] | 0.663 | 1.000 |
+| lichens1 | T2 | ME-Attn (meas.) | LR |  | 4 | -11.2 [-15.1, -6.6] | 0.053 | 0.427 |
+| lichens1 | T2 | ME-Attn (meas.) | MLP | yes | 4 | -21.0 [-31.0, -4.8] | 0.196 | 1.000 |
+| lichens1 | T2 | ME-Attn (meas.) | RBF-SVM |  | 4 | +4.1 [-0.2, +8.7] | 0.361 | 1.000 |
+| lichens1 | T2 | ME-Attn (meas.) | RF |  | 4 | -13.3 [-26.5, -0.2] | 0.349 | 1.000 |
+| lichens1 | T2 | ME-Attn (meas.) | SpectralFormer |  | 4 | -19.3 [-26.9, -10.1] | 0.096 | 0.672 |
+| lichens1 | T2 | SmartAttn v0 | 1D-CNN |  | 4 | +9.5 [-11.3, +24.0] | 0.611 | 1.000 |
+| lichens1 | T2 | SmartAttn v0 | HGB |  | 4 | +5.0 [-8.9, +12.6] | 0.673 | 1.000 |
+| lichens1 | T2 | SmartAttn v0 | kNN |  | 4 | +4.7 [-9.5, +18.9] | 0.737 | 1.000 |
+| lichens1 | T2 | SmartAttn v0 | LR |  | 4 | +2.0 [-13.1, +17.1] | 0.898 | 1.000 |
+| lichens1 | T2 | SmartAttn v0 | MLP | yes | 4 | -7.8 [-17.7, -0.3] | 0.409 | 1.000 |
+| lichens1 | T2 | SmartAttn v0 | RBF-SVM |  | 4 | +17.2 [+8.2, +27.0] | 0.152 | 1.000 |
+| lichens1 | T2 | SmartAttn v0 | RF |  | 4 | -0.2 [-14.6, +12.8] | 0.991 | 1.000 |
+| lichens1 | T2 | SmartAttn v0 | SpectralFormer |  | 4 | -6.1 [-17.0, +2.3] | 0.555 | 1.000 |
+| lichens1 | T3 | ex tokens + linear | 1D-CNN |  | 4 | +33.4 [+31.3, +35.5] | 0.000 | 0.004 |
+| lichens1 | T3 | ex tokens + linear | HGB |  | 4 | +12.9 [+9.6, +16.3] | 0.026 | 0.157 |
+| lichens1 | T3 | ex tokens + linear | kNN | yes | 4 | -4.4 [-6.6, -2.3] | 0.104 | 0.417 |
+| lichens1 | T3 | ex tokens + linear | LR |  | 4 | -0.5 [-5.0, +5.8] | 0.931 | 1.000 |
+| lichens1 | T3 | ex tokens + linear | MLP |  | 4 | -4.1 [-8.7, +0.6] | 0.431 | 1.000 |
+| lichens1 | T3 | ex tokens + linear | RBF-SVM |  | 4 | +21.2 [+18.3, +25.6] | 0.008 | 0.057 |
+| lichens1 | T3 | ex tokens + linear | RF |  | 4 | +1.1 [-4.9, +7.0] | 0.859 | 1.000 |
+| lichens1 | T3 | ex tokens + linear | SpectralFormer |  | 4 | +6.9 [+4.0, +9.6] | 0.083 | 0.417 |
+| lichens1 | T3 | ex tokens v2 | 1D-CNN |  | 4 | +31.0 [+28.1, +34.3] | 0.002 | 0.015 |
+| lichens1 | T3 | ex tokens v2 | HGB |  | 4 | +10.6 [+6.4, +14.0] | 0.060 | 0.299 |
+| lichens1 | T3 | ex tokens v2 | kNN | yes | 4 | -6.8 [-9.0, -4.6] | 0.048 | 0.287 |
+| lichens1 | T3 | ex tokens v2 | LR |  | 4 | -2.9 [-8.4, +2.6] | 0.609 | 1.000 |
+| lichens1 | T3 | ex tokens v2 | MLP |  | 4 | -6.5 [-9.7, -3.3] | 0.121 | 0.485 |
+| lichens1 | T3 | ex tokens v2 | RBF-SVM |  | 4 | +18.8 [+15.5, +22.1] | 0.008 | 0.056 |
+| lichens1 | T3 | ex tokens v2 | RF |  | 4 | -1.3 [-7.0, +2.5] | 0.792 | 1.000 |
+| lichens1 | T3 | ex tokens v2 | SpectralFormer |  | 4 | +4.5 [-0.2, +9.8] | 0.379 | 1.000 |
+| lichens1 | T3 | hybrid conv attn | 1D-CNN |  | 4 | +13.0 [+11.8, +14.1] | 0.001 | 0.011 |
+| lichens1 | T3 | hybrid conv attn | HGB |  | 4 | -7.5 [-11.8, -0.9] | 0.232 | 0.465 |
+| lichens1 | T3 | hybrid conv attn | kNN | yes | 4 | -24.9 [-27.7, -19.8] | 0.008 | 0.057 |
+| lichens1 | T3 | hybrid conv attn | LR |  | 4 | -20.9 [-24.6, -17.0] | 0.009 | 0.057 |
+| lichens1 | T3 | hybrid conv attn | MLP |  | 4 | -24.6 [-29.5, -19.6] | 0.014 | 0.057 |
+| lichens1 | T3 | hybrid conv attn | RBF-SVM |  | 4 | +0.8 [-1.1, +2.7] | 0.686 | 0.686 |
+| lichens1 | T3 | hybrid conv attn | RF |  | 4 | -19.4 [-23.0, -15.8] | 0.009 | 0.057 |
+| lichens1 | T3 | hybrid conv attn | SpectralFormer |  | 4 | -13.6 [-17.0, -10.2] | 0.023 | 0.070 |
+| lichens1 | T3 | ME-Attn (meas.) | 1D-CNN |  | 4 | +13.7 [+11.4, +16.2] | 0.007 | 0.047 |
+| lichens1 | T3 | ME-Attn (meas.) | HGB |  | 4 | -6.8 [-11.7, -1.5] | 0.230 | 0.460 |
+| lichens1 | T3 | ME-Attn (meas.) | kNN | yes | 4 | -24.2 [-27.0, -20.4] | 0.004 | 0.036 |
+| lichens1 | T3 | ME-Attn (meas.) | LR |  | 4 | -20.2 [-24.8, -15.8] | 0.018 | 0.071 |
+| lichens1 | T3 | ME-Attn (meas.) | MLP |  | 4 | -23.9 [-28.1, -19.6] | 0.008 | 0.049 |
+| lichens1 | T3 | ME-Attn (meas.) | RBF-SVM |  | 4 | +1.5 [-0.8, +3.7] | 0.529 | 0.529 |
+| lichens1 | T3 | ME-Attn (meas.) | RF |  | 4 | -18.7 [-22.2, -15.5] | 0.010 | 0.050 |
+| lichens1 | T3 | ME-Attn (meas.) | SpectralFormer |  | 4 | -12.9 [-17.4, -8.8] | 0.048 | 0.145 |
+| lichens1 | T3 | SmartAttn v0 | 1D-CNN |  | 4 | +31.3 [+28.1, +34.9] | 0.002 | 0.018 |
+| lichens1 | T3 | SmartAttn v0 | HGB |  | 4 | +10.9 [+4.1, +20.0] | 0.218 | 1.000 |
+| lichens1 | T3 | SmartAttn v0 | kNN | yes | 4 | -6.5 [-11.3, +1.1] | 0.342 | 1.000 |
+| lichens1 | T3 | SmartAttn v0 | LR |  | 4 | -2.6 [-7.9, +2.0] | 0.627 | 1.000 |
+| lichens1 | T3 | SmartAttn v0 | MLP |  | 4 | -6.2 [-12.6, +0.2] | 0.391 | 1.000 |
+| lichens1 | T3 | SmartAttn v0 | RBF-SVM |  | 4 | +19.1 [+15.7, +22.6] | 0.010 | 0.072 |
+| lichens1 | T3 | SmartAttn v0 | RF |  | 4 | -1.0 [-3.3, +0.8] | 0.633 | 1.000 |
+| lichens1 | T3 | SmartAttn v0 | SpectralFormer |  | 4 | +4.8 [-0.6, +10.1] | 0.425 | 1.000 |
+| lichens1 | L | ex tokens + linear | 1D-CNN |  | 4 | +1.5 [+0.9, +2.1] | 0.082 | 0.656 |
+| lichens1 | L | ex tokens + linear | HGB |  | 4 | +1.3 [+0.4, +2.5] | 0.247 | 0.988 |
+| lichens1 | L | ex tokens + linear | kNN |  | 4 | +13.0 [+7.2, +18.8] | 0.084 | 0.656 |
+| lichens1 | L | ex tokens + linear | LR | yes | 4 | -0.9 [-1.9, -0.2] | 0.353 | 1.000 |
+| lichens1 | L | ex tokens + linear | MLP |  | 4 | +0.0 [-0.8, +1.1] | 1.000 | 1.000 |
+| lichens1 | L | ex tokens + linear | RBF-SVM |  | 4 | -0.4 [-1.0, +0.3] | 0.569 | 1.000 |
+| lichens1 | L | ex tokens + linear | RF |  | 4 | -0.3 [-0.5, -0.2] | 0.130 | 0.781 |
+| lichens1 | L | ex tokens + linear | SpectralFormer |  | 4 | -0.9 [-1.5, -0.3] | 0.192 | 0.958 |
+| lichens1 | L | ex tokens v2 | 1D-CNN |  | 4 | +1.2 [+0.7, +1.9] | 0.124 | 0.848 |
+| lichens1 | L | ex tokens v2 | HGB |  | 4 | +1.1 [+0.2, +2.2] | 0.350 | 1.000 |
+| lichens1 | L | ex tokens v2 | kNN |  | 4 | +12.7 [+6.8, +18.9] | 0.090 | 0.722 |
+| lichens1 | L | ex tokens v2 | LR | yes | 4 | -1.2 [-2.1, -0.2] | 0.243 | 1.000 |
+| lichens1 | L | ex tokens v2 | MLP |  | 4 | -0.3 [-0.9, +0.4] | 0.676 | 1.000 |
+| lichens1 | L | ex tokens v2 | RBF-SVM |  | 4 | -0.6 [-1.1, +0.2] | 0.420 | 1.000 |
+| lichens1 | L | ex tokens v2 | RF |  | 4 | -0.6 [-1.0, -0.2] | 0.231 | 1.000 |
+| lichens1 | L | ex tokens v2 | SpectralFormer |  | 4 | -1.2 [-1.7, -0.5] | 0.121 | 0.848 |
+| lichens1 | L | hybrid conv attn | 1D-CNN |  | 4 | -0.0 [-0.4, +0.3] | 0.894 | 1.000 |
+| lichens1 | L | hybrid conv attn | HGB |  | 4 | -0.2 [-0.6, +0.4] | 0.716 | 1.000 |
+| lichens1 | L | hybrid conv attn | kNN |  | 4 | +11.4 [+5.0, +17.7] | 0.123 | 0.682 |
+| lichens1 | L | hybrid conv attn | LR | yes | 4 | -2.4 [-3.5, -1.2] | 0.114 | 0.682 |
+| lichens1 | L | hybrid conv attn | MLP |  | 4 | -1.5 [-2.6, -0.4] | 0.237 | 0.711 |
+| lichens1 | L | hybrid conv attn | RBF-SVM |  | 4 | -1.9 [-2.9, -0.6] | 0.170 | 0.682 |
+| lichens1 | L | hybrid conv attn | RF |  | 4 | -1.8 [-2.6, -1.1] | 0.076 | 0.609 |
+| lichens1 | L | hybrid conv attn | SpectralFormer |  | 4 | -2.4 [-3.5, -1.3] | 0.089 | 0.626 |
+| lichens1 | L | ME-Attn (meas.) | 1D-CNN |  | 4 | +0.3 [-0.4, +1.1] | 0.684 | 1.000 |
+| lichens1 | L | ME-Attn (meas.) | HGB |  | 4 | +0.2 [-0.1, +0.5] | 0.521 | 1.000 |
+| lichens1 | L | ME-Attn (meas.) | kNN |  | 4 | +11.8 [+4.6, +18.3] | 0.139 | 1.000 |
+| lichens1 | L | ME-Attn (meas.) | LR | yes | 4 | -2.1 [-3.7, -0.4] | 0.271 | 1.000 |
+| lichens1 | L | ME-Attn (meas.) | MLP |  | 4 | -1.1 [-2.9, +0.6] | 0.547 | 1.000 |
+| lichens1 | L | ME-Attn (meas.) | RBF-SVM |  | 4 | -1.5 [-3.3, +0.0] | 0.410 | 1.000 |
+| lichens1 | L | ME-Attn (meas.) | RF |  | 4 | -1.5 [-3.1, -0.4] | 0.334 | 1.000 |
+| lichens1 | L | ME-Attn (meas.) | SpectralFormer |  | 4 | -2.0 [-3.8, -0.5] | 0.285 | 1.000 |
+| lichens1 | L | SmartAttn v0 | 1D-CNN |  | 4 | +2.0 [+1.0, +2.9] | 0.094 | 0.674 |
+| lichens1 | L | SmartAttn v0 | HGB |  | 4 | +1.8 [+0.5, +3.2] | 0.256 | 1.000 |
+| lichens1 | L | SmartAttn v0 | kNN |  | 4 | +13.5 [+7.9, +19.7] | 0.084 | 0.674 |
+| lichens1 | L | SmartAttn v0 | LR | yes | 4 | -0.4 [-0.9, -0.1] | 0.368 | 1.000 |
+| lichens1 | L | SmartAttn v0 | MLP |  | 4 | +0.5 [-0.1, +1.4] | 0.504 | 1.000 |
+| lichens1 | L | SmartAttn v0 | RBF-SVM |  | 4 | +0.1 [+0.0, +0.2] | 0.207 | 1.000 |
+| lichens1 | L | SmartAttn v0 | RF |  | 4 | +0.2 [-0.4, +0.7] | 0.748 | 1.000 |
+| lichens1 | L | SmartAttn v0 | SpectralFormer |  | 4 | -0.4 [-0.7, -0.1] | 0.200 | 1.000 |
+| lichens1 | C | ex tokens + linear | 1D-CNN |  | 4 | +1.1 [+0.4, +1.8] | 0.172 | 1.000 |
+| lichens1 | C | ex tokens + linear | HGB |  | 4 | +1.1 [+0.7, +1.6] | 0.080 | 0.560 |
+| lichens1 | C | ex tokens + linear | kNN |  | 4 | +8.4 [+3.7, +15.8] | 0.239 | 1.000 |
+| lichens1 | C | ex tokens + linear | LR | yes | 4 | -0.6 [-1.3, -0.1] | 0.338 | 1.000 |
+| lichens1 | C | ex tokens + linear | MLP |  | 4 | -0.1 [-0.9, +0.7] | 0.897 | 1.000 |
+| lichens1 | C | ex tokens + linear | RBF-SVM |  | 4 | -0.5 [-1.2, +0.3] | 0.504 | 1.000 |
+| lichens1 | C | ex tokens + linear | RF |  | 4 | +2.3 [+1.7, +2.9] | 0.026 | 0.209 |
+| lichens1 | C | ex tokens + linear | SpectralFormer |  | 4 | -0.4 [-0.8, -0.1] | 0.249 | 1.000 |
+| lichens1 | C | ex tokens v2 | 1D-CNN |  | 4 | +0.6 [+0.3, +1.0] | 0.137 | 0.960 |
+| lichens1 | C | ex tokens v2 | HGB |  | 4 | +0.6 [+0.0, +1.2] | 0.366 | 1.000 |
+| lichens1 | C | ex tokens v2 | kNN |  | 4 | +7.9 [+2.8, +15.3] | 0.254 | 1.000 |
+| lichens1 | C | ex tokens v2 | LR | yes | 4 | -1.1 [-2.0, -0.4] | 0.229 | 1.000 |
+| lichens1 | C | ex tokens v2 | MLP |  | 4 | -0.6 [-1.5, +0.2] | 0.487 | 1.000 |
+| lichens1 | C | ex tokens v2 | RBF-SVM |  | 4 | -1.0 [-1.8, -0.3] | 0.248 | 1.000 |
+| lichens1 | C | ex tokens v2 | RF |  | 4 | +1.8 [+1.0, +2.3] | 0.057 | 0.459 |
+| lichens1 | C | ex tokens v2 | SpectralFormer |  | 4 | -0.9 [-1.6, -0.1] | 0.263 | 1.000 |
+| lichens1 | C | hybrid conv attn | 1D-CNN |  | 4 | -1.5 [-2.3, -0.6] | 0.153 | 0.614 |
+| lichens1 | C | hybrid conv attn | HGB |  | 4 | -1.5 [-2.9, -0.5] | 0.257 | 0.770 |
+| lichens1 | C | hybrid conv attn | kNN |  | 4 | +5.8 [-0.4, +14.2] | 0.439 | 0.878 |
+| lichens1 | C | hybrid conv attn | LR | yes | 4 | -3.2 [-4.5, -2.3] | 0.050 | 0.349 |
+| lichens1 | C | hybrid conv attn | MLP |  | 4 | -2.7 [-4.0, -1.4] | 0.088 | 0.530 |
+| lichens1 | C | hybrid conv attn | RBF-SVM |  | 4 | -3.1 [-3.8, -2.7] | 0.007 | 0.054 |
+| lichens1 | C | hybrid conv attn | RF |  | 4 | -0.3 [-1.4, +0.9] | 0.780 | 0.878 |
+| lichens1 | C | hybrid conv attn | SpectralFormer |  | 4 | -3.0 [-4.8, -1.9] | 0.115 | 0.577 |
+| lichens1 | C | ME-Attn (meas.) | 1D-CNN |  | 4 | -0.8 [-2.5, +0.4] | 0.561 | 1.000 |
+| lichens1 | C | ME-Attn (meas.) | HGB |  | 4 | -0.9 [-3.0, +0.7] | 0.656 | 1.000 |
+| lichens1 | C | ME-Attn (meas.) | kNN |  | 4 | +6.4 [-0.4, +14.6] | 0.399 | 1.000 |
+| lichens1 | C | ME-Attn (meas.) | LR | yes | 4 | -2.6 [-4.6, -0.9] | 0.228 | 1.000 |
+| lichens1 | C | ME-Attn (meas.) | MLP |  | 4 | -2.1 [-4.1, -0.2] | 0.321 | 1.000 |
+| lichens1 | C | ME-Attn (meas.) | RBF-SVM |  | 4 | -2.5 [-3.8, -1.4] | 0.122 | 0.975 |
+| lichens1 | C | ME-Attn (meas.) | RF |  | 4 | +0.3 [-1.5, +1.5] | 0.843 | 1.000 |
+| lichens1 | C | ME-Attn (meas.) | SpectralFormer |  | 4 | -2.4 [-4.9, -0.8] | 0.315 | 1.000 |
+| lichens1 | C | SmartAttn v0 | 1D-CNN |  | 4 | +1.0 [-0.5, +2.1] | 0.439 | 1.000 |
+| lichens1 | C | SmartAttn v0 | HGB |  | 4 | +1.0 [+0.1, +1.8] | 0.305 | 1.000 |
+| lichens1 | C | SmartAttn v0 | kNN |  | 4 | +8.2 [+3.0, +16.5] | 0.295 | 1.000 |
+| lichens1 | C | SmartAttn v0 | LR | yes | 4 | -0.8 [-1.5, -0.1] | 0.317 | 1.000 |
+| lichens1 | C | SmartAttn v0 | MLP |  | 4 | -0.3 [-1.4, +0.7] | 0.795 | 1.000 |
+| lichens1 | C | SmartAttn v0 | RBF-SVM |  | 4 | -0.7 [-1.6, -0.1] | 0.412 | 1.000 |
+| lichens1 | C | SmartAttn v0 | RF |  | 4 | +2.1 [+1.1, +3.5] | 0.161 | 1.000 |
+| lichens1 | C | SmartAttn v0 | SpectralFormer |  | 4 | -0.6 [-1.5, +0.4] | 0.596 | 1.000 |

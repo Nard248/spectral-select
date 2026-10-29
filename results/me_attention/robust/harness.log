@@ -410,3 +410,22 @@
 [14:59:56] [1100] lichens1/smartattention_v0 r0 f0 wrote=20 | elapsed 837.1m ETA 0.0m
 [15:00:56] [1120] lichens1/smartattention_v0 r0 f1 wrote=20 | elapsed 838.1m ETA 0.0m
 [15:01:47] [1140] lichens1/smartattention_v0 r0 f2 wrote=20 | elapsed 839.0m ETA 0.0m
+[15:04:14] [1220] lichens1/ex_tokens_v2 r0 f2 wrote=20 | elapsed 841.4m ETA 0.0m
+[15:04:45] [1240] lichens1/ex_tokens_v2 r0 f3 wrote=20 | elapsed 842.0m ETA 0.0m
+[15:06:29] [1260] lichens1/hybrid_conv_attn r0 f0 wrote=20 | elapsed 843.7m ETA 0.0m
+[15:06:53] [1280] lichens1/hybrid_conv_attn r0 f1 wrote=20 | elapsed 844.1m ETA 0.0m
+[15:08:10] [1300] lichens1/hybrid_conv_attn r0 f3 wrote=20 | elapsed 845.4m ETA 0.0m
+[15:08:18] [1320] lichens1/hybrid_conv_attn r0 f2 wrote=20 | elapsed 845.5m ETA 0.0m
+[15:19:30] [1340] lichens1/meas_tokens r0 f0 wrote=20 | elapsed 856.7m ETA 0.0m
+[15:22:33] [1360] lichens1/meas_tokens r0 f1 wrote=20 | elapsed 859.8m ETA 0.0m
+[15:29:09] [1380] lichens1/meas_tokens r0 f2 wrote=20 | elapsed 866.4m ETA 0.0m
+[15:30:28] [1400] lichens1/ex_tokens_lin r0 f0 wrote=20 | elapsed 867.7m ETA 0.0m
+[15:31:19] [1420] lichens1/ex_tokens_lin r0 f1 wrote=20 | elapsed 868.5m ETA 0.0m
+[15:32:55] [1440] lichens1/ex_tokens_lin r0 f2 wrote=20 | elapsed 870.1m ETA 0.0m
+[15:34:04] [1460] lichens1/ex_tokens_lin r0 f3 wrote=20 | elapsed 871.3m ETA 0.0m
+[15:34:53] [1480] lichens1/meas_tokens r0 f3 wrote=20 | elapsed 872.1m ETA 0.0m
+[15:49:10] [1500] lichens1/rf r0 f3 wrote=20 | elapsed 886.4m ETA 0.0m
+[15:49:11] done: ok=1500 errors=0 wall=886.4m
+[15:50:30] robust units=1 skipped(done)=0 workers=0 gpu_workers=1
+[15:51:54] [20] lichens1/smartattention_v0 r0 f3 wrote=20 | elapsed 1.4m ETA 0.0m
+[15:51:54] done: ok=20 errors=0 wall=1.4m
